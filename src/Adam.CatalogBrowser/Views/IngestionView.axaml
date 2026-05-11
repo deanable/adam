@@ -7,33 +7,33 @@
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
 
-      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" Foreground="White" />
+      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" Foreground="#333" />
 
       <!-- File picker buttons -->
-      <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4" Background="#2D2D2D">
+      <Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="16" CornerRadius="4" Background="#FAFAFA">
         <StackPanel Spacing="12">
-          <TextBlock Text="Select source files or folders to import into the catalog." FontSize="12" Foreground="#AAA" TextWrapping="Wrap" />
+          <TextBlock Text="Select source files or folders to import into the catalog." FontSize="12" Foreground="#555" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
             <Button Content="Select Files" Click="OnSelectFilesClick"
                     HorizontalAlignment="Stretch" Height="32" />
             <Button Grid.Column="1" Content="Select Folder" Click="OnSelectFolderClick"
                     HorizontalAlignment="Stretch" Height="32" />
           </Grid>
-          <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4" Background="#222">
-            <TextBlock Text="Or drag and drop files or folders here" FontSize="12" Foreground="#666"
+          <Border BorderBrush="#CCC" BorderThickness="1" Padding="16" CornerRadius="4" Background="#F0F0F0">
+            <TextBlock Text="Or drag and drop files or folders here" FontSize="12" Foreground="#999"
                        HorizontalAlignment="Center" />
           </Border>
         </StackPanel>
       </Border>
 
       <!-- Pending files list -->
-      <Border BorderBrush="#3A3A3A" BorderThickness="1" CornerRadius="4" Background="#222"
+      <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#FAFAFA"
               IsVisible="{Binding HasPendingFiles}" MinHeight="60" MaxHeight="200">
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding PendingFiles}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding}" FontSize="11" Foreground="#AAA" Margin="6,2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding}" FontSize="11" Foreground="#555" Margin="6,2" TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -50,13 +50,13 @@
       <!-- Progress -->
       <StackPanel Spacing="4" IsVisible="{Binding IsIngesting}">
         <ProgressBar Value="{Binding ProgressValue}" MinWidth="400" />
-        <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#AAA" />
+        <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#555" />
       </StackPanel>
 
       <!-- Status -->
-      <Border Background="#1A3A1A" Padding="8" CornerRadius="4"
+      <Border Background="#E8F5E9" Padding="8" CornerRadius="4"
               IsVisible="{Binding IngestionStatus, Converter={x:Static local:StringNotEmptyConverter.Instance}}">
-        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" Foreground="#8C8" />
+        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" Foreground="#2E7D32" />
       </Border>
 
     </StackPanel>

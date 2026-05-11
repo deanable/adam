@@ -34,7 +34,7 @@
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Title bar -->
-    <Border Grid.Row="0" Background="#2D2D2D" Padding="8">
+    <Border Grid.Row="0" Background="#005A9E" Padding="8">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <TextBlock Text="adam" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
@@ -45,22 +45,22 @@
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Admin" Command="{Binding ShowAdminCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
         </StackPanel>
-        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#AAA" VerticalAlignment="Center" Margin="8,0" />
+        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
       </Grid>
     </Border>
 
     <!-- 3-column layout -->
-    <Grid Grid.Row="1" ColumnDefinitions="240,*,240" Background="#1A1A1A">
+    <Grid Grid.Row="1" ColumnDefinitions="240,*,240" Background="White">
 
       <!-- Left sidebar -->
-      <Border Grid.Column="0" Background="#2D2D2D" BorderBrush="#3A3A3A" BorderThickness="0,0,1,0">
+      <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
         <ScrollViewer>
           <StackPanel Spacing="0">
 
             <!-- Navigator -->
             <Expander Header="Navigator" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <Border Height="120" Background="#1A1A1A" CornerRadius="4" Margin="0,4,0,0">
-                <TextBlock Text="No selection" FontSize="11" Foreground="#666" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Border Height="120" Background="#E8E8E8" CornerRadius="4" Margin="0,4,0,0">
+                <TextBlock Text="No selection" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>
             </Expander>
 
@@ -69,7 +69,7 @@
               <TreeView ItemsSource="{Binding Sidebar.Folders}" Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
               </TreeView>
@@ -81,7 +81,7 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
@@ -100,8 +100,8 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Background="#3A3A3A" CornerRadius="3" Padding="6,2" Margin="2">
-                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      <Border Background="#E0E0E0" CornerRadius="3" Padding="6,2" Margin="2">
+                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
                       </Border>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -115,7 +115,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
                       <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10" Foreground="#888" />
                     </Grid>
                   </DataTemplate>
@@ -128,28 +128,28 @@
       </Border>
 
       <!-- Center content -->
-      <Border Grid.Column="1" Background="#1A1A1A" Padding="0">
+      <Border Grid.Column="1" Background="White" Padding="0">
         <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
       </Border>
 
       <!-- Right panel -->
-      <Border Grid.Column="2" Background="#2D2D2D" BorderBrush="#3A3A3A" BorderThickness="1,0,0,0">
+      <Border Grid.Column="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0">
         <ScrollViewer>
           <StackPanel Spacing="0">
 
             <!-- Histogram -->
             <Expander Header="Histogram" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <Border Height="80" Background="#1A1A1A" CornerRadius="4" Margin="0,4,0,0">
-                <TextBlock Text="No data" FontSize="11" Foreground="#666" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Border Height="80" Background="#E8E8E8" CornerRadius="4" Margin="0,4,0,0">
+                <TextBlock Text="No data" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>
             </Expander>
 
             <!-- Quick Develop -->
             <Expander Header="Quick Develop" IsExpanded="False" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="4">
-                <TextBlock Text="Exposure" FontSize="10" Foreground="#888" />
+                <TextBlock Text="Exposure" FontSize="10" Foreground="#555" />
                 <Slider Minimum="-100" Maximum="100" Value="0" />
-                <TextBlock Text="Contrast" FontSize="10" Foreground="#888" />
+                <TextBlock Text="Contrast" FontSize="10" Foreground="#555" />
                 <Slider Minimum="-100" Maximum="100" Value="0" />
               </StackPanel>
             </Expander>
@@ -157,11 +157,11 @@
             <!-- Metadata -->
             <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="2">
-                <TextBlock Text="File name: —" FontSize="10" Foreground="#999" />
-                <TextBlock Text="Type: —" FontSize="10" Foreground="#999" />
-                <TextBlock Text="Dimensions: —" FontSize="10" Foreground="#999" />
-                <TextBlock Text="Size: —" FontSize="10" Foreground="#999" />
-                <TextBlock Text="Date: —" FontSize="10" Foreground="#999" />
+                <TextBlock Text="File name: —" FontSize="10" Foreground="#666" />
+                <TextBlock Text="Type: —" FontSize="10" Foreground="#666" />
+                <TextBlock Text="Dimensions: —" FontSize="10" Foreground="#666" />
+                <TextBlock Text="Size: —" FontSize="10" Foreground="#666" />
+                <TextBlock Text="Date: —" FontSize="10" Foreground="#666" />
               </StackPanel>
             </Expander>
 
@@ -171,10 +171,10 @@
     </Grid>
 
     <!-- Status bar -->
-    <Border Grid.Row="2" Background="#2D2D2D" Padding="4,2">
+    <Border Grid.Row="2" Background="#F0F0F0" Padding="4,2">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#888" />
-        <TextBlock Grid.Column="1" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#666" />
+        <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#666" />
+        <TextBlock Grid.Column="1" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#999" />
       </Grid>
     </Border>
   </Grid>
