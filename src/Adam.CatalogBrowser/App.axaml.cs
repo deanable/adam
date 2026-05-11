@@ -28,7 +28,9 @@ public partial class App : Application
 
             services.AddSingleton(broker);
             services.AddSingleton(auth);
-            services.AddSingleton(s => new ModeManager(basePath, broker, auth));
+            var modeManager = new ModeManager(basePath, broker, auth);
+            modeManager.Initialize();
+            services.AddSingleton(modeManager);
 
             services.AddSingleton<ChecksumService>();
             services.AddSingleton<DuplicateDetector>();
