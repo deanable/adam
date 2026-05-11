@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
              x:Class="Adam.CatalogBrowser.Views.IngestionView"
+             DragDrop.AllowDrop="True"
              x:CompileBindings="False">
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
@@ -18,8 +19,7 @@
             <Button Grid.Column="1" Content="Select Folder" Click="OnSelectFolderClick"
                     HorizontalAlignment="Stretch" Height="32" />
           </Grid>
-          <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4"
-                  DragDrop.AllowDrop="True" Background="#222">
+          <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4" Background="#222">
             <TextBlock Text="Or drag and drop files or folders here" FontSize="12" Foreground="#666"
                        HorizontalAlignment="Center" />
           </Border>

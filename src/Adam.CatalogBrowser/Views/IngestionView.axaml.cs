@@ -38,8 +38,9 @@ public partial class IngestionView : UserControl
 
     private async void OnSelectFilesClick(object? sender, RoutedEventArgs e)
     {
-        if (VisualRoot is not Window window) return;
-        var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return;
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = true,
             Title = "Select files to ingest"
@@ -50,8 +51,9 @@ public partial class IngestionView : UserControl
 
     private async void OnSelectFolderClick(object? sender, RoutedEventArgs e)
     {
-        if (VisualRoot is not Window window) return;
-        var folders = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return;
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             AllowMultiple = false,
             Title = "Select a folder to ingest"
