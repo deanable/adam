@@ -1,10 +1,35 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
         x:Class="Adam.CatalogBrowser.Views.MainWindow"
         Title="adam - Digital Asset Manager"
         Width="1200"
         Height="800"
         x:CompileBindings="False">
+  <Window.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:AssetGalleryViewModel}">
+      <views:AssetGalleryView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AdminPanelViewModel}">
+      <views:AdminPanelView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:IngestionViewModel}">
+      <views:IngestionView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:MetadataEditorViewModel}">
+      <views:MetadataEditorView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
+      <views:UserManagementView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AuditLogViewModel}">
+      <views:AuditLogView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:MigrationWizardViewModel}">
+      <views:MigrationWizardView />
+    </DataTemplate>
+  </Window.DataTemplates>
   <Grid RowDefinitions="Auto,*,Auto">
         <!-- Title bar -->
     <Border Grid.Row="0" Background="{StaticResource SystemAccentColor}" Padding="8">
