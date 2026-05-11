@@ -1,0 +1,18 @@
+namespace Adam.Shared.Services;
+
+public enum ServiceStatus
+{
+    NotInstalled,
+    Running,
+    Stopped,
+    Unknown
+}
+
+public interface IServiceInstaller
+{
+    string ServiceName { get; }
+    Task InstallAsync(string brokerPath, CancellationToken ct = default);
+    Task UninstallAsync(CancellationToken ct = default);
+    Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default);
+    bool IsSupported { get; }
+}

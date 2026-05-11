@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.UserManagementView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+      <TextBlock Text="User Management" FontSize="20" FontWeight="Bold" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+        <Button Content="Add User" Command="{Binding AddUserCommand}" />
+        <Button Content="Edit User" Command="{Binding EditUserCommand}" />
+        <Button Content="Deactivate User" Command="{Binding DeleteUserCommand}" />
+      </StackPanel>
+
+      <ListBox ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}"
+               MinHeight="200" MaxHeight="400">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid ColumnDefinitions="150,200,100,80,Auto" Margin="4">
+              <TextBlock Grid.Column="0" Text="{Binding Username}" FontWeight="Medium" />
+              <TextBlock Grid.Column="1" Text="{Binding Email}" />
+              <TextBlock Grid.Column="2" Text="{Binding RoleName}" />
+              <TextBlock Grid.Column="3" Text="{Binding IsActive}" />
+              <TextBlock Grid.Column="4" Text="{Binding CreatedAt}" FontSize="11" Foreground="Gray" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4"
+              IsVisible="{Binding IsEditing}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Edit User" FontSize="14" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Username:" VerticalAlignment="Center" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditUsername}" IsReadOnly="True" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Email:" VerticalAlignment="Center" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditEmail}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Password:" VerticalAlignment="Center" />
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditPassword}" PlaceholderText="Leave blank to keep current" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Role:" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="3" Grid.Column="1"
+                      ItemsSource="{Binding Roles}"
+                      SelectedItem="{Binding SelectedRole}"
+                      DisplayMemberBinding="{Binding Name}" />
+
+            <CheckBox Grid.Row="4" Grid.Column="1" Content="Active"
+                      IsChecked="{Binding EditIsActive}" />
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Save" Command="{Binding SaveUserCommand}" />
+            <Button Content="Cancel" Command="{Binding CancelEditCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

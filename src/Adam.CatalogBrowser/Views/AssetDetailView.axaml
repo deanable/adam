@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Adam.CatalogBrowser.Views.AssetDetailView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+
+      <!-- Preview -->
+      <Border CornerRadius="4"
+              Background="#F0F0F0"
+              Height="300"
+              HorizontalAlignment="Stretch">
+        <TextBlock Text="Preview"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="Gray" />
+      </Border>
+
+      <!-- Basic info -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="File Info"
+                   FontWeight="SemiBold"
+                   FontSize="14" />
+        <Separator />
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="File Name:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding FileName}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Type:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding FileType}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Size:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding FileSizeText}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Dimensions:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding Dimensions}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Date Added:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding CreatedAtText}" />
+        </Grid>
+      </StackPanel>
+
+      <!-- EXIF / Camera info -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Camera Data"
+                   FontWeight="SemiBold"
+                   FontSize="14" />
+        <Separator />
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Camera:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding CameraInfo}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Lens:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding LensInfo}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Exposure:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding ExposureInfo}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="ISO:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding IsoText}" />
+        </Grid>
+        <Grid ColumnDefinitions="120,*">
+          <TextBlock Grid.Column="0" Text="Date Taken:" FontWeight="Medium" />
+          <TextBlock Grid.Column="1" Text="{Binding DateTakenText}" />
+        </Grid>
+      </StackPanel>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

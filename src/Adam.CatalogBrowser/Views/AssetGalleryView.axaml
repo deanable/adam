@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.AssetGalleryView"
+             x:CompileBindings="False">
+  <UserControl.Resources>
+    <local:InverseBoolConverter x:Key="InverseBool" />
+  </UserControl.Resources>
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <!-- Toolbar -->
+    <Border Grid.Row="0" Background="#F5F5F5" Padding="8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+          <TextBlock Text="View:" VerticalAlignment="Center" FontSize="12" />
+          <ComboBox SelectedIndex="0" Width="100">
+            <ComboBoxItem>Grid</ComboBoxItem>
+            <ComboBoxItem>List</ComboBoxItem>
+          </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="Sort:" VerticalAlignment="Center" FontSize="12" />
+          <ComboBox SelectedIndex="0" Width="130">
+            <ComboBoxItem>File Name</ComboBoxItem>
+            <ComboBoxItem>Date Added</ComboBoxItem>
+            <ComboBoxItem>File Type</ComboBoxItem>
+            <ComboBoxItem>File Size</ComboBoxItem>
+          </ComboBox>
+          <Slider MinWidth="120" Minimum="80" Maximum="300"
+                  Value="{Binding ThumbnailSize}" />
+          <TextBlock Text="{Binding ThumbnailSizeText}"
+                     VerticalAlignment="Center"
+                     FontSize="11"
+                     Width="40" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="3"
+                   Text="{Binding StatusText}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   Foreground="Gray"
+                   Margin="8,0,0,0" />
+      </Grid>
+    </Border>
+
+    <!-- Gallery grid -->
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Assets}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Margin="4"
+                    Padding="4"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Background="White">
+              <StackPanel>
+                <Border Width="{Binding $parent[DataContext].ThumbnailSize}"
+                        Height="{Binding $parent[DataContext].ThumbnailSize}"
+                        Background="#F0F0F0"
+                        CornerRadius="2">
+                  <TextBlock Text="No Preview"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             Foreground="Gray" />
+                </Border>
+                <TextBlock Text="{Binding Title}"
+                           MaxWidth="{Binding $parent[DataContext].ThumbnailSize}"
+                           TextTrimming="CharacterEllipsis"
+                           FontSize="11"
+                           Margin="0,4,0,0"
+                           HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- Empty state -->
+    <Border Grid.Row="2"
+            IsVisible="{Binding HasAssets, Converter={StaticResource InverseBool}}"
+            VerticalAlignment="Center"
+            HorizontalAlignment="Center">
+      <StackPanel Spacing="8" HorizontalAlignment="Center">
+        <TextBlock Text="No assets found"
+                   FontSize="18"
+                   Foreground="Gray"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="Select a root folder to scan for digital assets"
+                   FontSize="13"
+                   Foreground="#999"
+                   HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <!-- Status bar info -->
+    <Border Grid.Row="3" Background="#FAFAFA" Padding="4">
+      <TextBlock FontSize="11" Text="{Binding Assets.Count}" />
+    </Border>
+  </Grid>
+</UserControl>

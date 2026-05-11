@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.MetadataEditorView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+      <TextBlock Text="Metadata Editor" FontSize="20" FontWeight="Bold" />
+
+      <!-- No asset state -->
+      <Border IsVisible="{Binding HasAsset, Converter={x:Static local:InverseBoolConverter2.Instance}}"
+              VerticalAlignment="Center" HorizontalAlignment="Center" Padding="32">
+        <TextBlock Text="Select an asset to edit its metadata" FontSize="14" Foreground="Gray" />
+      </Border>
+
+      <StackPanel IsVisible="{Binding HasAsset}" Spacing="16">
+        <TextBlock Text="{Binding FileName}" FontSize="14" FontWeight="SemiBold" Foreground="#555" />
+
+        <Grid ColumnDefinitions="1*,1*" ColumnSpacing="16">
+          <!-- Editable fields -->
+          <StackPanel Grid.Column="0" Spacing="8">
+            <TextBlock Text="Editable Metadata" FontWeight="SemiBold" FontSize="14" />
+            <Separator />
+
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" VerticalAlignment="Top" Margin="0,4,0,0" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}"
+                       AcceptsReturn="True" MaxHeight="80" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Center" Margin="0,4,0,0" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding TagsText}"
+                       PlaceholderText="Comma-separated tags" />
+
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" Margin="0,4,0,0" />
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="1" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="2" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="3" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="4" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="5" />
+                <TextBlock Text="{Binding Rating}" VerticalAlignment="Center" Margin="4,0,0,0" />
+              </StackPanel>
+            </Grid>
+
+            <Button Content="Save" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Green" />
+          </StackPanel>
+
+          <!-- Read-only EXIF/IPTC/XMP -->
+          <StackPanel Grid.Column="1" Spacing="8">
+            <TextBlock Text="Camera Data (read-only)" FontWeight="SemiBold" FontSize="14" />
+            <Separator />
+
+            <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Camera Make:" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CameraMake}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Camera Model:" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CameraModel}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Lens:" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LensModel}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Focal Length:" />
+              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FocalLength}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="4" Grid.Column="0" Text="Aperture:" />
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Aperture}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="5" Grid.Column="0" Text="Exposure:" />
+              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ExposureTime}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="6" Grid.Column="0" Text="ISO:" />
+              <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Iso}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="7" Grid.Column="0" Text="Date Taken:" />
+              <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding DateTaken}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="8" Grid.Column="0" Text="Flash:" />
+              <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Flash}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="9" Grid.Column="0" Text="GPS:" />
+              <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding Gps}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="10" Grid.Column="0" Text="Creator:" />
+              <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding Creator}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="11" Grid.Column="0" Text="Copyright:" />
+              <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding Copyright}" FontWeight="Medium" />
+
+              <TextBlock Grid.Row="12" Grid.Column="0" Text="Headline:" />
+              <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding Headline}" FontWeight="Medium" />
+            </Grid>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

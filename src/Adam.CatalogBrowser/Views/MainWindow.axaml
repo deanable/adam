@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Adam.CatalogBrowser.Views.MainWindow"
+        Title="adam - Digital Asset Manager"
+        Width="1200"
+        Height="800"
+        x:CompileBindings="False">
+  <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Title bar -->
+    <Border Grid.Row="0" Background="{StaticResource SystemAccentColor}" Padding="8">
+      <TextBlock Text="adam - Digital Asset Manager"
+                 FontSize="16"
+                 FontWeight="Bold"
+                 Foreground="White" />
+    </Border>
+
+    <!-- Main content area -->
+    <Grid Grid.Row="1" ColumnDefinitions="200,*">
+      <!-- Sidebar -->
+      <Border Grid.Column="0" Background="#F0F0F0" Padding="8">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+          <TextBlock Grid.Row="0" Text="Collections"
+                     FontWeight="SemiBold" Margin="0,0,0,8" />
+          <ListBox Grid.Row="1" MaxHeight="200">
+            <ListBoxItem IsSelected="True">All Assets</ListBoxItem>
+          </ListBox>
+
+          <StackPanel Grid.Row="2" Spacing="4" Margin="0,16,0,0">
+            <Button Content="Asset Gallery"
+                    Command="{Binding ShowGalleryCommand}" />
+            <Button Content="Ingest Assets"
+                    Command="{Binding ShowIngestionCommand}" />
+            <Button Content="Metadata Editor"
+                    Command="{Binding ShowMetadataEditorCommand}" />
+            <Button Content="Admin Panel"
+                    Command="{Binding ShowAdminCommand}" />
+            <Button Content="User Management"
+                    Command="{Binding ShowUserManagementCommand}" />
+            <Button Content="Audit Log"
+                    Command="{Binding ShowAuditLogCommand}" />
+          </StackPanel>
+
+          <StackPanel Grid.Row="4" Spacing="4">
+            <Button Content="Scan Root Folder" />
+            <TextBlock Text="{Binding StatusText}"
+                       FontSize="11"
+                       Foreground="Gray" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Content area -->
+      <Border Grid.Column="1" Padding="16">
+        <ContentControl Content="{Binding CurrentView}" />
+      </Border>
+    </Grid>
+
+    <!-- Status bar -->
+    <Border Grid.Row="2" Background="#E0E0E0" Padding="4">
+      <TextBlock Text="{Binding StatusText}" FontSize="11" />
+    </Border>
+  </Grid>
+</Window>

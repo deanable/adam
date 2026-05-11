@@ -1,0 +1,37 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+
+# .NET test output
+coverage/
+*.coverage
+*.coveragexml
+
+# NuGet
+packages/
+*.nupkg
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.log
+
+# Temp / artifacts
+%TEMP%/
+nul
+
+# Opencode internal
+.opencode/

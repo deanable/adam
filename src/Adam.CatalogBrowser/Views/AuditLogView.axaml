@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Adam.CatalogBrowser.Views.AuditLogView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+      <TextBlock Text="Audit Log" FontSize="20" FontWeight="Bold" />
+
+      <!-- Filters -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="8" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Filters" FontSize="12" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Text="Action:" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding FilterAction}" PlaceholderText="e.g., Create" />
+            <TextBlock Grid.Column="2" Text="Entity:" VerticalAlignment="Center" />
+            <TextBox Grid.Column="3" Text="{Binding FilterEntityType}" PlaceholderText="e.g., User" />
+            <Button Grid.Column="4" Content="Refresh" Command="{Binding RefreshCommand}" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Log entries -->
+      <ListBox ItemsSource="{Binding Logs}" MinHeight="300">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="4">
+              <Grid ColumnDefinitions="150,80,80,200,*">
+                <TextBlock Grid.Column="0" Text="{Binding Timestamp}" FontSize="11" Foreground="Gray" />
+                <TextBlock Grid.Column="1" Text="{Binding Username}" FontWeight="Medium" FontSize="12" />
+                <TextBlock Grid.Column="2" Text="{Binding Action}" FontSize="12" />
+                <TextBlock Grid.Column="3" Text="{Binding EntityType}" FontSize="11" Foreground="#555" />
+                <TextBlock Grid.Column="4" Text="{Binding Details}" FontSize="11" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.IngestionView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" />
+
+      <!-- Drag & Drop Area -->
+      <Border BorderBrush="#CCC" BorderThickness="2"
+              Padding="32" CornerRadius="8" Background="#FAFAFA"
+              DragDrop.AllowDrop="True"
+              MinHeight="120">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+          <TextBlock Text="Drag and drop files here" FontSize="14" Foreground="Gray"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="&amp;#x2014; or &amp;#x2014;" FontSize="12" Foreground="#AAA"
+                     HorizontalAlignment="Center" />
+          <Button Content="Select Files" HorizontalAlignment="Center"
+                  Click="OnSelectFilesClick" />
+        </StackPanel>
+      </Border>
+
+      <!-- Pending files list -->
+      <ItemsControl ItemsSource="{Binding PendingFiles}" IsVisible="{Binding HasPendingFiles}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding}" FontSize="11" Foreground="#555" Margin="4,0" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Action buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="8"
+                  IsVisible="{Binding HasPendingFiles}">
+        <Button Content="Start Ingestion" Command="{Binding StartIngestionCommand}" />
+        <Button Content="Clear" Command="{Binding ClearCommand}" />
+      </StackPanel>
+
+      <!-- Progress -->
+      <ProgressBar Value="{Binding ProgressValue}" MinWidth="400"
+                   IsVisible="{Binding IsIngesting}" />
+      <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="Gray" />
+
+      <!-- Status -->
+      <Border Background="#F0FFF0" Padding="8" CornerRadius="4"
+              IsVisible="{Binding IngestionStatus, Converter={x:Static local:StringNotEmptyConverter.Instance}}">
+        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" />
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

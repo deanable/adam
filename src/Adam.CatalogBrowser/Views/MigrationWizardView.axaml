@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.MigrationWizardView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+
+      <TextBlock Text="Database Migration Wizard" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="Migrate data from your standalone SQLite database to a target database provider."
+                 TextWrapping="Wrap" Foreground="Gray" />
+
+      <!-- Source -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Source Database" FontSize="14" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox Text="{Binding SourcePath}" PlaceholderText="Path to SQLite database file..." />
+            <Button Grid.Column="1" Content="Browse" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Target -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Target Database" FontSize="14" FontWeight="SemiBold" />
+          <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="8" RowSpacing="8">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Provider:" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding SelectedTargetProvider}" Width="200">
+              <ComboBoxItem>sqlite</ComboBoxItem>
+              <ComboBoxItem>postgresql</ComboBoxItem>
+              <ComboBoxItem>sqlserver</ComboBoxItem>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Connection:" VerticalAlignment="Center" />
+            <TextBox Grid.Row="1" Grid.Column="1"
+                     Text="{Binding TargetConnectionString}"
+                     PlaceholderText="Data Source=target.db or Host=...;Database=..." />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Action -->
+      <Button Content="Start Migration" Command="{Binding StartMigrationCommand}" HorizontalAlignment="Left"
+              IsEnabled="{Binding IsBusy, Converter={x:Static local:BoolOppositeConverter.Instance}}" />
+
+      <!-- Progress -->
+      <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="20" />
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
+
+      <!-- Log -->
+      <Border BorderBrush="#DDD" BorderThickness="1" MinHeight="120" CornerRadius="4">
+        <ListBox ItemsSource="{Binding Log}" MaxHeight="200">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="4" Margin="2">
+                <TextBlock Text="{Binding Table}" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Text="{Binding Rows}" FontSize="11" Foreground="Gray" />
+                <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="11" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

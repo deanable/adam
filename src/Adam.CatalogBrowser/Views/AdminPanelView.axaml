@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.AdminPanelView"
+             x:CompileBindings="False">
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+
+      <TextBlock Text="Admin Panel" FontSize="20" FontWeight="Bold" />
+
+      <!-- Mode Toggle -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Operation Mode" FontSize="14" FontWeight="SemiBold" />
+          <RadioButton GroupName="Mode" IsChecked="{Binding SelectedMode, Converter={x:Static local:RadioButtonConverter.Instance}, ConverterParameter=Standalone}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Standalone" FontWeight="Bold" />
+              <TextBlock Text="— Local SQLite database, no external service needed" Foreground="Gray" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton GroupName="Mode" IsChecked="{Binding SelectedMode, Converter={x:Static local:RadioButtonConverter.Instance}, ConverterParameter=MultiUser}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Multi-User" FontWeight="Bold" />
+              <TextBlock Text="— Connect to broker service, shared database" Foreground="Gray" />
+            </StackPanel>
+          </RadioButton>
+          <Button Content="Save Mode" Command="{Binding SaveModeCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+        </StackPanel>
+      </Border>
+
+      <!-- Service Status -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Service Status" FontSize="14" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Status:" FontWeight="SemiBold" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ServiceStatusText}" Margin="8,0,0,0" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Active Connections:" FontWeight="SemiBold" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ActiveConnections}" Margin="8,0,0,0" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Uptime:" FontWeight="SemiBold" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UptimeText}" Margin="8,0,0,0" />
+            <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                    Content="Refresh Status" Command="{Binding RefreshStatusCommand}" Margin="0,8,0,0" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <Button Content="Install Service" Command="{Binding InstallServiceCommand}" />
+            <Button Content="Uninstall Service" Command="{Binding UninstallServiceCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Database Migration -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Database Migration" FontSize="14" FontWeight="SemiBold" />
+          <TextBlock Text="Migrate your standalone SQLite database to a shared database provider for multi-user mode." TextWrapping="Wrap" Foreground="Gray" />
+          <Button Content="Open Migration Wizard" Command="{Binding OpenMigrationWizardCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <!-- Status -->
+      <Border Background="#FAFAFA" Padding="8" CornerRadius="4"
+              IsVisible="{Binding StatusMessage, Converter={x:Static local:RadioButtonConverter.Instance}}">
+        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="Gray" />
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
