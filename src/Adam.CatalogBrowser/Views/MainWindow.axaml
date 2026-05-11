@@ -4,8 +4,8 @@
         xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
         x:Class="Adam.CatalogBrowser.Views.MainWindow"
         Title="adam - Digital Asset Manager"
-        Width="1200"
-        Height="800"
+        Width="1400"
+        Height="900"
         x:CompileBindings="False">
   <Window.DataTemplates>
     <DataTemplate DataType="{x:Type vm:AssetGalleryViewModel}">
@@ -30,59 +30,152 @@
       <views:MigrationWizardView />
     </DataTemplate>
   </Window.DataTemplates>
+
   <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Title bar -->
-    <Border Grid.Row="0" Background="{StaticResource SystemAccentColor}" Padding="8">
-      <TextBlock Text="adam - Digital Asset Manager"
-                 FontSize="16"
-                 FontWeight="Bold"
-                 Foreground="White" />
+
+    <!-- Title bar -->
+    <Border Grid.Row="0" Background="#2D2D2D" Padding="8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <TextBlock Text="adam" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
+          <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Users" Command="{Binding ShowUserManagementCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Admin" Command="{Binding ShowAdminCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#AAA" VerticalAlignment="Center" Margin="8,0" />
+      </Grid>
     </Border>
 
-    <!-- Main content area -->
-    <Grid Grid.Row="1" ColumnDefinitions="200,*">
-      <!-- Sidebar -->
-      <Border Grid.Column="0" Background="#F0F0F0" Padding="8">
-        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
-          <TextBlock Grid.Row="0" Text="Collections"
-                     FontWeight="SemiBold" Margin="0,0,0,8" />
-          <ListBox Grid.Row="1" MaxHeight="200">
-            <ListBoxItem IsSelected="True">All Assets</ListBoxItem>
-          </ListBox>
+    <!-- 3-column layout -->
+    <Grid Grid.Row="1" ColumnDefinitions="240,*,240" Background="#1A1A1A">
 
-          <StackPanel Grid.Row="2" Spacing="4" Margin="0,16,0,0">
-            <Button Content="Asset Gallery"
-                    Command="{Binding ShowGalleryCommand}" />
-            <Button Content="Ingest Assets"
-                    Command="{Binding ShowIngestionCommand}" />
-            <Button Content="Metadata Editor"
-                    Command="{Binding ShowMetadataEditorCommand}" />
-            <Button Content="Admin Panel"
-                    Command="{Binding ShowAdminCommand}" />
-            <Button Content="User Management"
-                    Command="{Binding ShowUserManagementCommand}" />
-            <Button Content="Audit Log"
-                    Command="{Binding ShowAuditLogCommand}" />
-          </StackPanel>
+      <!-- Left sidebar -->
+      <Border Grid.Column="0" Background="#2D2D2D" BorderBrush="#3A3A3A" BorderThickness="0,0,1,0">
+        <ScrollViewer>
+          <StackPanel Spacing="0">
 
-          <StackPanel Grid.Row="4" Spacing="4">
-            <Button Content="Scan Root Folder" />
-            <TextBlock Text="{Binding StatusText}"
-                       FontSize="11"
-                       Foreground="Gray" />
+            <!-- Navigator -->
+            <Expander Header="Navigator" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <Border Height="120" Background="#1A1A1A" CornerRadius="4" Margin="0,4,0,0">
+                <TextBlock Text="No selection" FontSize="11" Foreground="#666" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </Expander>
+
+            <!-- Folders -->
+            <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <TreeView ItemsSource="{Binding Sidebar.Folders}" Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+            </Expander>
+
+            <!-- Collections -->
+            <Expander Header="Collections" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <TreeView ItemsSource="{Binding Sidebar.Collections}" Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
+                    </Grid>
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+            </Expander>
+
+            <!-- Keywords -->
+            <Expander Header="Keywords" IsExpanded="False" Padding="8,4" Background="Transparent">
+              <WrapPanel Margin="0,4,0,0">
+                <ItemsControl ItemsSource="{Binding Sidebar.Keywords}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="#3A3A3A" CornerRadius="3" Padding="6,2" Margin="2">
+                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </WrapPanel>
+            </Expander>
+
+            <!-- Categories -->
+            <Expander Header="Categories" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <ItemsControl ItemsSource="{Binding Sidebar.Categories}" Margin="0,4,0,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#CCC" />
+                      <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10" Foreground="#888" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Expander>
+
           </StackPanel>
-        </Grid>
+        </ScrollViewer>
       </Border>
 
-      <!-- Content area -->
-      <Border Grid.Column="1" Padding="16">
-        <ContentControl Content="{Binding CurrentView}" />
+      <!-- Center content -->
+      <Border Grid.Column="1" Background="#1A1A1A" Padding="0">
+        <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
+      </Border>
+
+      <!-- Right panel -->
+      <Border Grid.Column="2" Background="#2D2D2D" BorderBrush="#3A3A3A" BorderThickness="1,0,0,0">
+        <ScrollViewer>
+          <StackPanel Spacing="0">
+
+            <!-- Histogram -->
+            <Expander Header="Histogram" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <Border Height="80" Background="#1A1A1A" CornerRadius="4" Margin="0,4,0,0">
+                <TextBlock Text="No data" FontSize="11" Foreground="#666" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </Expander>
+
+            <!-- Quick Develop -->
+            <Expander Header="Quick Develop" IsExpanded="False" Padding="8,4" Background="Transparent">
+              <StackPanel Margin="0,4,0,0" Spacing="4">
+                <TextBlock Text="Exposure" FontSize="10" Foreground="#888" />
+                <Slider Minimum="-100" Maximum="100" Value="0" />
+                <TextBlock Text="Contrast" FontSize="10" Foreground="#888" />
+                <Slider Minimum="-100" Maximum="100" Value="0" />
+              </StackPanel>
+            </Expander>
+
+            <!-- Metadata -->
+            <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <StackPanel Margin="0,4,0,0" Spacing="2">
+                <TextBlock Text="File name: —" FontSize="10" Foreground="#999" />
+                <TextBlock Text="Type: —" FontSize="10" Foreground="#999" />
+                <TextBlock Text="Dimensions: —" FontSize="10" Foreground="#999" />
+                <TextBlock Text="Size: —" FontSize="10" Foreground="#999" />
+                <TextBlock Text="Date: —" FontSize="10" Foreground="#999" />
+              </StackPanel>
+            </Expander>
+
+          </StackPanel>
+        </ScrollViewer>
       </Border>
     </Grid>
 
     <!-- Status bar -->
-    <Border Grid.Row="2" Background="#E0E0E0" Padding="4">
-      <TextBlock Text="{Binding StatusText}" FontSize="11" />
+    <Border Grid.Row="2" Background="#2D2D2D" Padding="4,2">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#888" />
+        <TextBlock Grid.Column="1" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#666" />
+      </Grid>
     </Border>
   </Grid>
 </Window>

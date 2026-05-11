@@ -202,39 +202,4 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     }
 }
 
-public class CollectionNode : INotifyPropertyChanged
-{
-    private string _name = string.Empty;
-    private bool _isSelected;
-    private int _assetCount;
 
-    public Guid Id { get; set; }
-    public Guid? ParentId { get; set; }
-
-    public string Name
-    {
-        get => _name;
-        set { _name = value; OnPropertyChanged(); }
-    }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set { _isSelected = value; OnPropertyChanged(); }
-    }
-
-    public int AssetCount
-    {
-        get => _assetCount;
-        set { _assetCount = value; OnPropertyChanged(); }
-    }
-
-    public ObservableCollection<CollectionNode> Children { get; } = [];
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-}

@@ -5,31 +5,40 @@
              x:CompileBindings="False">
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
-      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" />
 
-      <!-- Drag & Drop Area -->
-      <Border BorderBrush="#CCC" BorderThickness="2"
-              Padding="32" CornerRadius="8" Background="#FAFAFA"
-              DragDrop.AllowDrop="True"
-              MinHeight="120">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-          <TextBlock Text="Drag and drop files here" FontSize="14" Foreground="Gray"
-                     HorizontalAlignment="Center" />
-          <TextBlock Text="&amp;#x2014; or &amp;#x2014;" FontSize="12" Foreground="#AAA"
-                     HorizontalAlignment="Center" />
-          <Button Content="Select Files" HorizontalAlignment="Center"
-                  Click="OnSelectFilesClick" />
+      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" Foreground="White" />
+
+      <!-- File picker buttons -->
+      <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4" Background="#2D2D2D">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Select source files or folders to import into the catalog." FontSize="12" Foreground="#AAA" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Content="Select Files" Click="OnSelectFilesClick"
+                    HorizontalAlignment="Stretch" Height="32" />
+            <Button Grid.Column="1" Content="Select Folder" Click="OnSelectFolderClick"
+                    HorizontalAlignment="Stretch" Height="32" />
+          </Grid>
+          <Border BorderBrush="#3A3A3A" BorderThickness="1" Padding="16" CornerRadius="4"
+                  DragDrop.AllowDrop="True" Background="#222">
+            <TextBlock Text="Or drag and drop files or folders here" FontSize="12" Foreground="#666"
+                       HorizontalAlignment="Center" />
+          </Border>
         </StackPanel>
       </Border>
 
       <!-- Pending files list -->
-      <ItemsControl ItemsSource="{Binding PendingFiles}" IsVisible="{Binding HasPendingFiles}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <TextBlock Text="{Binding}" FontSize="11" Foreground="#555" Margin="4,0" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <Border BorderBrush="#3A3A3A" BorderThickness="1" CornerRadius="4" Background="#222"
+              IsVisible="{Binding HasPendingFiles}" MinHeight="60" MaxHeight="200">
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding PendingFiles}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" FontSize="11" Foreground="#AAA" Margin="6,2" TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
 
       <!-- Action buttons -->
       <StackPanel Orientation="Horizontal" Spacing="8"
@@ -39,15 +48,17 @@
       </StackPanel>
 
       <!-- Progress -->
-      <ProgressBar Value="{Binding ProgressValue}" MinWidth="400"
-                   IsVisible="{Binding IsIngesting}" />
-      <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="Gray" />
+      <StackPanel Spacing="4" IsVisible="{Binding IsIngesting}">
+        <ProgressBar Value="{Binding ProgressValue}" MinWidth="400" />
+        <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#AAA" />
+      </StackPanel>
 
       <!-- Status -->
-      <Border Background="#F0FFF0" Padding="8" CornerRadius="4"
+      <Border Background="#1A3A1A" Padding="8" CornerRadius="4"
               IsVisible="{Binding IngestionStatus, Converter={x:Static local:StringNotEmptyConverter.Instance}}">
-        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" />
+        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" Foreground="#8C8" />
       </Border>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>

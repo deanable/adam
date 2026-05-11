@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -11,9 +12,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private string _statusText = "Ready";
     private bool _isBusy;
 
-    public MainWindowViewModel(ModeManager modeManager, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
+    public MainWindowViewModel(ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
         ModeManager = modeManager;
+        Sidebar = sidebar;
         AssetGallery = assetGallery;
         AdminPanel = adminPanel;
         Ingestion = ingestion;
@@ -31,9 +33,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
 
         adminPanel.NavigateToMigrationWizard += () => CurrentView = migrationWizard;
+
+        _ = Sidebar.LoadAsync();
     }
 
     public ModeManager ModeManager { get; }
+    public SidebarViewModel Sidebar { get; }
     public AssetGalleryViewModel AssetGallery { get; }
     public AdminPanelViewModel AdminPanel { get; }
     public IngestionViewModel Ingestion { get; }

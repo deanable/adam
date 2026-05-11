@@ -34,6 +34,7 @@ public partial class App : Application
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();
 
+            services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>();
             services.AddSingleton<AdminPanelViewModel>();
