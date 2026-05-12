@@ -148,7 +148,8 @@ public class IngestionViewModel : INotifyPropertyChanged
                 var thumbnailDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
                 try
                 {
-                    await _thumbnailService.GenerateThumbnailAsync(filePath, thumbnailDir);
+                    var fullStoredPath = Path.Combine(storageDir, storedPath);
+                    await _thumbnailService.GenerateThumbnailAsync(fullStoredPath, thumbnailDir);
                 }
                 catch (Exception ex)
                 {
@@ -171,10 +172,10 @@ public class IngestionViewModel : INotifyPropertyChanged
         }
 
         IsIngesting = false;
+        ClearFiles();
         _logger.LogInformation("Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingested, skipped, errors);
         IngestionStatus = $"Ingested: {ingested}, Skipped: {skipped}, Errors: {errors}";
         ProgressText = IngestionStatus;
-        ClearFiles();
     }
 
     private static string GetMimeType(string ext) => ext.ToLowerInvariant() switch

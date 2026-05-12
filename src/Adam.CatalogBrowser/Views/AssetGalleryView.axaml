@@ -62,18 +62,17 @@
                     CornerRadius="4"
                     Background="White">
               <StackPanel>
-                <Border Width="{Binding $parent[DataContext].ThumbnailSize}"
-                        Height="{Binding $parent[DataContext].ThumbnailSize}"
+                <Border Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                        Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
                         Background="#F5F5F5"
                         CornerRadius="2">
-                  <TextBlock Text="No Preview"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             FontSize="11"
-                             Foreground="#AAA" />
+                  <Image Source="{Binding Thumbnail}"
+                         Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                         Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                         Stretch="Uniform" />
                 </Border>
                 <TextBlock Text="{Binding Title}"
-                           MaxWidth="{Binding $parent[DataContext].ThumbnailSize}"
+                           MaxWidth="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
                            TextTrimming="CharacterEllipsis"
                            FontSize="11"
                            Foreground="#333"

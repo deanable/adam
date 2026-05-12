@@ -5,6 +5,7 @@ using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,7 @@ namespace Adam.CatalogBrowser.ViewModels;
 public class AssetGalleryViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
+    private readonly ThumbnailService _thumbnailService = new();
     private int _thumbnailSize = 150;
     private string _sortBy = "FileName";
     private string _statusText = string.Empty;
@@ -77,8 +79,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 .OrderBy(a => a.FileName)
                 .ToListAsync(ct);
 
+            var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+            var storageDir = Path.Combine(dbDir, "storage");
+            var thumbnailDir = Path.Combine(dbDir, "thumbnails");
+
             foreach (var asset in assets)
             {
+                var fullStoredPath = Path.Combine(storageDir, asset.StoragePath);
+                var thumbnailPath = _thumbnailService.GetThumbnailPath(fullStoredPath, thumbnailDir);
+
                 Assets.Add(new AssetListItem
                 {
                     Id = asset.Id,
@@ -88,7 +97,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                     FileSize = asset.FileSize,
                     Width = asset.Width,
                     Height = asset.Height,
-                    CreatedAt = asset.CreatedAt
+                    CreatedAt = asset.CreatedAt,
+                    ThumbnailPath = thumbnailPath
                 });
             }
         }

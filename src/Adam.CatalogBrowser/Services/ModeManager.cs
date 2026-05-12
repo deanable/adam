@@ -36,7 +36,6 @@ public sealed class ModeManager
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
 
         using var db = CreateDbContext();
-        db.Database.EnsureDeleted();
         db.Database.EnsureCreated();
     }
 
@@ -49,7 +48,6 @@ public sealed class ModeManager
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
 
         using var db = CreateDbContext();
-        db.Database.EnsureDeleted();
         db.Database.EnsureCreated();
     }
 

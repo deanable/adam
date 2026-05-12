@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Avalonia.Media.Imaging;
 
 namespace Adam.CatalogBrowser.Models;
 
@@ -10,6 +11,7 @@ public class AssetListItem : INotifyPropertyChanged
     private string _thumbnailPath = string.Empty;
     private string _fileType = string.Empty;
     private bool _isSelected;
+    private Bitmap? _thumbnail;
 
     public Guid Id { get; set; }
 
@@ -28,7 +30,27 @@ public class AssetListItem : INotifyPropertyChanged
     public string ThumbnailPath
     {
         get => _thumbnailPath;
-        set { _thumbnailPath = value; OnPropertyChanged(); }
+        set
+        {
+            _thumbnailPath = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Thumbnail));
+            _thumbnail?.Dispose();
+            _thumbnail = null;
+        }
+    }
+
+    public Bitmap? Thumbnail
+    {
+        get
+        {
+            if (_thumbnail == null && !string.IsNullOrEmpty(_thumbnailPath) && File.Exists(_thumbnailPath))
+            {
+                try { _thumbnail = new Bitmap(_thumbnailPath); }
+                catch { }
+            }
+            return _thumbnail;
+        }
     }
 
     public string FileType
