@@ -6,6 +6,7 @@ using Adam.CatalogBrowser.Views;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser;
 
@@ -21,8 +22,11 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var services = new ServiceCollection();
-
             var basePath = Path.GetDirectoryName(Environment.ProcessPath)!;
+            var logPath = Path.Combine(basePath, "adam-catalog.log");
+            services.AddLogging(builder => builder.AddFile(logPath).SetMinimumLevel(LogLevel.Information));
+
+
             var broker = new BrokerClient("localhost", 5000);
             var auth = new AuthSession(broker);
 

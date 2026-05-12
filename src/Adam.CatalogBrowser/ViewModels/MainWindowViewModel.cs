@@ -3,17 +3,20 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
 public class MainWindowViewModel : INotifyPropertyChanged
 {
+    private readonly ILogger<MainWindowViewModel> _logger;
     private object? _currentView;
     private string _statusText = "Ready";
     private bool _isBusy;
 
-    public MainWindowViewModel(ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
+        _logger = logger;
         ModeManager = modeManager;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
@@ -25,7 +28,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
         MigrationWizard = migrationWizard;
         _currentView = assetGallery;
 
-        ShowGalleryCommand = new RelayCommand(_ => CurrentView = assetGallery);
+        ShowGalleryCommand = new RelayCommand(async _ =>
+        {
+            try
+            {
+                await assetGallery.LoadAssetsAsync();
+                CurrentView = assetGallery;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load gallery");
+            }
+        });
         ShowAdminCommand = new RelayCommand(_ => CurrentView = adminPanel);
         ShowIngestionCommand = new RelayCommand(_ => CurrentView = ingestion);
         ShowMetadataEditorCommand = new RelayCommand(_ => CurrentView = metadataEditor);
@@ -35,6 +49,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         adminPanel.NavigateToMigrationWizard += () => CurrentView = migrationWizard;
 
         _ = Sidebar.LoadAsync();
+        _ = AssetGallery.LoadAssetsAsync();
     }
 
     public ModeManager ModeManager { get; }

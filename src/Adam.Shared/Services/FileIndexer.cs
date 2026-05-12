@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.Shared.Services;
 
@@ -30,11 +31,13 @@ public class FileIndexer
 
     private readonly IFileService _fileService;
     private readonly MetadataExtractorService _metadataExtractor;
+    private readonly ILogger<FileIndexer> _logger;
 
-    public FileIndexer(IFileService fileService, MetadataExtractorService metadataExtractor)
+    public FileIndexer(IFileService fileService, MetadataExtractorService metadataExtractor, ILogger<FileIndexer> logger)
     {
         _fileService = fileService;
         _metadataExtractor = metadataExtractor;
+        _logger = logger;
     }
 
     public bool IsSupported(string filePath)
@@ -104,7 +107,7 @@ public class FileIndexer
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Metadata extraction failed for {filePath}: {ex.Message}");
+                _logger.LogWarning(ex, "Metadata extraction failed for {FilePath}", filePath);
             }
         }
 
@@ -113,6 +116,8 @@ public class FileIndexer
 
     public async Task<List<DigitalAsset>> ScanDirectoryAsync(string rootPath, IProgress<ScanProgress>? progress = null, CancellationToken ct = default)
     {
+        _logger.LogInformation("Starting directory scan: {RootPath}", rootPath);
+
         var assets = new List<DigitalAsset>();
         var files = Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories);
 
@@ -141,11 +146,14 @@ public class FileIndexer
             catch (Exception ex)
             {
                 errors++;
-                System.Diagnostics.Debug.WriteLine($"Error indexing {filePath}: {ex.Message}");
+                _logger.LogError(ex, "Error indexing {FilePath}", filePath);
             }
 
             progress?.Report(new ScanProgress(processed, skipped, errors, total, filePath));
         }
+
+        _logger.LogInformation("Directory scan complete: {RootPath} \u2014 Processed={Processed}, Skipped={Skipped}, Errors={Errors}",
+            rootPath, processed, skipped, errors);
 
         return assets;
     }

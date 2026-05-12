@@ -8,6 +8,7 @@ using Adam.Shared.Services;
 using Adam.Shared.Services.Storage;
 using Adam.Shared.Validation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -19,15 +20,17 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
     private readonly LocalFileSystemProvider _storageProvider = new();
+    private readonly ILogger<IngestionViewModel> _logger;
     private int _progressValue;
     private string _progressText = string.Empty;
     private bool _isIngesting;
     private string _ingestionStatus = string.Empty;
 
-    public IngestionViewModel(ModeManager modeManager, DuplicateDetector duplicateDetector)
+    public IngestionViewModel(ModeManager modeManager, DuplicateDetector duplicateDetector, ILogger<IngestionViewModel> logger)
     {
         _modeManager = modeManager;
         _duplicateDetector = duplicateDetector;
+        _logger = logger;
         StartIngestionCommand = new RelayCommand(async _ => await StartIngestionAsync(), _ => !IsIngesting && PendingFiles.Count > 0);
         ClearCommand = new RelayCommand(_ => ClearFiles());
     }
@@ -60,7 +63,7 @@ public class IngestionViewModel : INotifyPropertyChanged
         set { _ingestionStatus = value; OnPropertyChanged(); }
     }
 
-    public ICommand StartIngestionCommand { get; }
+    public RelayCommand StartIngestionCommand { get; }
     public ICommand ClearCommand { get; }
 
     public void AddFiles(IEnumerable<string> paths)
@@ -72,6 +75,7 @@ public class IngestionViewModel : INotifyPropertyChanged
         }
         OnPropertyChanged(nameof(PendingFiles));
         OnPropertyChanged(nameof(HasPendingFiles));
+        StartIngestionCommand.RaiseCanExecuteChanged();
     }
 
     public void ClearFiles()
@@ -79,6 +83,7 @@ public class IngestionViewModel : INotifyPropertyChanged
         PendingFiles.Clear();
         IngestionStatus = string.Empty;
         OnPropertyChanged(nameof(HasPendingFiles));
+        StartIngestionCommand.RaiseCanExecuteChanged();
     }
 
     public async Task StartIngestionAsync()
@@ -89,6 +94,8 @@ public class IngestionViewModel : INotifyPropertyChanged
         var skipped = 0;
         var errors = 0;
         var total = PendingFiles.Count;
+
+        _logger.LogInformation("Starting ingestion of {Total} file(s)", total);
 
         for (var i = 0; i < total; i++)
         {
@@ -105,19 +112,19 @@ public class IngestionViewModel : INotifyPropertyChanged
                 continue;
             }
 
-            await using var db = _modeManager.CreateDbContext();
-
-            var existing = await _duplicateDetector.FindDuplicateAsync(filePath, db);
-            if (existing != null)
-            {
-                skipped++;
-                ProgressText = $"Skipped (duplicate): {filePath}";
-                ProgressValue = (int)((i + 1.0) / total * 100);
-                continue;
-            }
-
             try
             {
+                await using var db = _modeManager.CreateDbContext();
+
+                var existing = await _duplicateDetector.FindDuplicateAsync(filePath, db);
+                if (existing != null)
+                {
+                    skipped++;
+                    ProgressText = $"Skipped (duplicate): {filePath}";
+                    ProgressValue = (int)((i + 1.0) / total * 100);
+                    continue;
+                }
+
                 ProgressText = $"Ingesting: {fileInfo.Name}";
 
                 var storageDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "storage");
@@ -134,7 +141,6 @@ public class IngestionViewModel : INotifyPropertyChanged
                     StoragePath = storedPath,
                     Title = Path.GetFileNameWithoutExtension(filePath),
                     Type = GetAssetType(fileInfo.Extension),
-                    CollectionId = Guid.Empty,
                     CreatedAt = DateTimeOffset.UtcNow,
                     ModifiedAt = DateTimeOffset.UtcNow
                 };
@@ -144,7 +150,10 @@ public class IngestionViewModel : INotifyPropertyChanged
                 {
                     await _thumbnailService.GenerateThumbnailAsync(filePath, thumbnailDir);
                 }
-                catch { /* thumbnail optional */ }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Thumbnail generation failed for {FilePath}", filePath);
+                }
 
                 db.DigitalAssets.Add(asset);
                 await db.SaveChangesAsync();
@@ -154,6 +163,7 @@ public class IngestionViewModel : INotifyPropertyChanged
             catch (Exception ex)
             {
                 errors++;
+                _logger.LogError(ex, "Failed to ingest {FilePath}", filePath);
                 ProgressText = $"Error: {fileInfo.Name} \u2014 {ex.Message}";
             }
 
@@ -161,6 +171,7 @@ public class IngestionViewModel : INotifyPropertyChanged
         }
 
         IsIngesting = false;
+        _logger.LogInformation("Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingested, skipped, errors);
         IngestionStatus = $"Ingested: {ingested}, Skipped: {skipped}, Errors: {errors}";
         ProgressText = IngestionStatus;
         ClearFiles();

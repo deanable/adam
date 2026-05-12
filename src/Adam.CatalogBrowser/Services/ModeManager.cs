@@ -34,6 +34,10 @@ public sealed class ModeManager
         DbProvider = "sqlite";
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
+
+        using var db = CreateDbContext();
+        db.Database.EnsureDeleted();
+        db.Database.EnsureCreated();
     }
 
     public void InitializeMultiUser(string host, int port, string dbProvider = "sqlite")
@@ -43,6 +47,10 @@ public sealed class ModeManager
         ServiceEndpoint = $"{host}:{port}";
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
+
+        using var db = CreateDbContext();
+        db.Database.EnsureDeleted();
+        db.Database.EnsureCreated();
     }
 
     public AppDbContext CreateDbContext()

@@ -61,7 +61,7 @@ public sealed class AssetHandler
                 FileSize = asset.FileSize,
                 Title = asset.Title,
                 Type = asset.Type.ToString(),
-                CollectionId = asset.CollectionId.ToString(),
+                CollectionId = asset.CollectionId?.ToString() ?? "",
                 UploadedBy = asset.UploadedByUserId?.ToString() ?? "",
                 CreatedAt = asset.CreatedAt.ToUnixTimeSeconds()
             });
@@ -113,7 +113,7 @@ public sealed class AssetHandler
             Width = asset.Width ?? 0,
             Height = asset.Height ?? 0,
             Duration = asset.Duration ?? 0,
-            CollectionId = asset.CollectionId.ToString(),
+            CollectionId = asset.CollectionId?.ToString() ?? "",
             CollectionName = asset.Collection?.Name ?? "",
             UploadedBy = asset.UploadedByUserId?.ToString() ?? "",
             Version = asset.Version,
@@ -176,8 +176,10 @@ public sealed class AssetHandler
         asset.Title = req.Title;
         asset.Description = req.Description;
         asset.Tags = req.Tags.ToArray();
-        if (!string.IsNullOrEmpty(req.CollectionId))
+        if (req.CollectionId is { Length: > 0 })
             asset.CollectionId = Guid.Parse(req.CollectionId);
+        else
+            asset.CollectionId = null;
 
         await db.SaveChangesAsync(ct);
 

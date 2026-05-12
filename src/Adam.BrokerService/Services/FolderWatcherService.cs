@@ -127,7 +127,6 @@ public class FolderWatcherService : IDisposable
                 if (exists) continue;
 
                 var asset = await _fileIndexer.IndexFileAsync(path, Path.GetDirectoryName(path) ?? "", CancellationToken.None);
-                asset.CollectionId = Guid.Empty;
 
                 db.DigitalAssets.Add(asset);
                 await db.SaveChangesAsync();

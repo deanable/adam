@@ -16,7 +16,7 @@ public class DigitalAsset
     public int? Width { get; set; }
     public int? Height { get; set; }
     public double? Duration { get; set; }
-    public Guid CollectionId { get; set; }
+    public Guid? CollectionId { get; set; }
     public Guid? UploadedByUserId { get; set; }
     public bool IsDeleted { get; set; }
     public int Version { get; set; } = 1;
