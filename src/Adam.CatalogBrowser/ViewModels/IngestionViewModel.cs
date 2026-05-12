@@ -19,6 +19,7 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly DuplicateDetector _duplicateDetector;
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
+    private readonly MetadataExtractorService _metadataExtractor = new();
     private readonly LocalFileSystemProvider _storageProvider = new();
     private readonly ILogger<IngestionViewModel> _logger;
     private int _progressValue;
@@ -146,14 +147,28 @@ public class IngestionViewModel : INotifyPropertyChanged
                 };
 
                 var thumbnailDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
+                var fullStoredPath = Path.Combine(storageDir, storedPath);
                 try
                 {
-                    var fullStoredPath = Path.Combine(storageDir, storedPath);
                     await _thumbnailService.GenerateThumbnailAsync(fullStoredPath, thumbnailDir);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Thumbnail generation failed for {FilePath}", filePath);
+                }
+
+                if (asset.Type == AssetType.Image)
+                {
+                    try
+                    {
+                        var metadata = _metadataExtractor.Extract(fullStoredPath);
+                        metadata.DigitalAssetId = asset.Id;
+                        asset.MetadataProfile = metadata;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Metadata extraction failed for {FilePath}", filePath);
+                    }
                 }
 
                 db.DigitalAssets.Add(asset);

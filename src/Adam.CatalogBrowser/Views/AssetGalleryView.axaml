@@ -46,43 +46,56 @@
     </Border>
 
     <!-- Gallery grid -->
-    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-      <ItemsControl ItemsSource="{Binding Assets}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <Border Margin="4"
-                    Padding="4"
-                    BorderBrush="#E0E0E0"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Background="White">
-              <StackPanel>
-                <Border Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                        Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                        Background="#F5F5F5"
-                        CornerRadius="2">
-                  <Image Source="{Binding Thumbnail}"
-                         Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                         Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                         Stretch="Uniform" />
-                </Border>
-                <TextBlock Text="{Binding Title}"
-                           MaxWidth="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                           TextTrimming="CharacterEllipsis"
-                           FontSize="11"
-                           Foreground="#333"
-                           Margin="0,4,0,0"
-                           HorizontalAlignment="Center" />
-              </StackPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                  x:Name="GalleryScroller">
+      <StackPanel>
+        <ItemsControl ItemsSource="{Binding Assets}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Margin="4"
+                      Padding="4"
+                      BorderBrush="#E0E0E0"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Background="White">
+                <StackPanel>
+                  <Border Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                          Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                          Background="#F5F5F5"
+                          CornerRadius="2">
+                    <Image Source="{Binding Thumbnail}"
+                           Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                           Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                           Stretch="Uniform" />
+                  </Border>
+                  <TextBlock Text="{Binding Title}"
+                             MaxWidth="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                             TextTrimming="CharacterEllipsis"
+                             FontSize="11"
+                             Foreground="#333"
+                             Margin="0,4,0,0"
+                             HorizontalAlignment="Center" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Height="40" IsVisible="{Binding HasMore}"
+                Background="Transparent">
+          <TextBlock Text="Loading more assets..."
+                     FontSize="11"
+                     Foreground="#999"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding IsLoadingMore}" />
+        </Border>
+      </StackPanel>
     </ScrollViewer>
 
     <!-- Empty state -->

@@ -9,6 +9,21 @@ public partial class AssetGalleryView : UserControl
     public AssetGalleryView()
     {
         InitializeComponent();
+        GalleryScroller.ScrollChanged += OnScrollChanged;
+    }
+
+    private async void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (DataContext is not AssetGalleryViewModel vm) return;
+
+        var scrollableHeight = GalleryScroller.Extent.Height - GalleryScroller.Viewport.Height;
+        if (scrollableHeight <= 0) return;
+
+        var threshold = scrollableHeight * 0.8;
+        if (GalleryScroller.Offset.Y >= threshold)
+        {
+            await vm.LoadMoreAsync();
+        }
     }
 }
 

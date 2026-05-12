@@ -48,6 +48,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         adminPanel.NavigateToMigrationWizard += () => CurrentView = migrationWizard;
 
+        sidebar.FilterChanged += () =>
+        {
+            var category = sidebar.SelectedCategory;
+            var folderPath = sidebar.SelectedFolder?.Path;
+            assetGallery.ApplyFilter(category, folderPath);
+        };
+
         _ = Sidebar.LoadAsync();
         _ = AssetGallery.LoadAssetsAsync();
     }

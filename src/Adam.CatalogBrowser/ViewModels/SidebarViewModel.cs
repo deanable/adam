@@ -94,18 +94,39 @@ public class SidebarViewModel : INotifyPropertyChanged
         {
             var parts = dir.Split('/', '\\');
             var current = root;
+            var cumulative = "";
             foreach (var part in parts)
             {
                 if (part.Length == 0) continue;
+                cumulative = cumulative.Length == 0 ? part : $"{cumulative}/{part}";
                 var existing = current.Children.FirstOrDefault(c => c.Name == part);
                 if (existing == null)
                 {
-                    existing = new FolderNode { Name = part, Path = dir };
+                    existing = new FolderNode { Name = part, Path = cumulative };
                     current.Children.Add(existing);
                 }
                 current = existing;
             }
         }
+
+        if (_modeManager.IsStandalone)
+        {
+            await using var db = _modeManager.CreateDbContext();
+            var folderCounts = await db.DigitalAssets
+                .GroupBy(a => a.StoragePath)
+                .Select(g => new { Dir = System.IO.Path.GetDirectoryName(g.Key) ?? "", Count = g.Count() })
+                .GroupBy(x => x.Dir)
+                .Select(g => new { Dir = g.Key, Count = g.Sum(x => x.Count) })
+                .ToListAsync(ct);
+
+            foreach (var dir in folderCounts)
+            {
+                var node = FindFolderNode(root, dir.Dir);
+                if (node != null)
+                    node.AssetCount = dir.Count;
+            }
+        }
+
         Folders.Add(root);
     }
 
@@ -169,6 +190,17 @@ public class SidebarViewModel : INotifyPropertyChanged
     private void OnCategoryChanged() => FilterChanged?.Invoke();
     private void OnFilterChanged() => FilterChanged?.Invoke();
 
+    private static FolderNode? FindFolderNode(FolderNode root, string path)
+    {
+        if (root.Path == path) return root;
+        foreach (var child in root.Children)
+        {
+            var found = FindFolderNode(child, path);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -178,9 +210,11 @@ public class FolderNode : INotifyPropertyChanged
 {
     private bool _isExpanded;
     private bool _isSelected;
+    private int _assetCount;
 
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
+    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
 
     public bool IsExpanded
     {
