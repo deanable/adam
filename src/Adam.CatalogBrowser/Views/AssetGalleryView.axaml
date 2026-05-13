@@ -49,13 +49,16 @@
     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
                   x:Name="GalleryScroller">
       <StackPanel>
-        <ItemsControl ItemsSource="{Binding Assets}">
-          <ItemsControl.ItemsPanel>
+        <ListBox ItemsSource="{Binding Assets}"
+                 SelectedItem="{Binding SelectedAsset}"
+                 Background="Transparent"
+                 BorderThickness="0">
+          <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel />
             </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Margin="4"
                       Padding="4"
@@ -64,17 +67,17 @@
                       CornerRadius="4"
                       Background="White">
                 <StackPanel>
-                  <Border Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                          Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                  <Border Width="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
+                          Height="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
                           Background="#F5F5F5"
                           CornerRadius="2">
                     <Image Source="{Binding Thumbnail}"
-                           Width="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
-                           Height="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                           Width="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
+                           Height="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
                            Stretch="Uniform" />
                   </Border>
                   <TextBlock Text="{Binding Title}"
-                             MaxWidth="{Binding $parent[ItemsControl].DataContext.ThumbnailSize}"
+                             MaxWidth="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
                              TextTrimming="CharacterEllipsis"
                              FontSize="11"
                              Foreground="#333"
@@ -83,8 +86,8 @@
                 </StackPanel>
               </Border>
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+          </ListBox.ItemTemplate>
+        </ListBox>
 
         <Border Height="40" IsVisible="{Binding HasMore}"
                 Background="Transparent">

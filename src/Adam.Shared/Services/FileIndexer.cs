@@ -81,6 +81,11 @@ public class FileIndexer
         var fileInfo = new FileInfo(filePath);
         var relativePath = Path.GetRelativePath(rootPath, filePath);
         var ext = Path.GetExtension(filePath);
+        var assetType = GetAssetType(filePath);
+
+        var textMetadata = assetType == AssetType.Image
+            ? _metadataExtractor.ExtractTextMetadata(filePath)
+            : null;
 
         var asset = new DigitalAsset
         {
@@ -90,8 +95,12 @@ public class FileIndexer
             MimeType = GetMimeType(filePath),
             FileSize = fileInfo.Length,
             StoragePath = relativePath,
-            Title = Path.GetFileNameWithoutExtension(filePath),
-            Type = GetAssetType(filePath),
+            Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
+                ? textMetadata.Title!
+                : Path.GetFileNameWithoutExtension(filePath),
+            Description = textMetadata?.Description,
+            Tags = textMetadata?.Keywords.ToArray() ?? [],
+            Type = assetType,
             ChecksumSha256 = await _fileService.ComputeChecksumAsync(filePath, ct),
             CreatedAt = DateTimeOffset.UtcNow,
             ModifiedAt = DateTimeOffset.UtcNow
@@ -103,6 +112,8 @@ public class FileIndexer
             {
                 var metadata = _metadataExtractor.Extract(filePath);
                 metadata.DigitalAssetId = asset.Id;
+                if (textMetadata?.Rating.HasValue == true)
+                    metadata.Rating = textMetadata.Rating.Value;
                 asset.MetadataProfile = metadata;
             }
             catch (Exception ex)

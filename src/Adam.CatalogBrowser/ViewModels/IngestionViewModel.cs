@@ -131,6 +131,11 @@ public class IngestionViewModel : INotifyPropertyChanged
                 var storageDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "storage");
                 var storedPath = await _storageProvider.StoreFileAsync(filePath, storageDir, default);
 
+                var assetType = GetAssetType(fileInfo.Extension);
+                var textMetadata = assetType == AssetType.Image
+                    ? _metadataExtractor.ExtractTextMetadata(filePath)
+                    : null;
+
                 var asset = new DigitalAsset
                 {
                     Id = Guid.NewGuid(),
@@ -140,8 +145,12 @@ public class IngestionViewModel : INotifyPropertyChanged
                     FileSize = fileInfo.Length,
                     ChecksumSha256 = await _checksumService.ComputeSha256Async(filePath),
                     StoragePath = storedPath,
-                    Title = Path.GetFileNameWithoutExtension(filePath),
-                    Type = GetAssetType(fileInfo.Extension),
+                    Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
+                        ? textMetadata.Title!
+                        : Path.GetFileNameWithoutExtension(filePath),
+                    Description = textMetadata?.Description,
+                    Tags = textMetadata?.Keywords.ToArray() ?? [],
+                    Type = assetType,
                     CreatedAt = DateTimeOffset.UtcNow,
                     ModifiedAt = DateTimeOffset.UtcNow
                 };
@@ -163,6 +172,8 @@ public class IngestionViewModel : INotifyPropertyChanged
                     {
                         var metadata = _metadataExtractor.Extract(fullStoredPath);
                         metadata.DigitalAssetId = asset.Id;
+                        if (textMetadata?.Rating.HasValue == true)
+                            metadata.Rating = textMetadata.Rating.Value;
                         asset.MetadataProfile = metadata;
                     }
                     catch (Exception ex)

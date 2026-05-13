@@ -60,8 +60,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     public AssetListItem? SelectedAsset
     {
         get => _selectedAsset;
-        set { _selectedAsset = value; OnPropertyChanged(); }
+        set
+        {
+            _selectedAsset = value;
+            OnPropertyChanged();
+            SelectionChanged?.Invoke(value);
+        }
     }
+
+    public event Action<AssetListItem?>? SelectionChanged;
 
     public bool HasAssets
     {

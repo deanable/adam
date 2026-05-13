@@ -29,6 +29,7 @@ public partial class AssetGalleryView : UserControl
 
 public class InverseBoolConverter : IValueConverter
 {
+    public static readonly InverseBoolConverter Instance = new();
     public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
         => value is bool b ? !b : value;
 
