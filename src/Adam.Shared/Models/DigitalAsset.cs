@@ -12,7 +12,6 @@ public class DigitalAsset
     public string OriginalPath { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string[] Tags { get; set; } = [];
     public AssetType Type { get; set; }
     public int? Width { get; set; }
     public int? Height { get; set; }
@@ -27,4 +26,5 @@ public class DigitalAsset
     public Collection? Collection { get; set; }
     public MetadataProfile? MetadataProfile { get; set; }
     public ICollection<Keyword> Keywords { get; set; } = [];
+    public ICollection<Category> Categories { get; set; } = [];
 }

@@ -31,6 +31,7 @@ public class SearchService
         var q = _context.DigitalAssets
             .Include(a => a.Collection)
             .Include(a => a.MetadataProfile)
+            .Include(a => a.Keywords)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -40,7 +41,7 @@ public class SearchService
                 a.Title.ToLower().Contains(search) ||
                 (a.Description != null && a.Description.ToLower().Contains(search)) ||
                 a.FileName.ToLower().Contains(search) ||
-                a.Tags.Any(t => t.ToLower().Contains(search)) ||
+                a.Keywords.Any(k => k.Name.ToLower().Contains(search)) ||
                 (a.MetadataProfile != null && (
                     a.MetadataProfile.CameraMake != null && a.MetadataProfile.CameraMake.ToLower().Contains(search) ||
                     a.MetadataProfile.CameraModel != null && a.MetadataProfile.CameraModel.ToLower().Contains(search) ||
@@ -58,7 +59,7 @@ public class SearchService
 
         if (tags is { Length: > 0 })
         {
-            q = q.Where(a => a.Tags.Any(t => tags.Contains(t)));
+            q = q.Where(a => a.Keywords.Any(k => tags.Contains(k.Name)));
         }
 
         if (minRating.HasValue && maxRating.HasValue)

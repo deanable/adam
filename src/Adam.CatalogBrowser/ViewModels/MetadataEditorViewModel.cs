@@ -84,6 +84,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         await using var db = _modeManager.CreateDbContext();
         _asset = await db.DigitalAssets
             .Include(a => a.MetadataProfile)
+            .Include(a => a.Keywords)
             .FirstOrDefaultAsync(a => a.Id == assetId, ct);
 
         if (_asset == null)
@@ -97,7 +98,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         FileName = _asset.FileName;
         Title = _asset.Title;
         Description = _asset.Description;
-        TagsText = string.Join(", ", _asset.Tags);
+        TagsText = string.Join(", ", _asset.Keywords.Select(k => k.Name));
         Rating = _profile?.Rating ?? 0;
 
         CameraMake = _profile?.CameraMake ?? "";
@@ -123,14 +124,29 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         if (_asset == null) return;
         await using var db = _modeManager.CreateDbContext();
 
-        _asset.Title = Title;
-        _asset.Description = Description;
-        _asset.Tags = (TagsText ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Reload asset with keywords tracking
+        var asset = await db.DigitalAssets
+            .Include(a => a.Keywords)
+            .FirstOrDefaultAsync(a => a.Id == _asset.Id);
+        if (asset == null) return;
+
+        asset.Title = Title;
+        asset.Description = Description;
+        asset.Keywords.Clear();
+
+        var tagNames = (TagsText ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tagNames.Length > 0)
+        {
+            await db.AssociateKeywordsAsync(asset, tagNames);
+        }
 
         if (_profile != null)
-            _profile.Rating = Rating;
+        {
+            var profile = await db.MetadataProfiles.FirstOrDefaultAsync(m => m.DigitalAssetId == asset.Id);
+            if (profile != null)
+                profile.Rating = Rating;
+        }
 
-        db.DigitalAssets.Update(_asset);
         await db.SaveChangesAsync();
 
         IsDirty = false;

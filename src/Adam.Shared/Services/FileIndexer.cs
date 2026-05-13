@@ -99,7 +99,6 @@ public class FileIndexer
                 ? textMetadata.Title!
                 : Path.GetFileNameWithoutExtension(filePath),
             Description = textMetadata?.Description,
-            Tags = textMetadata?.Keywords.ToArray() ?? [],
             Type = assetType,
             ChecksumSha256 = await _fileService.ComputeChecksumAsync(filePath, ct),
             CreatedAt = DateTimeOffset.UtcNow,

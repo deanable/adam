@@ -13,6 +13,7 @@ public class FolderWatcherService : IDisposable
     private readonly ILogger<FolderWatcherService> _logger;
     private readonly FileIndexer _fileIndexer;
     private readonly ChecksumService _checksumService;
+    private readonly MetadataExtractorService _metadataExtractor = new();
     private FileSystemWatcher? _watcher;
     private readonly HashSet<string> _pendingEvents = new(StringComparer.OrdinalIgnoreCase);
     private readonly Timer? _debounceTimer;
@@ -129,10 +130,21 @@ public class FolderWatcherService : IDisposable
                 var asset = await _fileIndexer.IndexFileAsync(path, Path.GetDirectoryName(path) ?? "", CancellationToken.None);
 
                 db.DigitalAssets.Add(asset);
-                if (asset.Tags.Length > 0)
+
+                var assetType = _fileIndexer.GetAssetType(path);
+                if (assetType == AssetType.Image)
                 {
-                    await db.AssociateKeywordsAsync(asset, asset.Tags);
+                    var textMetadata = _metadataExtractor.ExtractTextMetadata(path);
+                    if (textMetadata.Keywords.Count > 0)
+                    {
+                        await db.AssociateKeywordsAsync(asset, textMetadata.Keywords);
+                    }
+                    if (textMetadata.Categories.Count > 0)
+                    {
+                        await db.AssociateCategoriesAsync(asset, textMetadata.Categories);
+                    }
                 }
+
                 await db.SaveChangesAsync();
 
                 _logger.LogInformation("Auto-indexed: {Path}", path);

@@ -101,67 +101,118 @@ public class SidebarViewModel : INotifyPropertyChanged
                 .ToListAsync(ct);
 
             dirs = storagePaths
-                .Select(p => Path.GetDirectoryName(p.Replace('\\', '/')) ?? "")
+                .Select(p => Path.GetDirectoryName(p.Replace("\\", "/")) ?? "")
                 .Where(d => d.Length > 0)
                 .ToHashSet();
         }
-        else if (_modeManager.IsMultiUser && _modeManager.BrokerClient?.IsConnected == true)
-        {
-            // multi-user folder enumeration through broker
-        }
 
-        var commonPrefix = FindCommonPathPrefix(dirs);
+        var roots = BuildFolderTrees(dirs);
 
-        var root = new FolderNode { Name = commonPrefix.Length > 0 ? ToDisplayName(commonPrefix) : "All Folders", Path = commonPrefix, IsExpanded = true };
-        foreach (var dir in dirs.OrderBy(p => p))
-        {
-            var relative = dir;
-            if (commonPrefix.Length > 0 && dir.StartsWith(commonPrefix, StringComparison.OrdinalIgnoreCase))
-                relative = dir[commonPrefix.Length..].TrimStart('/');
-
-            if (relative.Length == 0) continue;
-
-            var parts = relative.Split('/');
-            var current = root;
-            var cumulative = commonPrefix.Length > 0 ? commonPrefix : "";
-            foreach (var part in parts)
-            {
-                if (part.Length == 0) continue;
-                cumulative = cumulative.Length == 0 ? part : $"{cumulative}/{part}";
-                var existing = current.Children.FirstOrDefault(c => c.Name == part);
-                if (existing == null)
-                {
-                    existing = new FolderNode { Name = part, Path = cumulative };
-                    current.Children.Add(existing);
-                }
-                current = existing;
-            }
-        }
-
-        if (_modeManager.IsStandalone)
+        // Populate asset counts for each folder node
+        if (_modeManager.IsStandalone && roots.Count > 0)
         {
             await using var db = _modeManager.CreateDbContext();
-            var allStoragePaths = await db.DigitalAssets
+            var allAssets = await db.DigitalAssets
                 .Select(a => a.StoragePath)
                 .ToListAsync(ct);
 
-            var folderCounts = allStoragePaths
-                .Where(p => !string.IsNullOrEmpty(p))
-                .GroupBy(p => Path.GetDirectoryName(p.Replace('\\', '/')) ?? "")
-                .Where(g => g.Key.Length > 0)
-                .Select(g => new { Dir = g.Key, Count = g.Count() })
-                .ToList();
-
-            foreach (var dir in folderCounts)
+            foreach (var root in roots)
             {
-                var node = FindFolderNode(root, dir.Dir);
-                if (node != null)
-                    node.AssetCount = dir.Count;
+                PopulateFolderCounts(root, allAssets);
             }
         }
 
         Folders.Clear();
-        Folders.Add(root);
+        foreach (var root in roots)
+            Folders.Add(root);
+    }
+
+    private static List<FolderNode> BuildFolderTrees(HashSet<string> dirs)
+    {
+        if (dirs.Count == 0)
+            return [new FolderNode { Name = "No Folders", Path = "", IsExpanded = true }];
+
+        // Normalize all paths
+        var normalizedDirs = dirs.Select(d => d.Replace("\\", "/").TrimEnd('/')).ToList();
+
+        // Find common prefix
+        var commonPrefix = FindCommonPathPrefix(normalizedDirs);
+
+        // If common prefix is empty or just a drive letter, show multiple roots
+        if (string.IsNullOrEmpty(commonPrefix) || commonPrefix.Length <= 1)
+        {
+            // Group by top-level directory
+            var byRoot = normalizedDirs
+                .GroupBy(d => d.Split('/')[0])
+                .ToList();
+
+            var roots = new List<FolderNode>();
+            foreach (var group in byRoot.OrderBy(g => g.Key))
+            {
+                var folderRoot = new FolderNode { Name = group.Key, Path = group.Key, IsExpanded = false };
+                foreach (var dir in group.OrderBy(d => d))
+                {
+                    var relative = dir[(group.Key.Length)..].TrimStart('/');
+                    AddPathToTree(folderRoot, relative, dir);
+                }
+                roots.Add(folderRoot);
+            }
+            return roots;
+        }
+
+        // Strip common prefix and use last segment as root name
+        var rootName = commonPrefix.Split('/').LastOrDefault() ?? "Folders";
+        var root = new FolderNode { Name = rootName, Path = commonPrefix, IsExpanded = true };
+
+        foreach (var dir in normalizedDirs.OrderBy(d => d))
+        {
+            var relative = dir[(commonPrefix.Length)..].TrimStart('/');
+            if (string.IsNullOrEmpty(relative)) continue;
+            AddPathToTree(root, relative, dir);
+        }
+
+        return [root];
+    }
+
+    private static void AddPathToTree(FolderNode root, string relativePath, string fullPath)
+    {
+        var parts = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var current = root;
+        var cumulative = root.Path;
+
+        foreach (var part in parts)
+        {
+            cumulative = cumulative.Length == 0 ? part : $"{cumulative}/{part}";
+            var existing = current.Children.FirstOrDefault(c => c.Name == part);
+            if (existing == null)
+            {
+                existing = new FolderNode { Name = part, Path = cumulative };
+                current.Children.Add(existing);
+            }
+            current = existing;
+        }
+    }
+
+    private static void PopulateFolderCounts(FolderNode node, List<string> assetPaths)
+    {
+        var prefix = node.Path.Replace("\\", "/");
+        var directCount = assetPaths.Count(p =>
+        {
+            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
+            return dir == prefix;
+        });
+
+        // Count also includes assets in subfolders
+        var totalCount = assetPaths.Count(p =>
+        {
+            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
+            return dir.StartsWith(prefix + "/") || dir == prefix;
+        });
+
+        node.AssetCount = totalCount;
+
+        foreach (var child in node.Children)
+            PopulateFolderCounts(child, assetPaths);
     }
 
     private static string FindCommonPathPrefix(IEnumerable<string> paths)
@@ -169,10 +220,11 @@ public class SidebarViewModel : INotifyPropertyChanged
         var list = paths.Where(p => p.Length > 0).OrderBy(p => p.Length).ToList();
         if (list.Count < 2) return "";
 
-        var first = list[0].Replace('\\', '/');
-        var last = list[^1].Replace('\\', '/');
+        var first = list[0];
+        var last = list[^1];
         var prefixLen = 0;
         var minLen = Math.Min(first.Length, last.Length);
+
         for (var i = 0; i < minLen; i++)
         {
             if (first[i] != last[i]) break;
@@ -184,18 +236,6 @@ public class SidebarViewModel : INotifyPropertyChanged
         var trimmed = first[..prefixLen];
         var lastSep = trimmed.LastIndexOf('/');
         return lastSep > 0 ? trimmed[..lastSep] : "";
-    }
-
-    private static string ToDisplayName(string path)
-    {
-        if (path.StartsWith("//"))
-        {
-            var afterUnc = path.IndexOf('/', 2);
-            if (afterUnc > 0) return path[(afterUnc + 1)..];
-        }
-        if (path.Length >= 2 && path[1] == ':')
-            return path.Length > 3 ? path[3..] : path;
-        return path;
     }
 
     private async Task LoadCollectionsAsync(CancellationToken ct = default)
@@ -236,33 +276,50 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var names = await db.Keywords
-                .Select(k => k.Name)
-                .Distinct()
+            var keywords = await db.Keywords
+                .Include(k => k.Assets)
                 .ToListAsync(ct);
 
             root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
-            foreach (var name in names.OrderBy(n => n))
-            {
-                var parts = name.Split('|', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0) continue;
 
-                var current = root;
-                var cumulative = "";
-                foreach (var part in parts)
+            // Build hierarchy from flat list
+            var keywordDict = keywords.ToDictionary(k => k.Id);
+            var nodeDict = new Dictionary<Guid, KeywordNode>();
+
+            foreach (var kw in keywords)
+            {
+                var node = new KeywordNode
                 {
-                    var trimmed = part.Trim();
-                    if (trimmed.Length == 0) continue;
-                    cumulative = cumulative.Length == 0 ? trimmed : $"{cumulative}|{trimmed}";
-                    var existing = current.Children.FirstOrDefault(c => c.Name == trimmed);
-                    if (existing == null)
-                    {
-                        existing = new KeywordNode { Name = trimmed, Path = cumulative, IsExpanded = true };
-                        current.Children.Add(existing);
-                    }
-                    current = existing;
+                    Name = kw.Name,
+                    Path = kw.Name,
+                    KeywordId = kw.Id,
+                    AssetCount = kw.Assets.Count
+                };
+                nodeDict[kw.Id] = node;
+            }
+
+            // Link parents and build tree
+            foreach (var kw in keywords.Where(k => k.ParentId.HasValue))
+            {
+                if (nodeDict.TryGetValue(kw.Id, out var childNode) &&
+                    nodeDict.TryGetValue(kw.ParentId!.Value, out var parentNode))
+                {
+                    childNode.Path = $"{parentNode.Path}|{childNode.Name}";
+                    parentNode.Children.Add(childNode);
                 }
             }
+
+            // Add root-level keywords to the tree root
+            foreach (var kw in keywords.Where(k => !k.ParentId.HasValue))
+            {
+                if (nodeDict.TryGetValue(kw.Id, out var node))
+                {
+                    root.Children.Add(node);
+                }
+            }
+
+            // Propagate counts upward (leaf counts already set, add children to parents)
+            PropagateKeywordCounts(root);
         }
         else
         {
@@ -271,6 +328,17 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         Keywords.Clear();
         Keywords.Add(root);
+    }
+
+    private static int PropagateKeywordCounts(KeywordNode node)
+    {
+        var childSum = 0;
+        foreach (var child in node.Children)
+        {
+            childSum += PropagateKeywordCounts(child);
+        }
+        node.AssetCount += childSum;
+        return node.AssetCount;
     }
 
     private async Task LoadMediaFormatCountsAsync(CancellationToken ct = default)
@@ -299,35 +367,53 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var allCats = await db.MetadataProfiles
-                .Where(m => m.Category != null && m.Category.Length > 0)
-                .Select(m => m.Category!)
+            var categories = await db.Categories
+                .Include(c => c.Assets)
                 .ToListAsync(ct);
 
-            var distinct = allCats
-                .SelectMany(c => c.Split(';', StringSplitOptions.RemoveEmptyEntries))
-                .Select(c => c.Trim())
-                .Where(c => c.Length > 0)
-                .Distinct()
-                .OrderBy(c => c)
-                .ToList();
+            var total = categories.Sum(c => c.Assets.Count);
+            var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
 
-            var totalProfiles = await db.MetadataProfiles.CountAsync(m => m.Category != null && m.Category.Length > 0, ct);
-            newCats.Add(new CategoryNode { Name = "All", Count = totalProfiles });
+            // Build hierarchy from flat list
+            var nodeDict = new Dictionary<Guid, CategoryNode>();
 
-            foreach (var cat in distinct)
+            foreach (var cat in categories)
             {
-                var count = await db.MetadataProfiles
-                    .CountAsync(m => m.Category != null && m.Category.Contains(";" + cat + ";") || 
-                                     m.Category != null && m.Category.StartsWith(cat + ";") ||
-                                     m.Category != null && m.Category.EndsWith(";" + cat) ||
-                                     m.Category != null && m.Category == cat, ct);
-                newCats.Add(new CategoryNode { Name = cat, Count = count });
+                var node = new CategoryNode
+                {
+                    Name = cat.Name,
+                    CategoryId = cat.Id,
+                    Count = cat.Assets.Count
+                };
+                nodeDict[cat.Id] = node;
             }
+
+            // Link parents and build tree
+            foreach (var cat in categories.Where(c => c.ParentId.HasValue))
+            {
+                if (nodeDict.TryGetValue(cat.Id, out var childNode) &&
+                    nodeDict.TryGetValue(cat.ParentId!.Value, out var parentNode))
+                {
+                    parentNode.Children.Add(childNode);
+                }
+            }
+
+            // Add root-level categories to the tree root
+            foreach (var cat in categories.Where(c => !c.ParentId.HasValue))
+            {
+                if (nodeDict.TryGetValue(cat.Id, out var node))
+                {
+                    root.Children.Add(node);
+                }
+            }
+
+            // Propagate counts upward
+            PropagateCategoryCounts(root);
+            newCats.Add(root);
         }
         else
         {
-            newCats.Add(new CategoryNode { Name = "All", Count = 0 });
+            newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
         }
 
         MetadataCategories.Clear();
@@ -335,19 +421,19 @@ public class SidebarViewModel : INotifyPropertyChanged
             MetadataCategories.Add(cat);
     }
 
+    private static int PropagateCategoryCounts(CategoryNode node)
+    {
+        var childSum = 0;
+        foreach (var child in node.Children)
+        {
+            childSum += PropagateCategoryCounts(child);
+        }
+        node.Count += childSum;
+        return node.Count;
+    }
+
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
     private void OnFilterChanged() => FilterChanged?.Invoke();
-
-    private static FolderNode? FindFolderNode(FolderNode root, string path)
-    {
-        if (root.Path == path) return root;
-        foreach (var child in root.Children)
-        {
-            var found = FindFolderNode(child, path);
-            if (found != null) return found;
-        }
-        return null;
-    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -403,8 +489,13 @@ public class KeywordNode : INotifyPropertyChanged
 {
     private bool _isExpanded;
     private bool _isSelected;
+    private int _assetCount;
+
+    public Guid KeywordId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
+    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<KeywordNode> Children { get; } = [];
@@ -416,11 +507,17 @@ public class KeywordNode : INotifyPropertyChanged
 
 public class CategoryNode : INotifyPropertyChanged
 {
+    private bool _isExpanded;
+    private bool _isSelected;
     private string _name = string.Empty;
     private int _count;
 
+    public Guid CategoryId { get; set; }
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
     public int Count { get => _count; set { _count = value; OnPropertyChanged(); } }
+    public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
+    public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
+    public ObservableCollection<CategoryNode> Children { get; } = [];
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)

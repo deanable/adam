@@ -27,15 +27,18 @@ public sealed class AssetHandler
 
         var query = db.DigitalAssets
             .Include(a => a.Collection)
+            .Include(a => a.Keywords)
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(req.Search))
             query = query.Where(a =>
-                a.Title.Contains(req.Search) || a.Description!.Contains(req.Search) || a.Tags.Any(t => t.Contains(req.Search)));
+                a.Title.Contains(req.Search) || a.Description!.Contains(req.Search) || a.Keywords.Any(k => k.Name.Contains(req.Search)));
         if (!string.IsNullOrEmpty(req.Type))
             query = query.Where(a => a.Type.ToString() == req.Type);
         if (!string.IsNullOrEmpty(req.CollectionId))
             query = query.Where(a => a.CollectionId == Guid.Parse(req.CollectionId));
+        if (req.Tags.Count > 0)
+            query = query.Where(a => a.Keywords.Any(k => req.Tags.Contains(k.Name)));
 
         var total = await query.CountAsync(ct);
         var assets = await query
@@ -86,6 +89,7 @@ public sealed class AssetHandler
         var asset = await db.DigitalAssets
             .Include(a => a.Collection)
             .Include(a => a.MetadataProfile)
+            .Include(a => a.Keywords)
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
 
         if (asset == null)
@@ -121,8 +125,8 @@ public sealed class AssetHandler
             ModifiedAt = asset.ModifiedAt.ToUnixTimeSeconds()
         };
 
-        foreach (var tag in asset.Tags)
-            detail.Tags.Add(tag);
+        foreach (var kw in asset.Keywords)
+            detail.Tags.Add(kw.Name);
 
         return new Envelope
         {
@@ -141,6 +145,7 @@ public sealed class AssetHandler
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
+            .Include(a => a.Keywords)
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
 
         if (asset == null)
@@ -175,7 +180,11 @@ public sealed class AssetHandler
 
         asset.Title = req.Title;
         asset.Description = req.Description;
-        asset.Tags = req.Tags.ToArray();
+        asset.Keywords.Clear();
+        if (req.Tags.Count > 0)
+        {
+            await db.AssociateKeywordsAsync(asset, req.Tags);
+        }
         if (req.CollectionId is { Length: > 0 })
             asset.CollectionId = Guid.Parse(req.CollectionId);
         else

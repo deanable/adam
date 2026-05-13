@@ -90,7 +90,7 @@ Build a cross-platform digital asset management system with two operational mode
 |------|--------|-------------|
 | D1 | L | Build asset upload with drag-and-drop, progress indicator, chunked large-file support |
 | D2 | M | Implement SHA256 checksum-based duplicate detection on upload |
-| D3 | M | Add file storage abstraction: local filesystem provider; storage path configuration |
+| D3 | M | IFileService abstraction for metadata extraction, checksum, thumbnail generation, and metadata write-back (files remain in-place; no copying) |
 | D4 | M | Build metadata editor view (title, description, tags, collection assignment) |
 | D5 | S | Implement asset delete with confirmation dialog and soft-delete |
 | D6 | S | Add thumbnail generation for images on upload |

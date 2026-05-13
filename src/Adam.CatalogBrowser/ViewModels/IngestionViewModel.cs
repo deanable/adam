@@ -196,7 +196,6 @@ public class IngestionViewModel : INotifyPropertyChanged
                         ? textMetadata.Title!
                         : Path.GetFileNameWithoutExtension(filePath),
                     Description = textMetadata?.Description,
-                    Tags = textMetadata?.Keywords.ToArray() ?? [],
                     Type = assetType,
                     CreatedAt = DateTimeOffset.UtcNow,
                     ModifiedAt = DateTimeOffset.UtcNow
@@ -233,6 +232,10 @@ public class IngestionViewModel : INotifyPropertyChanged
                 {
                     var deduped = DeduplicateKeywords(textMetadata.Keywords);
                     await db.AssociateKeywordsAsync(asset, deduped);
+                }
+                if (textMetadata?.Categories.Count > 0)
+                {
+                    await db.AssociateCategoriesAsync(asset, textMetadata.Categories);
                 }
 
                 db.DigitalAssets.Add(asset);

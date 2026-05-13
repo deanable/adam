@@ -97,22 +97,6 @@ public class MetadataExtractorService
         profile.City = GetString(dir, IptcDirectory.TagCity);
         profile.State = GetString(dir, IptcDirectory.TagProvinceOrState);
         profile.Country = GetString(dir, IptcDirectory.TagCountryOrPrimaryLocationName);
-
-        var categories = new List<string>();
-        var cat = GetString(dir, IptcDirectory.TagCategory);
-        if (!string.IsNullOrWhiteSpace(cat)) categories.Add(cat.Trim());
-
-        var suppCats = GetString(dir, IptcDirectory.TagSupplementalCategories);
-        if (!string.IsNullOrWhiteSpace(suppCats))
-        {
-            foreach (var sc in suppCats.Split(',', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var trimmed = sc.Trim();
-                if (trimmed.Length > 0) categories.Add(trimmed);
-            }
-        }
-
-        profile.Category = categories.Count > 0 ? string.Join(";", categories) : null;
     }
 
     private static void ExtractIptcText(IptcDirectory dir, ExtractedTextMetadata result)
@@ -132,6 +116,21 @@ public class MetadataExtractorService
                     result.Keywords.Add(kw.Trim());
             }
         }
+
+        var cat = GetString(dir, IptcDirectory.TagCategory);
+        if (!string.IsNullOrWhiteSpace(cat) && !result.Categories.Contains(cat.Trim()))
+            result.Categories.Add(cat.Trim());
+
+        var suppCats = GetString(dir, IptcDirectory.TagSupplementalCategories);
+        if (!string.IsNullOrWhiteSpace(suppCats))
+        {
+            foreach (var sc in suppCats.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = sc.Trim();
+                if (trimmed.Length > 0 && !result.Categories.Contains(trimmed))
+                    result.Categories.Add(trimmed);
+            }
+        }
     }
 
     private static void MapXmp(XmpDirectory dir, MetadataProfile profile)
@@ -139,31 +138,14 @@ public class MetadataExtractorService
         if (dir.XmpMeta == null) return;
         var props = dir.GetXmpProperties();
 
-        var xmpCats = new List<string>();
+        // Extract descriptive XMP fields that belong on the profile
+        var creatorKey = props.Keys.FirstOrDefault(k =>
+            k.Equals("dc:creator", StringComparison.OrdinalIgnoreCase));
+        if (creatorKey != null) profile.Creator = props[creatorKey];
 
-        var hierKeys = props.Keys.Where(k =>
-            k.StartsWith("Hierarchical Subject", StringComparison.OrdinalIgnoreCase) ||
-            k.EndsWith(":HierarchicalSubject", StringComparison.OrdinalIgnoreCase));
-        foreach (var key in hierKeys)
-        {
-            var val = props[key];
-            if (!string.IsNullOrWhiteSpace(val))
-            {
-                foreach (var part in val.Split('|', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var trimmed = part.Trim();
-                    if (trimmed.Length > 0) xmpCats.Add(trimmed);
-                }
-            }
-        }
-
-        if (xmpCats.Count > 0)
-        {
-            var existing = profile.Category;
-            profile.Category = existing != null
-                ? $"{existing};{string.Join(";", xmpCats)}"
-                : string.Join(";", xmpCats);
-        }
+        var rightsKey = props.Keys.FirstOrDefault(k =>
+            k.Equals("dc:rights", StringComparison.OrdinalIgnoreCase));
+        if (rightsKey != null) profile.Copyright = props[rightsKey];
     }
 
     private static void ExtractXmpText(XmpDirectory dir, ExtractedTextMetadata result)
@@ -196,6 +178,17 @@ public class MetadataExtractorService
         var subjectKeys = props.Keys.Where(k =>
             k.StartsWith("dc:subject", StringComparison.OrdinalIgnoreCase));
         foreach (var key in subjectKeys)
+        {
+            var val = props[key];
+            if (!string.IsNullOrWhiteSpace(val) && !result.Keywords.Contains(val.Trim()))
+                result.Keywords.Add(val.Trim());
+        }
+
+        // Hierarchical keywords: lr:HierarchicalSubject or Hierarchical Subject
+        var hierKeys = props.Keys.Where(k =>
+            k.StartsWith("Hierarchical Subject", StringComparison.OrdinalIgnoreCase) ||
+            k.EndsWith(":HierarchicalSubject", StringComparison.OrdinalIgnoreCase));
+        foreach (var key in hierKeys)
         {
             var val = props[key];
             if (!string.IsNullOrWhiteSpace(val) && !result.Keywords.Contains(val.Trim()))

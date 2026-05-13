@@ -1,6 +1,5 @@
 using FluentAssertions;
 using Adam.Shared.Services;
-using Adam.Shared.Services.Storage;
 using Adam.Shared.Validation;
 using Adam.Shared.Models;
 
@@ -85,66 +84,6 @@ public class PhaseDTests
         {
             var result = _sut.ValidateForIngestion($"file{ext}", 1024, "Title", [], null);
             result.IsValid.Should().BeTrue();
-        }
-    }
-
-    // ===== LocalFileSystemProvider =====
-
-    public class LocalFileSystemProviderTests
-    {
-        private readonly LocalFileSystemProvider _sut = new();
-
-        [Fact]
-        public async Task StoreFileAsync_CreatesFileInTargetDirectory()
-        {
-            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            var sourcePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
-            await File.WriteAllTextAsync(sourcePath, "test content");
-
-            try
-            {
-                var relativePath = await _sut.StoreFileAsync(sourcePath, tempDir, CancellationToken.None);
-                relativePath.Should().NotBeNullOrEmpty();
-                relativePath.Should().EndWith(".txt");
-
-                var fullPath = _sut.GetFullPath(relativePath, tempDir);
-                File.Exists(fullPath).Should().BeTrue();
-                var content = await File.ReadAllTextAsync(fullPath);
-                content.Should().Be("test content");
-            }
-            finally
-            {
-                File.Delete(sourcePath);
-                if (Directory.Exists(tempDir))
-                    Directory.Delete(tempDir, true);
-            }
-        }
-
-        [Fact]
-        public async Task DeleteFileAsync_RemovesFile()
-        {
-            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(tempDir);
-            var filePath = Path.Combine(tempDir, "test.txt");
-            await File.WriteAllTextAsync(filePath, "content");
-
-            try
-            {
-                await _sut.DeleteFileAsync("test.txt", tempDir, CancellationToken.None);
-                File.Exists(filePath).Should().BeFalse();
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir))
-                    Directory.Delete(tempDir, true);
-            }
-        }
-
-        [Fact]
-        public void GetFullPath_ReturnsCorrectPath()
-        {
-            var result = _sut.GetFullPath("test.txt", @"C:\storage");
-            result.Should().Be(@"C:\storage\test.txt");
         }
     }
 

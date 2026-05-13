@@ -25,9 +25,9 @@
 
 ## File Storage Strategy
 
-- **Decision**: Local filesystem with path configuration; metadata-only in database
-- **Rationale**: Decouples storage from database, keeps DB lean, allows future migration to cloud storage (S3/Azure Blob) by implementing the same abstraction interface.
-- **Alternatives considered**: Database BLOB storage (degrades query performance, backup bloat), cloud-only (adds deployment dependency).
+- **Decision**: In-place indexing with metadata-only database; no file copying
+- **Rationale**: The catalog stores paths, checksums, and extracted metadata. Source files remain in their original locations. This avoids duplicating potentially terabytes of user data, preserves existing folder organization, and supports distributed environments where the broker service and clients access files via network shares or同步ed volumes. Thumbnails are the only generated artifacts stored separately (in a configurable cache directory).
+- **Alternatives considered**: Managed storage with file copying (fills disk, breaks external workflows), database BLOB storage (degrades query performance, backup bloat), cloud-only (adds deployment dependency).
 
 ## Native Service Hosting
 

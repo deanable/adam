@@ -30,8 +30,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private bool _isLoadingMore;
     private string? _activeCategory;
     private string? _activeFolderPath;
-    private string? _activeKeyword;
-    private string? _activeMetadataCategory;
+    private List<Guid> _activeKeywordIds = [];
+    private List<Guid> _activeCategoryIds = [];
 
     public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger)
     {
@@ -229,10 +229,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 query = query.Where(a => a.Type == type.Value);
         }
 
-        if (!string.IsNullOrEmpty(_activeMetadataCategory) && _activeMetadataCategory != "All")
+        if (_activeCategoryIds.Count > 0)
         {
-            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.Category != null
-                && a.MetadataProfile.Category.Contains(_activeMetadataCategory));
+            query = query.Where(a => a.Categories.Any(c => _activeCategoryIds.Contains(c.Id)));
         }
 
         if (!string.IsNullOrEmpty(_activeFolderPath))
@@ -241,21 +240,20 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             query = query.Where(a => a.StoragePath.StartsWith(prefix));
         }
 
-        if (!string.IsNullOrEmpty(_activeKeyword))
+        if (_activeKeywordIds.Count > 0)
         {
-            var kw = _activeKeyword;
-            query = query.Where(a => a.Keywords.Any(k => k.Name == kw || k.Name.StartsWith(kw + "|")));
+            query = query.Where(a => a.Keywords.Any(k => _activeKeywordIds.Contains(k.Id)));
         }
 
         return query;
     }
 
-    public void ApplyFilter(string? mediaFormat, string? folderPath, string? keyword = null, string? metadataCategory = null)
+    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null)
     {
         _activeCategory = mediaFormat;
         _activeFolderPath = folderPath;
-        _activeKeyword = keyword;
-        _activeMetadataCategory = metadataCategory;
+        _activeKeywordIds = keywordIds ?? [];
+        _activeCategoryIds = categoryIds ?? [];
         _ = LoadAssetsAsync();
     }
 
@@ -328,5 +326,4 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         return result;
     }
 }
-
 

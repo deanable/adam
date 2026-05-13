@@ -75,9 +75,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             var mediaFormat = sidebar.SelectedMediaFormat?.Name ?? "All";
             var folderPath = sidebar.SelectedFolder?.Path;
-            var keyword = sidebar.SelectedKeyword?.Path;
-            var category = sidebar.SelectedMetadataCategory?.Name;
-            assetGallery.ApplyFilter(mediaFormat, folderPath, keyword, category);
+            var keywordIds = GetDescendantKeywordIds(sidebar.SelectedKeyword);
+            var categoryIds = GetDescendantCategoryIds(sidebar.SelectedMetadataCategory);
+            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds);
         };
 
         ingestion.IngestionCompleted += async () =>
@@ -104,6 +104,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogError(ex, "Failed to load sidebar and gallery on startup");
             }
         });
+    }
+
+    private static List<Guid> GetDescendantKeywordIds(KeywordNode? node)
+    {
+        if (node == null || node.KeywordId == Guid.Empty) return [];
+        var result = new List<Guid> { node.KeywordId };
+        foreach (var child in node.Children)
+            result.AddRange(GetDescendantKeywordIds(child));
+        return result;
+    }
+
+    private static List<Guid> GetDescendantCategoryIds(CategoryNode? node)
+    {
+        if (node == null || node.CategoryId == Guid.Empty) return [];
+        var result = new List<Guid> { node.CategoryId };
+        foreach (var child in node.Children)
+            result.AddRange(GetDescendantCategoryIds(child));
+        return result;
     }
 
     public ModeManager ModeManager { get; }
