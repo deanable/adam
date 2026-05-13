@@ -26,6 +26,28 @@
         </StackPanel>
       </Border>
 
+      <!-- Ingested folders browser -->
+      <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#FAFAFA" Padding="8">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Ingested Folders" FontSize="14" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshFolderBrowserCommand}"
+                    FontSize="11" Padding="8,2" />
+          </Grid>
+          <TreeView ItemsSource="{Binding IngestedFolders}" Background="Transparent" BorderThickness="0"
+                    MaxHeight="220">
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate ItemsSource="{Binding Children}">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Text="📁" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+                </Grid>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </StackPanel>
+      </Border>
+
       <!-- Pending files list -->
       <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#FAFAFA"
               IsVisible="{Binding HasPendingFiles}" MinHeight="60" MaxHeight="200">

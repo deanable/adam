@@ -9,6 +9,7 @@ public class DigitalAsset
     public long FileSize { get; set; }
     public string ChecksumSha256 { get; set; } = string.Empty;
     public string StoragePath { get; set; } = string.Empty;
+    public string OriginalPath { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string[] Tags { get; set; } = [];
@@ -25,4 +26,5 @@ public class DigitalAsset
 
     public Collection? Collection { get; set; }
     public MetadataProfile? MetadataProfile { get; set; }
+    public ICollection<Keyword> Keywords { get; set; } = [];
 }

@@ -79,7 +79,6 @@ public class FileIndexer
     public async Task<DigitalAsset> IndexFileAsync(string filePath, string rootPath, CancellationToken ct = default)
     {
         var fileInfo = new FileInfo(filePath);
-        var relativePath = Path.GetRelativePath(rootPath, filePath);
         var ext = Path.GetExtension(filePath);
         var assetType = GetAssetType(filePath);
 
@@ -94,7 +93,8 @@ public class FileIndexer
             FileExtension = ext,
             MimeType = GetMimeType(filePath),
             FileSize = fileInfo.Length,
-            StoragePath = relativePath,
+            StoragePath = filePath.Replace('\\', '/'),
+            OriginalPath = filePath.Replace('\\', '/'),
             Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
                 ? textMetadata.Title!
                 : Path.GetFileNameWithoutExtension(filePath),

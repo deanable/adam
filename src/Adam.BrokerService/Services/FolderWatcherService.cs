@@ -129,6 +129,10 @@ public class FolderWatcherService : IDisposable
                 var asset = await _fileIndexer.IndexFileAsync(path, Path.GetDirectoryName(path) ?? "", CancellationToken.None);
 
                 db.DigitalAssets.Add(asset);
+                if (asset.Tags.Length > 0)
+                {
+                    await db.AssociateKeywordsAsync(asset, asset.Tags);
+                }
                 await db.SaveChangesAsync();
 
                 _logger.LogInformation("Auto-indexed: {Path}", path);

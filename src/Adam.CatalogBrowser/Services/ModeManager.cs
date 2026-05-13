@@ -35,8 +35,12 @@ public sealed class ModeManager
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
 
+        System.Diagnostics.Debug.WriteLine($"[adam] ModeManager DbPath: {DbPath}");
+        System.Diagnostics.Debug.WriteLine($"[adam] ModeManager basePath: {_basePath}");
+
         using var db = CreateDbContext();
         db.Database.EnsureCreated();
+        ApplyMigrations(db);
     }
 
     public void InitializeMultiUser(string host, int port, string dbProvider = "sqlite")
@@ -49,6 +53,7 @@ public sealed class ModeManager
 
         using var db = CreateDbContext();
         db.Database.EnsureCreated();
+        ApplyMigrations(db);
     }
 
     public AppDbContext CreateDbContext()
@@ -57,5 +62,20 @@ public sealed class ModeManager
             .UseSqlite($"Data Source={DbPath}")
             .Options;
         return new AppDbContext(options);
+    }
+
+    private static void ApplyMigrations(AppDbContext db)
+    {
+        try
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE DigitalAssets ADD COLUMN OriginalPath TEXT DEFAULT ''");
+        }
+        catch { }
+
+        try
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT");
+        }
+        catch { }
     }
 }

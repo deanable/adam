@@ -26,12 +26,38 @@ public sealed class MigrationRunner
         try
         {
             await db.Database.EnsureCreatedAsync(ct);
+            await MigrateSchemaAsync(db, _logger, ct);
             _logger.LogInformation("Database ready.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Database migration failed");
             throw;
+        }
+    }
+
+    private static async Task MigrateSchemaAsync(AppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE DigitalAssets ADD COLUMN OriginalPath TEXT DEFAULT ''", ct);
+            logger.LogInformation("Applied migration: OriginalPath column on DigitalAssets");
+        }
+        catch
+        {
+            // column already exists (ok for fresh databases from EnsureCreated)
+        }
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT", ct);
+            logger.LogInformation("Applied migration: Category column on MetadataProfiles");
+        }
+        catch
+        {
+            // column already exists
         }
     }
 }

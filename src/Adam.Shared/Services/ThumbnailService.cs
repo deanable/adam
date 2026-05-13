@@ -37,11 +37,13 @@ public class ThumbnailService
 
     public string GetThumbnailPath(string sourcePath, string thumbnailDirectory)
     {
+        var normalized = sourcePath.Replace('\\', '/');
         var hash = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(sourcePath))
+                System.Text.Encoding.UTF8.GetBytes(normalized))
         )[..16];
-
-        return Path.Combine(thumbnailDirectory, $"{hash}.jpg");
+        var result = Path.Combine(thumbnailDirectory, $"{hash}.jpg");
+        System.Diagnostics.Debug.WriteLine($"[adam] GetThumbnailPath: source={sourcePath} -> normalized={normalized} -> hash={hash} -> result={result}");
+        return result;
     }
 }

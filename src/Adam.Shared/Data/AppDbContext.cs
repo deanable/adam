@@ -48,6 +48,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.FileSize).IsRequired();
             e.Property(x => x.ChecksumSha256).IsRequired().HasMaxLength(64);
             e.Property(x => x.StoragePath).IsRequired();
+            e.Property(x => x.OriginalPath).IsRequired().HasMaxLength(2000);
             e.Property(x => x.Title).IsRequired().HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(2000);
             e.Property(x => x.Tags).HasConversion(
@@ -100,7 +101,7 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.HasOne(x => x.Parent).WithMany(k => k.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
-            e.HasMany(x => x.Assets).WithMany();
+            e.HasMany(x => x.Assets).WithMany(a => a.Keywords);
         });
 
         modelBuilder.Entity<User>(e =>
@@ -142,6 +143,28 @@ public class AppDbContext : DbContext
         });
 
         SeedData(modelBuilder);
+    }
+
+    public async Task AssociateKeywordsAsync(DigitalAsset asset, IEnumerable<string> keywordNames, CancellationToken ct = default)
+    {
+        if (keywordNames == null) return;
+
+        var names = keywordNames.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).Distinct().ToList();
+        if (names.Count == 0) return;
+
+        var existing = await Keywords.Where(k => names.Contains(k.Name)).ToListAsync(ct);
+
+        foreach (var name in names)
+        {
+            var kw = existing.FirstOrDefault(k => k.Name == name);
+            if (kw == null)
+            {
+                kw = new Keyword { Id = Guid.NewGuid(), Name = name };
+                Keywords.Add(kw);
+                existing.Add(kw);
+            }
+            asset.Keywords.Add(kw);
+        }
     }
 
     private static void SeedData(ModelBuilder modelBuilder)

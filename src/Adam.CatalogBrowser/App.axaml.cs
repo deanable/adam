@@ -22,7 +22,8 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var services = new ServiceCollection();
-            var basePath = Path.GetDirectoryName(Environment.ProcessPath)!;
+            var basePath = AppContext.BaseDirectory;
+            System.Diagnostics.Debug.WriteLine($"[adam] App basePath: {basePath}");
             var logPath = Path.Combine(basePath, "adam-catalog.log");
             services.AddLogging(builder => builder.AddFile(logPath).SetMinimumLevel(LogLevel.Information));
 

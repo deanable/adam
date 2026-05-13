@@ -60,10 +60,10 @@
     </Border>
 
     <!-- 3-column layout -->
-    <Grid Grid.Row="1" ColumnDefinitions="240,*,240" Background="White">
+    <Grid Grid.Row="1" ColumnDefinitions="1.5*,Auto,3*,Auto,1.5*" Background="White">
 
       <!-- Left sidebar -->
-      <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+      <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0" MinWidth="180">
         <ScrollViewer>
           <StackPanel Spacing="0">
 
@@ -85,7 +85,8 @@
 
             <!-- Folders -->
             <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <TreeView ItemsSource="{Binding Sidebar.Folders}" Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+              <TreeView ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
+                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
@@ -99,7 +100,8 @@
 
             <!-- Collections -->
             <Expander Header="Collections" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <TreeView ItemsSource="{Binding Sidebar.Collections}" Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+              <TreeView ItemsSource="{Binding Sidebar.Collections}" SelectedItem="{Binding Sidebar.SelectedCollection}"
+                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
@@ -112,50 +114,68 @@
             </Expander>
 
             <!-- Keywords -->
-            <Expander Header="Keywords" IsExpanded="False" Padding="8,4" Background="Transparent">
-              <WrapPanel Margin="0,4,0,0">
-                <ItemsControl ItemsSource="{Binding Sidebar.Keywords}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border Background="#E0E0E0" CornerRadius="3" Padding="6,2" Margin="2">
-                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </WrapPanel>
+            <Expander Header="Keywords" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <TreeView ItemsSource="{Binding Sidebar.Keywords}" SelectedItem="{Binding Sidebar.SelectedKeyword}"
+                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
             </Expander>
 
-            <!-- Categories -->
-            <Expander Header="Categories" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <ItemsControl ItemsSource="{Binding Sidebar.Categories}" Margin="0,4,0,0">
-                <ItemsControl.ItemTemplate>
+            <!-- Media Format -->
+            <Expander Header="Media Format" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.MediaFormats}" SelectedItem="{Binding Sidebar.SelectedMediaFormat}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
                   <DataTemplate>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                       <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
                       <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10" Foreground="#888" />
                     </Grid>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Expander>
+
+            <!-- Categories -->
+            <Expander Header="Categories" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.MetadataCategories}" SelectedItem="{Binding Sidebar.SelectedMetadataCategory}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10" Foreground="#888" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
             </Expander>
 
           </StackPanel>
         </ScrollViewer>
       </Border>
 
+      <!-- Left splitter -->
+      <GridSplitter Grid.Column="1" Width="4" Background="#D0D0D0"
+                    ResizeDirection="Columns" HorizontalAlignment="Stretch"
+                    Cursor="SizeWestEast" />
+
       <!-- Center content -->
-      <Border Grid.Column="1" Background="White" Padding="0">
+      <Border Grid.Column="2" Background="White" Padding="0">
         <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
       </Border>
 
+      <!-- Right splitter -->
+      <GridSplitter Grid.Column="3" Width="4" Background="#D0D0D0"
+                    ResizeDirection="Columns" HorizontalAlignment="Stretch"
+                    Cursor="SizeWestEast" />
+
       <!-- Right panel -->
-      <Border Grid.Column="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0">
+      <Border Grid.Column="4" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0" MinWidth="180">
         <ScrollViewer>
           <StackPanel Spacing="0">
 

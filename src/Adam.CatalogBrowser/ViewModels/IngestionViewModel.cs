@@ -5,7 +5,6 @@ using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
-using Adam.Shared.Services.Storage;
 using Adam.Shared.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -20,12 +19,13 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
     private readonly MetadataExtractorService _metadataExtractor = new();
-    private readonly LocalFileSystemProvider _storageProvider = new();
     private readonly ILogger<IngestionViewModel> _logger;
     private int _progressValue;
     private string _progressText = string.Empty;
     private bool _isIngesting;
     private string _ingestionStatus = string.Empty;
+
+    public event Action? IngestionCompleted;
 
     public IngestionViewModel(ModeManager modeManager, DuplicateDetector duplicateDetector, ILogger<IngestionViewModel> logger)
     {
@@ -34,11 +34,14 @@ public class IngestionViewModel : INotifyPropertyChanged
         _logger = logger;
         StartIngestionCommand = new RelayCommand(async _ => await StartIngestionAsync(), _ => !IsIngesting && PendingFiles.Count > 0);
         ClearCommand = new RelayCommand(_ => ClearFiles());
+        RefreshFolderBrowserCommand = new RelayCommand(async _ => await LoadIngestedFoldersAsync());
     }
 
     public ObservableCollection<string> PendingFiles { get; } = [];
+    public ObservableCollection<FolderNode> IngestedFolders { get; } = [];
 
     public bool HasPendingFiles => PendingFiles.Count > 0;
+    public bool HasIngestedFolders => IngestedFolders.Count > 0;
 
     public int ProgressValue
     {
@@ -66,6 +69,7 @@ public class IngestionViewModel : INotifyPropertyChanged
 
     public RelayCommand StartIngestionCommand { get; }
     public ICommand ClearCommand { get; }
+    public ICommand RefreshFolderBrowserCommand { get; }
 
     public void AddFiles(IEnumerable<string> paths)
     {
@@ -85,6 +89,51 @@ public class IngestionViewModel : INotifyPropertyChanged
         IngestionStatus = string.Empty;
         OnPropertyChanged(nameof(HasPendingFiles));
         StartIngestionCommand.RaiseCanExecuteChanged();
+    }
+
+    public async Task LoadIngestedFoldersAsync()
+    {
+        IngestedFolders.Clear();
+
+        if (_modeManager.IsStandalone)
+        {
+            await using var db = _modeManager.CreateDbContext();
+            var storagePaths = await db.DigitalAssets
+                .Select(a => a.StoragePath)
+                .Where(p => p != null && p.Length > 0)
+                .Distinct()
+                .ToListAsync();
+
+            var dirs = storagePaths
+                .Select(p => Path.GetDirectoryName(p.Replace('\\', '/')) ?? "")
+                .Where(d => d.Length > 0)
+                .Distinct()
+                .ToHashSet();
+
+            var root = new FolderNode { Name = "All Ingested", Path = "", IsExpanded = true };
+            foreach (var dir in dirs.OrderBy(p => p))
+            {
+                var parts = dir.Split('/');
+                var current = root;
+                var cumulative = "";
+                foreach (var part in parts)
+                {
+                    if (part.Length == 0) continue;
+                    cumulative = cumulative.Length == 0 ? part : $"{cumulative}/{part}";
+                    var existing = current.Children.FirstOrDefault(c => c.Name == part);
+                    if (existing == null)
+                    {
+                        existing = new FolderNode { Name = part, Path = cumulative };
+                        current.Children.Add(existing);
+                    }
+                    current = existing;
+                }
+            }
+
+            IngestedFolders.Add(root);
+        }
+
+        OnPropertyChanged(nameof(HasIngestedFolders));
     }
 
     public async Task StartIngestionAsync()
@@ -128,9 +177,6 @@ public class IngestionViewModel : INotifyPropertyChanged
 
                 ProgressText = $"Ingesting: {fileInfo.Name}";
 
-                var storageDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "storage");
-                var storedPath = await _storageProvider.StoreFileAsync(filePath, storageDir, default);
-
                 var assetType = GetAssetType(fileInfo.Extension);
                 var textMetadata = assetType == AssetType.Image
                     ? _metadataExtractor.ExtractTextMetadata(filePath)
@@ -144,7 +190,8 @@ public class IngestionViewModel : INotifyPropertyChanged
                     MimeType = GetMimeType(fileInfo.Extension),
                     FileSize = fileInfo.Length,
                     ChecksumSha256 = await _checksumService.ComputeSha256Async(filePath),
-                    StoragePath = storedPath,
+                    StoragePath = filePath.Replace('\\', '/'),
+                    OriginalPath = filePath.Replace('\\', '/'),
                     Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
                         ? textMetadata.Title!
                         : Path.GetFileNameWithoutExtension(filePath),
@@ -155,11 +202,11 @@ public class IngestionViewModel : INotifyPropertyChanged
                     ModifiedAt = DateTimeOffset.UtcNow
                 };
 
-                var thumbnailDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
-                var fullStoredPath = Path.Combine(storageDir, storedPath);
+                var thumbDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
                 try
                 {
-                    await _thumbnailService.GenerateThumbnailAsync(fullStoredPath, thumbnailDir);
+                    var thumbPath = await _thumbnailService.GenerateThumbnailAsync(filePath, thumbDir);
+                    _logger.LogInformation("Thumbnail generated: {SourcePath} -> {ThumbPath}", filePath, thumbPath);
                 }
                 catch (Exception ex)
                 {
@@ -170,7 +217,7 @@ public class IngestionViewModel : INotifyPropertyChanged
                 {
                     try
                     {
-                        var metadata = _metadataExtractor.Extract(fullStoredPath);
+                        var metadata = _metadataExtractor.Extract(filePath);
                         metadata.DigitalAssetId = asset.Id;
                         if (textMetadata?.Rating.HasValue == true)
                             metadata.Rating = textMetadata.Rating.Value;
@@ -180,6 +227,12 @@ public class IngestionViewModel : INotifyPropertyChanged
                     {
                         _logger.LogWarning(ex, "Metadata extraction failed for {FilePath}", filePath);
                     }
+                }
+
+                if (textMetadata?.Keywords.Count > 0)
+                {
+                    var deduped = DeduplicateKeywords(textMetadata.Keywords);
+                    await db.AssociateKeywordsAsync(asset, deduped);
                 }
 
                 db.DigitalAssets.Add(asset);
@@ -202,6 +255,25 @@ public class IngestionViewModel : INotifyPropertyChanged
         _logger.LogInformation("Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingested, skipped, errors);
         IngestionStatus = $"Ingested: {ingested}, Skipped: {skipped}, Errors: {errors}";
         ProgressText = IngestionStatus;
+        IngestionCompleted?.Invoke();
+    }
+
+    private static List<string> DeduplicateKeywords(List<string> keywords)
+    {
+        var sorted = keywords
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Select(k => k.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(k => k.Length)
+            .ToList();
+
+        var result = new List<string>();
+        foreach (var kw in sorted)
+        {
+            if (!result.Any(r => r.StartsWith(kw, StringComparison.OrdinalIgnoreCase)))
+                result.Add(kw);
+        }
+        return result;
     }
 
     private static string GetMimeType(string ext) => ext.ToLowerInvariant() switch

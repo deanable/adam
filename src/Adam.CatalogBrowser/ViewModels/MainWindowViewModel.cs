@@ -55,7 +55,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
         });
         ShowAdminCommand = new RelayCommand(_ => CurrentView = adminPanel);
-        ShowIngestionCommand = new RelayCommand(_ => CurrentView = ingestion);
+        ShowIngestionCommand = new RelayCommand(async _ =>
+        {
+            CurrentView = ingestion;
+            await ingestion.LoadIngestedFoldersAsync();
+        });
         ShowMetadataEditorCommand = new RelayCommand(async _ =>
         {
             if (_selectedAsset != null)
@@ -69,9 +73,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         sidebar.FilterChanged += () =>
         {
-            var category = sidebar.SelectedCategory;
+            var mediaFormat = sidebar.SelectedMediaFormat?.Name ?? "All";
             var folderPath = sidebar.SelectedFolder?.Path;
-            assetGallery.ApplyFilter(category, folderPath);
+            var keyword = sidebar.SelectedKeyword?.Path;
+            var category = sidebar.SelectedMetadataCategory?.Name;
+            assetGallery.ApplyFilter(mediaFormat, folderPath, keyword, category);
+        };
+
+        ingestion.IngestionCompleted += async () =>
+        {
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
         };
 
         assetGallery.SelectionChanged += async asset =>
@@ -80,8 +92,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await LoadSelectedAssetMetadataAsync();
         };
 
-        _ = Sidebar.LoadAsync();
-        _ = AssetGallery.LoadAssetsAsync();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load sidebar and gallery on startup");
+            }
+        });
     }
 
     public ModeManager ModeManager { get; }

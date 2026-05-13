@@ -9,6 +9,7 @@ using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -16,6 +17,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
     private readonly ThumbnailService _thumbnailService = new();
+    private readonly ILogger<AssetGalleryViewModel> _logger;
     private int _thumbnailSize = 150;
     private string _sortBy = "FileName";
     private string _statusText = string.Empty;
@@ -28,10 +30,13 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private bool _isLoadingMore;
     private string? _activeCategory;
     private string? _activeFolderPath;
+    private string? _activeKeyword;
+    private string? _activeMetadataCategory;
 
-    public AssetGalleryViewModel(ModeManager modeManager)
+    public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger)
     {
         _modeManager = modeManager;
+        _logger = logger;
     }
 
     public ObservableCollection<AssetListItem> Assets { get; } = [];
@@ -125,10 +130,11 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             {
                 await using var db = _modeManager.CreateDbContext();
 
-                if (_page == 0)
-                    _totalCount = await db.DigitalAssets.CountAsync(ct);
-
                 var query = ApplyFilters(db.DigitalAssets.AsQueryable());
+
+                if (_page == 0)
+                    _totalCount = await query.CountAsync(ct);
+
                 var assets = await query
                     .OrderBy(a => a.FileName)
                     .Skip(_page * _pageSize)
@@ -136,13 +142,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                     .ToListAsync(ct);
 
                 var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
-                var storageDir = Path.Combine(dbDir, "storage");
                 var thumbnailDir = Path.Combine(dbDir, "thumbnails");
+                _logger.LogInformation("Gallery loading: thumbnailDir={ThumbDir}, assetCount={Count}", thumbnailDir, assets.Count);
 
                 foreach (var asset in assets)
                 {
-                    var fullStoredPath = Path.Combine(storageDir, asset.StoragePath);
-                    var thumbnailPath = _thumbnailService.GetThumbnailPath(fullStoredPath, thumbnailDir);
+                    var thumbnailPath = _thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
+                    _logger.LogDebug("Asset thumbnail: storage={StoragePath}, thumb={ThumbPath}, exists={Exists}",
+                        asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
 
                     Assets.Add(new AssetListItem
                     {
@@ -222,19 +229,33 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 query = query.Where(a => a.Type == type.Value);
         }
 
+        if (!string.IsNullOrEmpty(_activeMetadataCategory) && _activeMetadataCategory != "All")
+        {
+            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.Category != null
+                && a.MetadataProfile.Category.Contains(_activeMetadataCategory));
+        }
+
         if (!string.IsNullOrEmpty(_activeFolderPath))
         {
             var prefix = _activeFolderPath.Replace('\\', '/');
             query = query.Where(a => a.StoragePath.StartsWith(prefix));
         }
 
+        if (!string.IsNullOrEmpty(_activeKeyword))
+        {
+            var kw = _activeKeyword;
+            query = query.Where(a => a.Keywords.Any(k => k.Name == kw || k.Name.StartsWith(kw + "|")));
+        }
+
         return query;
     }
 
-    public void ApplyFilter(string? category, string? folderPath)
+    public void ApplyFilter(string? mediaFormat, string? folderPath, string? keyword = null, string? metadataCategory = null)
     {
-        _activeCategory = category;
+        _activeCategory = mediaFormat;
         _activeFolderPath = folderPath;
+        _activeKeyword = keyword;
+        _activeMetadataCategory = metadataCategory;
         _ = LoadAssetsAsync();
     }
 
