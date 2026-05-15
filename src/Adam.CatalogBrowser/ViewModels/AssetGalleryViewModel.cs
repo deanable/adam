@@ -19,7 +19,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ILogger<AssetGalleryViewModel> _logger;
     private int _thumbnailSize = 150;
-    private string _sortBy = "FileName";
+    private string _viewMode = "Grid";
+    private string _sortBy = "File Name";
     private string _statusText = string.Empty;
     private AssetListItem? _selectedAsset;
     private bool _hasAssets;
@@ -41,6 +42,26 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
 
     public ObservableCollection<AssetListItem> Assets { get; } = [];
     public ObservableCollection<CollectionNode> Collections { get; } = [];
+    public ObservableCollection<string> ViewOptions { get; } = new() { "Grid", "List" };
+    public ObservableCollection<string> SortOptions { get; } = new() { "File Name", "Date Added", "File Type", "File Size" };
+
+    public string ViewMode
+    {
+        get => _viewMode;
+        set
+        {
+            if (_viewMode != value)
+            {
+                _viewMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsGridView));
+                OnPropertyChanged(nameof(IsListView));
+            }
+        }
+    }
+
+    public bool IsGridView => _viewMode == "Grid";
+    public bool IsListView => _viewMode == "List";
 
     public int ThumbnailSize
     {
@@ -53,7 +74,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     public string SortBy
     {
         get => _sortBy;
-        set { _sortBy = value; OnPropertyChanged(); }
+        set
+        {
+            if (_sortBy != value)
+            {
+                _sortBy = value;
+                OnPropertyChanged();
+                _ = LoadAssetsAsync();
+            }
+        }
     }
 
     public string StatusText
@@ -135,8 +164,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 if (_page == 0)
                     _totalCount = await query.CountAsync(ct);
 
+                query = _sortBy switch
+                {
+                    "Date Added" => query.OrderByDescending(a => a.CreatedAt),
+                    "File Type" => query.OrderBy(a => a.MimeType),
+                    "File Size" => query.OrderBy(a => a.FileSize),
+                    _ => query.OrderBy(a => a.FileName)
+                };
+
                 var assets = await query
-                    .OrderBy(a => a.FileName)
                     .Skip(_page * _pageSize)
                     .Take(_pageSize)
                     .ToListAsync(ct);

@@ -70,6 +70,21 @@ public class AssetListItem : INotifyPropertyChanged
     public int? Height { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    public string? Dimensions => Width.HasValue && Height.HasValue ? $"{Width.Value}x{Height.Value}" : null;
+
+    public string FileSizeFormatted
+    {
+        get
+        {
+            if (FileSize < 1024) return $"{FileSize} B";
+            if (FileSize < 1024 * 1024) return $"{FileSize / 1024.0:F1} KB";
+            if (FileSize < 1024L * 1024 * 1024) return $"{FileSize / (1024.0 * 1024):F1} MB";
+            return $"{FileSize / (1024.0 * 1024 * 1024):F1} GB";
+        }
+    }
+
+    public string CreatedAtFormatted => CreatedAt.ToString("g");
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -16,6 +16,10 @@ public class SidebarViewModel : INotifyPropertyChanged
     private FolderNode? _selectedFolder;
     private CollectionNode? _selectedCollection;
     private KeywordNode? _selectedKeyword;
+    private ObservableCollection<FolderNode> _folders = [];
+    private ObservableCollection<CollectionNode> _collections = [];
+    private ObservableCollection<KeywordNode> _keywords = [];
+    private ObservableCollection<CategoryNode> _metadataCategories = [];
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
     public SidebarViewModel(ModeManager modeManager)
@@ -24,9 +28,24 @@ public class SidebarViewModel : INotifyPropertyChanged
         _selectedMediaFormat = MediaFormats[0];
     }
 
-    public ObservableCollection<FolderNode> Folders { get; } = [];
-    public ObservableCollection<CollectionNode> Collections { get; } = [];
-    public ObservableCollection<KeywordNode> Keywords { get; } = [];
+    public ObservableCollection<FolderNode> Folders
+    {
+        get => _folders;
+        private set { _folders = value; OnPropertyChanged(); }
+    }
+
+    public ObservableCollection<CollectionNode> Collections
+    {
+        get => _collections;
+        private set { _collections = value; OnPropertyChanged(); }
+    }
+
+    public ObservableCollection<KeywordNode> Keywords
+    {
+        get => _keywords;
+        private set { _keywords = value; OnPropertyChanged(); }
+    }
+
     public ObservableCollection<CategoryNode> MediaFormats { get; } =
     [
         new() { Name = "All", Count = 0 },
@@ -35,7 +54,12 @@ public class SidebarViewModel : INotifyPropertyChanged
         new() { Name = "Documents", Count = 0 },
         new() { Name = "Audio", Count = 0 },
     ];
-    public ObservableCollection<CategoryNode> MetadataCategories { get; } = [];
+
+    public ObservableCollection<CategoryNode> MetadataCategories
+    {
+        get => _metadataCategories;
+        private set { _metadataCategories = value; OnPropertyChanged(); }
+    }
 
     public CategoryNode SelectedMediaFormat
     {
@@ -122,9 +146,10 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
         }
 
-        Folders.Clear();
+        var newFolders = new ObservableCollection<FolderNode>();
         foreach (var root in roots)
-            Folders.Add(root);
+            newFolders.Add(root);
+        Folders = newFolders;
     }
 
     private static List<FolderNode> BuildFolderTrees(HashSet<string> dirs)
@@ -141,9 +166,9 @@ public class SidebarViewModel : INotifyPropertyChanged
         // If common prefix is empty or just a drive letter, show multiple roots
         if (string.IsNullOrEmpty(commonPrefix) || commonPrefix.Length <= 1)
         {
-            // Group by top-level directory
+            // Group by top-level directory (skip empty first segment from leading /)
             var byRoot = normalizedDirs
-                .GroupBy(d => d.Split('/')[0])
+                .GroupBy(d => d.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Folders")
                 .ToList();
 
             var roots = new List<FolderNode>();
@@ -257,9 +282,10 @@ public class SidebarViewModel : INotifyPropertyChanged
                 newCollections.Add(BuildTree(col, allCols));
         }
 
-        Collections.Clear();
+        var coll = new ObservableCollection<CollectionNode>();
         foreach (var col in newCollections)
-            Collections.Add(col);
+            coll.Add(col);
+        Collections = coll;
     }
 
     private static CollectionNode BuildTree(CollectionNode node, List<CollectionNode> all)
@@ -326,8 +352,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
         }
 
-        Keywords.Clear();
-        Keywords.Add(root);
+        Keywords = new ObservableCollection<KeywordNode> { root };
     }
 
     private static int PropagateKeywordCounts(KeywordNode node)
@@ -416,9 +441,10 @@ public class SidebarViewModel : INotifyPropertyChanged
             newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
         }
 
-        MetadataCategories.Clear();
+        var cats = new ObservableCollection<CategoryNode>();
         foreach (var cat in newCats)
-            MetadataCategories.Add(cat);
+            cats.Add(cat);
+        MetadataCategories = cats;
     }
 
     private static int PropagateCategoryCounts(CategoryNode node)

@@ -13,20 +13,16 @@
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
           <TextBlock Text="View:" VerticalAlignment="Center" FontSize="12" Foreground="#555" />
-          <ComboBox SelectedIndex="0" Width="100">
-            <ComboBoxItem>Grid</ComboBoxItem>
-            <ComboBoxItem>List</ComboBoxItem>
-          </ComboBox>
+          <ComboBox ItemsSource="{Binding ViewOptions}"
+                    SelectedItem="{Binding ViewMode}"
+                    Width="100" />
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
           <TextBlock Text="Sort:" VerticalAlignment="Center" FontSize="12" Foreground="#555" />
-          <ComboBox SelectedIndex="0" Width="130">
-            <ComboBoxItem>File Name</ComboBoxItem>
-            <ComboBoxItem>Date Added</ComboBoxItem>
-            <ComboBoxItem>File Type</ComboBoxItem>
-            <ComboBoxItem>File Size</ComboBoxItem>
-          </ComboBox>
+          <ComboBox ItemsSource="{Binding SortOptions}"
+                    SelectedItem="{Binding SortBy}"
+                    Width="130" />
           <Slider MinWidth="120" Minimum="80" Maximum="300"
                   Value="{Binding ThumbnailSize}" />
           <TextBlock Text="{Binding ThumbnailSizeText}"
@@ -49,10 +45,12 @@
     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
                   x:Name="GalleryScroller">
       <StackPanel>
+        <!-- Grid view -->
         <ListBox ItemsSource="{Binding Assets}"
                  SelectedItem="{Binding SelectedAsset}"
                  Background="Transparent"
-                 BorderThickness="0">
+                 BorderThickness="0"
+                 IsVisible="{Binding IsGridView}">
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel />
@@ -84,6 +82,64 @@
                              Margin="0,4,0,0"
                              HorizontalAlignment="Center" />
                 </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- List view -->
+        <ListBox ItemsSource="{Binding Assets}"
+                 SelectedItem="{Binding SelectedAsset}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 IsVisible="{Binding IsListView}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border Margin="2"
+                      Padding="8"
+                      BorderBrush="#E8E8E8"
+                      BorderThickness="0,0,0,1"
+                      Background="White">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                  <Image Source="{Binding Thumbnail}"
+                         Width="40"
+                         Height="40"
+                         Stretch="Uniform"
+                         Grid.Column="0"
+                         Margin="0,0,12,0" />
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileName}"
+                               FontSize="12"
+                               Foreground="#333"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding FileType}"
+                               FontSize="10"
+                               Foreground="#888" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2"
+                             Text="{Binding FileSizeFormatted}"
+                             FontSize="11"
+                             Foreground="#666"
+                             VerticalAlignment="Center"
+                             Margin="12,0" />
+                  <TextBlock Grid.Column="3"
+                             Text="{Binding Dimensions}"
+                             FontSize="11"
+                             Foreground="#666"
+                             VerticalAlignment="Center"
+                             Margin="12,0" />
+                  <TextBlock Grid.Column="4"
+                             Text="{Binding CreatedAtFormatted}"
+                             FontSize="11"
+                             Foreground="#666"
+                             VerticalAlignment="Center"
+                             Margin="12,0,0,0" />
+                </Grid>
               </Border>
             </DataTemplate>
           </ListBox.ItemTemplate>

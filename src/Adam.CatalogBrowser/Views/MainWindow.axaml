@@ -67,22 +67,6 @@
         <ScrollViewer>
           <StackPanel Spacing="0">
 
-            <!-- Navigator -->
-            <Expander Header="Navigator" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="4">
-                <Border Height="120" Background="#E8E8E8" CornerRadius="4"
-                        IsVisible="{Binding HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}">
-                  <TextBlock Text="No selection" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <Border Height="120" Background="#E8E8E8" CornerRadius="4"
-                        IsVisible="{Binding HasSelectedAsset}">
-                  <Image Source="{Binding SelectedAsset.Thumbnail}" Stretch="Uniform" />
-                </Border>
-                <TextBlock Text="{Binding SelectedAsset.Title}" FontSize="11" FontWeight="SemiBold" Foreground="#333"
-                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSelectedAsset}" />
-              </StackPanel>
-            </Expander>
-
             <!-- Folders -->
             <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
               <TreeView ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
@@ -182,47 +166,24 @@
         <ScrollViewer>
           <StackPanel Spacing="0">
 
-            <!-- Histogram -->
-            <Expander Header="Histogram" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <Border Height="80" Background="#E8E8E8" CornerRadius="4" Margin="0,4,0,0">
-                <TextBlock Text="No data" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Expander>
-
-            <!-- Quick Develop -->
-            <Expander Header="Quick Develop" IsExpanded="False" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="4">
-                <TextBlock Text="Exposure" FontSize="10" Foreground="#555" />
-                <Slider Minimum="-100" Maximum="100" Value="0" />
-                <TextBlock Text="Contrast" FontSize="10" Foreground="#555" />
-                <Slider Minimum="-100" Maximum="100" Value="0" />
-              </StackPanel>
-            </Expander>
-
             <!-- Metadata -->
             <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="2">
-                <TextBlock FontSize="10" Foreground="#666">
-                  <Run Text="File name: " /><Run Text="{Binding SelectedAssetFileName}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666">
-                  <Run Text="Type: " /><Run Text="{Binding SelectedAssetType}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666">
-                  <Run Text="Dimensions: " /><Run Text="{Binding SelectedAssetDimensions}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666">
-                  <Run Text="Size: " /><Run Text="{Binding SelectedAssetSize}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666">
-                  <Run Text="Date: " /><Run Text="{Binding SelectedAssetDate}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666" IsVisible="{Binding HasSelectedAsset}">
-                  <Run Text="Camera: " /><Run Text="{Binding SelectedAssetCameraMake}" FontWeight="Medium" />
-                </TextBlock>
-                <TextBlock FontSize="10" Foreground="#666" IsVisible="{Binding HasSelectedAsset}">
-                  <Run Text="Model: " /><Run Text="{Binding SelectedAssetCameraModel}" FontWeight="Medium" />
-                </TextBlock>
+              <StackPanel Margin="0,4,0,0">
+                <ItemsControl ItemsSource="{Binding SelectedAssetMetadata}"
+                              IsVisible="{Binding HasSelectedAsset}"
+                              Background="Transparent">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="Auto,*" Margin="0,1">
+                        <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="10" Foreground="#666" Margin="0,0,4,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="10" Foreground="#333" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="No selection" FontSize="11" Foreground="#999" Margin="0,4,0,0"
+                           IsVisible="{Binding HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                           HorizontalAlignment="Center" />
               </StackPanel>
             </Expander>
 

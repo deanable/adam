@@ -11,6 +11,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
+public class MetadataEntry
+{
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+}
+
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ILogger<MainWindowViewModel> _logger;
@@ -19,13 +25,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private string _statusText = "Ready";
     private bool _isBusy;
     private AssetListItem? _selectedAsset;
-    private string _selectedAssetFileName = "No selection";
-    private string _selectedAssetType = "—";
-    private string _selectedAssetDimensions = "—";
-    private string _selectedAssetSize = "—";
-    private string _selectedAssetDate = "—";
-    private string _selectedAssetCameraMake = "—";
-    private string _selectedAssetCameraModel = "—";
+    private ObservableCollection<MetadataEntry> _selectedAssetMetadata = [];
 
     public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
@@ -136,46 +136,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public AssetListItem? SelectedAsset => _selectedAsset;
 
-    public string SelectedAssetFileName
+    public ObservableCollection<MetadataEntry> SelectedAssetMetadata
     {
-        get => _selectedAssetFileName;
-        set { _selectedAssetFileName = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetType
-    {
-        get => _selectedAssetType;
-        set { _selectedAssetType = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetDimensions
-    {
-        get => _selectedAssetDimensions;
-        set { _selectedAssetDimensions = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetSize
-    {
-        get => _selectedAssetSize;
-        set { _selectedAssetSize = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetDate
-    {
-        get => _selectedAssetDate;
-        set { _selectedAssetDate = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetCameraMake
-    {
-        get => _selectedAssetCameraMake;
-        set { _selectedAssetCameraMake = value; OnPropertyChanged(); }
-    }
-
-    public string SelectedAssetCameraModel
-    {
-        get => _selectedAssetCameraModel;
-        set { _selectedAssetCameraModel = value; OnPropertyChanged(); }
+        get => _selectedAssetMetadata;
+        set { _selectedAssetMetadata = value; OnPropertyChanged(); }
     }
 
     public bool HasSelectedAsset => _selectedAsset != null;
@@ -212,41 +176,75 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         if (_selectedAsset == null)
         {
-            SelectedAssetFileName = "No selection";
-            SelectedAssetType = "—";
-            SelectedAssetDimensions = "—";
-            SelectedAssetSize = "—";
-            SelectedAssetDate = "—";
-            SelectedAssetCameraMake = "—";
-            SelectedAssetCameraModel = "—";
+            SelectedAssetMetadata = [];
             return;
         }
 
-        SelectedAssetFileName = _selectedAsset.FileName;
-        SelectedAssetType = _selectedAsset.FileType;
-        SelectedAssetDimensions = _selectedAsset.Width.HasValue && _selectedAsset.Height.HasValue
-            ? $"{_selectedAsset.Width} x {_selectedAsset.Height}"
-            : "—";
-        SelectedAssetSize = FormatFileSize(_selectedAsset.FileSize);
-        SelectedAssetDate = _selectedAsset.CreatedAt.ToLocalTime().ToString("g");
+        var entries = new List<MetadataEntry>();
 
+        // File info
+        entries.Add(new MetadataEntry { Label = "File name:", Value = _selectedAsset.FileName });
+        entries.Add(new MetadataEntry { Label = "Title:", Value = _selectedAsset.Title });
+
+        // Load full asset + profile from DB for remaining fields
         if (_modeManager.IsStandalone)
         {
             try
             {
                 await using var db = _modeManager.CreateDbContext();
-                var profile = await db.MetadataProfiles
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(m => m.DigitalAssetId == _selectedAsset.Id);
-                if (profile != null)
+                var asset = await db.DigitalAssets
+                    .Include(a => a.Keywords)
+                    .Include(a => a.Categories)
+                    .Include(a => a.MetadataProfile)
+                    .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id);
+
+                if (asset != null)
                 {
-                    SelectedAssetCameraMake = profile.CameraMake ?? "—";
-                    SelectedAssetCameraModel = profile.CameraModel ?? "—";
-                }
-                else
-                {
-                    SelectedAssetCameraMake = "—";
-                    SelectedAssetCameraModel = "—";
+                    AddIfValue(entries, "Description:", asset.Description);
+                    AddIfValue(entries, "Type:", asset.MimeType);
+                    AddIfValue(entries, "Dimensions:", asset.Width.HasValue && asset.Height.HasValue
+                        ? $"{asset.Width} x {asset.Height}" : null);
+                    AddIfValue(entries, "Size:", FormatFileSize(asset.FileSize));
+                    AddIfValue(entries, "Duration:", asset.Duration.HasValue
+                        ? $"{asset.Duration.Value:F2} s" : null);
+                    AddIfValue(entries, "Date added:", asset.CreatedAt.ToLocalTime().ToString("g"));
+                    AddIfValue(entries, "Date modified:", asset.ModifiedAt.ToLocalTime().ToString("g"));
+                    AddIfValue(entries, "Version:", asset.Version.ToString());
+                    AddIfValue(entries, "Checksum (SHA-256):", asset.ChecksumSha256);
+                    AddIfValue(entries, "Storage path:", asset.StoragePath);
+
+                    if (asset.Keywords.Count > 0)
+                        AddIfValue(entries, "Keywords:", string.Join(", ", asset.Keywords.Select(k => k.Name)));
+
+                    if (asset.Categories.Count > 0)
+                        AddIfValue(entries, "Categories:", string.Join(", ", asset.Categories.Select(c => c.Name)));
+
+                    if (asset.MetadataProfile != null)
+                    {
+                        var p = asset.MetadataProfile;
+                        AddIfValue(entries, "Camera make:", p.CameraMake);
+                        AddIfValue(entries, "Camera model:", p.CameraModel);
+                        AddIfValue(entries, "Lens model:", p.LensModel);
+                        AddIfValue(entries, "Focal length:", p.FocalLength.HasValue ? $"{p.FocalLength.Value:F1} mm" : null);
+                        AddIfValue(entries, "Aperture:", p.Aperture.HasValue ? $"f/{p.Aperture.Value:F1}" : null);
+                        AddIfValue(entries, "Exposure time:", p.ExposureTime);
+                        AddIfValue(entries, "ISO:", p.Iso?.ToString());
+                        AddIfValue(entries, "Flash:", p.Flash.HasValue ? (p.Flash.Value ? "Yes" : "No") : null);
+                        AddIfValue(entries, "Orientation:", p.Orientation);
+                        AddIfValue(entries, "Date taken:", p.DateTaken?.ToString("g"));
+                        AddIfValue(entries, "GPS latitude:", p.GpsLatitude?.ToString("F6"));
+                        AddIfValue(entries, "GPS longitude:", p.GpsLongitude?.ToString("F6"));
+                        AddIfValue(entries, "GPS altitude:", p.GpsAltitude?.ToString("F1"));
+                        AddIfValue(entries, "Rating:", p.Rating?.ToString());
+                        AddIfValue(entries, "Creator:", p.Creator);
+                        AddIfValue(entries, "Copyright:", p.Copyright);
+                        AddIfValue(entries, "Usage terms:", p.UsageTerms);
+                        AddIfValue(entries, "Contact info:", p.ContactInfo);
+                        AddIfValue(entries, "City:", p.City);
+                        AddIfValue(entries, "State:", p.State);
+                        AddIfValue(entries, "Country:", p.Country);
+                        AddIfValue(entries, "Headline:", p.Headline);
+                    }
                 }
             }
             catch (Exception ex)
@@ -254,6 +252,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogWarning(ex, "Failed to load metadata for selected asset");
             }
         }
+
+        SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
+    }
+
+    private static void AddIfValue(List<MetadataEntry> entries, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            entries.Add(new MetadataEntry { Label = label, Value = value });
     }
 
     private static string FormatFileSize(long bytes)

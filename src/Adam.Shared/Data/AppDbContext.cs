@@ -117,7 +117,8 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
-            e.HasIndex(x => x.NormalizedName).IsUnique();
+            // Composite unique: same keyword name can exist under different parents
+            e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(k => k.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -127,7 +128,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(1000);
-            e.HasIndex(x => x.NormalizedName).IsUnique();
+            // Composite unique: same category name can exist under different parents
+            e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(c => c.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
 

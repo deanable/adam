@@ -263,20 +263,13 @@ public class IngestionViewModel : INotifyPropertyChanged
 
     private static List<string> DeduplicateKeywords(List<string> keywords)
     {
-        var sorted = keywords
+        // Simple deduplication: trim, remove empties, distinct case-insensitive.
+        // Do NOT remove prefix matches (e.g. "red" vs "redwood" are different keywords).
+        return keywords
             .Where(k => !string.IsNullOrWhiteSpace(k))
             .Select(k => k.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(k => k.Length)
             .ToList();
-
-        var result = new List<string>();
-        foreach (var kw in sorted)
-        {
-            if (!result.Any(r => r.StartsWith(kw, StringComparison.OrdinalIgnoreCase)))
-                result.Add(kw);
-        }
-        return result;
     }
 
     private static string GetMimeType(string ext) => ext.ToLowerInvariant() switch
