@@ -77,5 +77,25 @@ public sealed class ModeManager
             db.Database.ExecuteSqlRaw("ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT");
         }
         catch { }
+
+        // Create performance indexes if they don't exist (added after initial schema creation)
+        var indexCommands = new[]
+        {
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_Type ON DigitalAssets(Type)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_StoragePath ON DigitalAssets(StoragePath)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_CreatedAt ON DigitalAssets(CreatedAt)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_MimeType ON DigitalAssets(MimeType)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileSize ON DigitalAssets(FileSize)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileName ON DigitalAssets(FileName)"
+        };
+
+        foreach (var cmd in indexCommands)
+        {
+            try
+            {
+                db.Database.ExecuteSqlRaw(cmd);
+            }
+            catch { }
+        }
     }
 }

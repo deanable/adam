@@ -81,8 +81,22 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             {
                 _sortBy = value;
                 OnPropertyChanged();
-                _ = LoadAssetsAsync();
+                _logger.LogInformation("[SortBy] Changed to '{SortBy}', reloading assets...", _sortBy);
+                _ = ReloadAssetsSafelyAsync();
             }
+        }
+    }
+
+    private async Task ReloadAssetsSafelyAsync()
+    {
+        try
+        {
+            await LoadAssetsAsync();
+            _logger.LogInformation("[SortBy] Reload completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[SortBy] FAILED to reload assets: {Message}", ex.Message);
         }
     }
 
@@ -132,10 +146,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
 
     public async Task LoadAssetsAsync(CancellationToken ct = default)
     {
+        _logger.LogInformation("[LoadAssetsAsync] Starting - page reset to 0, sort={SortBy}", _sortBy);
         _page = 0;
         _hasMore = true;
 
-        await Dispatcher.UIThread.InvokeAsync(() => Assets.Clear());
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Assets.Clear();
+            _logger.LogInformation("[LoadAssetsAsync] Assets cleared, count={Count}", Assets.Count);
+        });
 
         await LoadPageAsync(ct);
 
@@ -144,6 +163,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             HasMore = _hasMore;
             HasAssets = Assets.Count > 0;
             StatusText = _totalCount > 0 ? $"{Assets.Count} of {_totalCount} asset(s)" : "0 asset(s)";
+            _logger.LogInformation("[LoadAssetsAsync] Completed - loaded {Count} assets, total={Total}, hasMore={HasMore}", Assets.Count, _totalCount, _hasMore);
         });
     }
 
@@ -161,29 +181,37 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private async Task LoadPageAsync(CancellationToken ct = default)
     {
         IsLoadingMore = true;
+        _logger.LogInformation("[LoadPageAsync] Starting - page={Page}, pageSize={PageSize}, sort={SortBy}", _page, _pageSize, _sortBy);
         try
         {
             if (_modeManager.IsStandalone)
             {
                 await using var db = _modeManager.CreateDbContext();
+                _logger.LogInformation("[LoadPageAsync] DbContext created");
 
                 var query = ApplyFilters(db.DigitalAssets.AsQueryable());
+                _logger.LogInformation("[LoadPageAsync] Filters applied - activeCategory={Category}, activeFolder={Folder}", _activeCategory, _activeFolderPath);
 
                 if (_page == 0)
+                {
                     _totalCount = await query.CountAsync(ct);
+                    _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
+                }
 
                 query = _sortBy switch
                 {
-                    "Date Added" => query.OrderByDescending(a => a.CreatedAt),
-                    "File Type" => query.OrderBy(a => a.MimeType),
-                    "File Size" => query.OrderBy(a => a.FileSize),
-                    _ => query.OrderBy(a => a.FileName)
+                    "Date Added" => query.OrderByDescending(a => a.CreatedAt).ThenBy(a => a.Id),
+                    "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
+                    "File Size" => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
+                    _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
                 };
+                _logger.LogInformation("[LoadPageAsync] Ordering by {SortBy}", _sortBy);
 
                 var assets = await query
                     .Skip(_page * _pageSize)
                     .Take(_pageSize)
                     .ToListAsync(ct);
+                _logger.LogInformation("[LoadPageAsync] Retrieved {Count} assets from database", assets.Count);
 
                 var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
                 var thumbnailDir = Path.Combine(dbDir, "thumbnails");
@@ -269,9 +297,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 _hasMore = false;
             }
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[LoadPageAsync] FAILED: {Message}", ex.Message);
+            throw;
+        }
         finally
         {
             IsLoadingMore = false;
+            _logger.LogInformation("[LoadPageAsync] Finished - IsLoadingMore=false");
         }
     }
 
