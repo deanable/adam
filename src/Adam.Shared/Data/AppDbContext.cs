@@ -56,6 +56,13 @@ public class AppDbContext : DbContext
             e.Property(x => x.IsDeleted).HasDefaultValue(false);
             e.Property(x => x.Version).HasDefaultValue(1);
             e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter("NOT IsDeleted");
+            e.HasIndex(x => x.Type);
+            e.HasIndex(x => x.StoragePath);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.MimeType);
+            e.HasIndex(x => x.FileSize);
+            e.HasIndex(x => x.FileName);
+            e.HasIndex(x => new { x.Type, x.CreatedAt });
             e.HasOne(x => x.Collection).WithMany(c => c.Assets).HasForeignKey(x => x.CollectionId);
             e.HasOne(x => x.MetadataProfile).WithOne(m => m.DigitalAsset).HasForeignKey<MetadataProfile>(m => m.DigitalAssetId);
             e.HasQueryFilter(x => !x.IsDeleted);

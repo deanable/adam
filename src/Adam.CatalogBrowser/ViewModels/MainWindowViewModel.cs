@@ -96,12 +96,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             try
             {
+                _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
                 await Sidebar.LoadAsync();
+                _logger.LogInformation("[Startup] Sidebar.LoadAsync() completed");
+
+                _logger.LogInformation("[Startup] Beginning AssetGallery.LoadAssetsAsync()...");
                 await AssetGallery.LoadAssetsAsync();
+                _logger.LogInformation("[Startup] AssetGallery.LoadAssetsAsync() completed");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to load sidebar and gallery on startup");
+                _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery on startup. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
             }
         });
     }

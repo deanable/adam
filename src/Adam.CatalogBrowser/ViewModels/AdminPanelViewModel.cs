@@ -26,7 +26,7 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         _selectedMode = modeManager.Mode;
         _serviceInstaller = serviceInstallers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
 
-        SaveModeCommand = new RelayCommand(_ => SaveMode());
+        SaveModeCommand = new RelayCommand(async _ => await SaveModeAsync());
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshStatusAsync());
         InstallServiceCommand = new RelayCommand(async _ => await InstallServiceAsync(), _ => !_isServiceInstalled);
         UninstallServiceCommand = new RelayCommand(async _ => await UninstallServiceAsync(), _ => _isServiceInstalled);
@@ -91,12 +91,12 @@ public class AdminPanelViewModel : INotifyPropertyChanged
 
     public event Action? NavigateToMigrationWizard;
 
-    private void SaveMode()
+    private async Task SaveModeAsync()
     {
         if (SelectedMode == "Standalone")
-            _modeManager.Initialize();
+            await _modeManager.InitializeAsync();
         else
-            _modeManager.InitializeMultiUser("localhost", 9100);
+            await _modeManager.InitializeMultiUserAsync("localhost", 9100);
 
         StatusMessage = $"Mode switched to {SelectedMode}. Restart to apply.";
     }

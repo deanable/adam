@@ -7,6 +7,7 @@ using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -133,21 +134,28 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     {
         _page = 0;
         _hasMore = true;
-        Assets.Clear();
+
+        await Dispatcher.UIThread.InvokeAsync(() => Assets.Clear());
 
         await LoadPageAsync(ct);
 
-        HasMore = _hasMore;
-        HasAssets = Assets.Count > 0;
-        StatusText = _totalCount > 0 ? $"{Assets.Count} of {_totalCount} asset(s)" : "0 asset(s)";
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            HasMore = _hasMore;
+            HasAssets = Assets.Count > 0;
+            StatusText = _totalCount > 0 ? $"{Assets.Count} of {_totalCount} asset(s)" : "0 asset(s)";
+        });
     }
 
     public async Task LoadMoreAsync(CancellationToken ct = default)
     {
         if (!_hasMore || _isLoadingMore) return;
         await LoadPageAsync(ct);
-        HasMore = _hasMore;
-        StatusText = $"{Assets.Count} of {_totalCount} asset(s)";
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            HasMore = _hasMore;
+            StatusText = $"{Assets.Count} of {_totalCount} asset(s)";
+        });
     }
 
     private async Task LoadPageAsync(CancellationToken ct = default)
@@ -181,13 +189,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 var thumbnailDir = Path.Combine(dbDir, "thumbnails");
                 _logger.LogInformation("Gallery loading: thumbnailDir={ThumbDir}, assetCount={Count}", thumbnailDir, assets.Count);
 
+                var newItems = new List<AssetListItem>(assets.Count);
                 foreach (var asset in assets)
                 {
                     var thumbnailPath = _thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
-                    _logger.LogDebug("Asset thumbnail: storage={StoragePath}, thumb={ThumbPath}, exists={Exists}",
-                        asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
+                    _logger.LogDebug("[Thumbnail] AssetId={AssetId}, StoragePath={StoragePath}, ThumbnailPath={ThumbnailPath}, ThumbnailExists={Exists}", 
+                        asset.Id, asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
 
-                    Assets.Add(new AssetListItem
+                    var item = new AssetListItem
                     {
                         Id = asset.Id,
                         Title = asset.Title,
@@ -198,7 +207,21 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                         Height = asset.Height,
                         CreatedAt = asset.CreatedAt,
                         ThumbnailPath = thumbnailPath
-                    });
+                    };
+
+                    newItems.Add(item);
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    foreach (var item in newItems)
+                        Assets.Add(item);
+                });
+
+                // Load thumbnails off the UI thread after items are added
+                foreach (var item in newItems)
+                {
+                    _ = item.LoadThumbnailAsync((int)ThumbnailSize);
                 }
 
                 _page++;
@@ -227,18 +250,21 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 if (response.StatusCode != 0) return;
 
                 var listResponse = ProtoHelper.Deserialize<ListAssetsResponse>(response.Payload.ToByteArray());
-                foreach (var item in listResponse.Items)
+                var newItems = listResponse.Items.Select(item => new AssetListItem
                 {
-                    Assets.Add(new AssetListItem
-                    {
-                        Id = Guid.Parse(item.Id),
-                        Title = item.Title,
-                        FileName = item.FileName,
-                        FileType = item.MimeType,
-                        FileSize = item.FileSize,
-                        CreatedAt = DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt)
-                    });
-                }
+                    Id = Guid.Parse(item.Id),
+                    Title = item.Title,
+                    FileName = item.FileName,
+                    FileType = item.MimeType,
+                    FileSize = item.FileSize,
+                    CreatedAt = DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt)
+                }).ToList();
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    foreach (var item in newItems)
+                        Assets.Add(item);
+                });
 
                 _hasMore = false;
             }
@@ -273,6 +299,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         if (!string.IsNullOrEmpty(_activeFolderPath))
         {
             var prefix = _activeFolderPath.Replace('\\', '/');
+            if (!prefix.EndsWith("/"))
+                prefix += "/";
             query = query.Where(a => a.StoragePath.StartsWith(prefix));
         }
 

@@ -95,7 +95,7 @@
                  IsVisible="{Binding IsListView}">
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
-              <StackPanel />
+              <VirtualizingStackPanel />
             </ItemsPanelTemplate>
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>

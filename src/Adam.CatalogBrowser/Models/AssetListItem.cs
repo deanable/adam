@@ -42,15 +42,42 @@ public class AssetListItem : INotifyPropertyChanged
 
     public Bitmap? Thumbnail
     {
-        get
+        get => _thumbnail;
+        private set
         {
-            if (_thumbnail == null && !string.IsNullOrEmpty(_thumbnailPath) && File.Exists(_thumbnailPath))
-            {
-                try { _thumbnail = new Bitmap(_thumbnailPath); }
-                catch { }
-            }
-            return _thumbnail;
+            _thumbnail = value;
+            OnPropertyChanged();
         }
+    }
+
+    public async Task LoadThumbnailAsync(int decodeWidth = 256)
+    {
+        if (_thumbnail != null || string.IsNullOrEmpty(_thumbnailPath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[Thumbnail] Skipping load - thumbnail={_thumbnail != null}, path empty={string.IsNullOrEmpty(_thumbnailPath)}");
+            return;
+        }
+
+        await Task.Run(() =>
+        {
+            try
+            {
+                var exists = File.Exists(_thumbnailPath);
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loading thumbnail: {_thumbnailPath}, exists={exists}");
+                
+                if (!exists)
+                    return;
+
+                using var stream = File.OpenRead(_thumbnailPath);
+                var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
+                Thumbnail = bitmap;
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loaded successfully: {_thumbnailPath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] FAILED to load {_thumbnailPath}: {ex.GetType().Name} - {ex.Message}");
+            }
+        });
     }
 
     public string FileType

@@ -3,36 +3,35 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
+using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
 public class SidebarViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
+    private readonly ILogger<SidebarViewModel> _logger;
     private CategoryNode _selectedMediaFormat;
     private CategoryNode? _selectedMetadataCategory;
     private FolderNode? _selectedFolder;
     private CollectionNode? _selectedCollection;
     private KeywordNode? _selectedKeyword;
-    private ObservableCollection<FolderNode> _folders = [];
     private ObservableCollection<CollectionNode> _collections = [];
     private ObservableCollection<KeywordNode> _keywords = [];
     private ObservableCollection<CategoryNode> _metadataCategories = [];
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
-    public SidebarViewModel(ModeManager modeManager)
+    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger)
     {
         _modeManager = modeManager;
+        _logger = logger;
         _selectedMediaFormat = MediaFormats[0];
     }
 
-    public ObservableCollection<FolderNode> Folders
-    {
-        get => _folders;
-        private set { _folders = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<FolderNode> Folders { get; } = [];
 
     public ObservableCollection<CollectionNode> Collections
     {
@@ -95,7 +94,9 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     public async Task LoadAsync(CancellationToken ct = default)
     {
+        _logger.LogInformation("[LoadAsync] Acquiring load lock...");
         await _loadLock.WaitAsync(ct);
+        _logger.LogInformation("[LoadAsync] Lock acquired. Starting parallel loads...");
         try
         {
             await Task.WhenAll(
@@ -104,163 +105,131 @@ public class SidebarViewModel : INotifyPropertyChanged
                 LoadKeywordsAsync(ct),
                 LoadMediaFormatCountsAsync(ct),
                 LoadMetadataCategoriesAsync(ct));
+            _logger.LogInformation("[LoadAsync] All parallel loads completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[LoadAsync] One or more parallel loads failed. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
+            throw;
         }
         finally
         {
             _loadLock.Release();
+            _logger.LogInformation("[LoadAsync] Lock released");
         }
+    }
+
+    private static string GetDirectoryName(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return "";
+        var lastSep = path.LastIndexOfAny(['/', '\\']);
+        return lastSep > 0 ? path[..lastSep] : "";
     }
 
     private async Task LoadFoldersAsync(CancellationToken ct = default)
     {
-        var dirs = new HashSet<string>();
+        _logger.LogInformation("[LoadFoldersAsync] Starting folder load. IsStandalone={IsStandalone}", _modeManager.IsStandalone);
+
+        var paths = new HashSet<string>();
 
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
+            _logger.LogInformation("[LoadFoldersAsync] Querying directories from database...");
+
             var storagePaths = await db.DigitalAssets
                 .Select(a => a.StoragePath)
-                .Where(p => p != null && p.Length > 0)
-                .Distinct()
+                .Where(p => p != null)
                 .ToListAsync(ct);
 
-            dirs = storagePaths
-                .Select(p => Path.GetDirectoryName(p.Replace("\\", "/")) ?? "")
+            paths = storagePaths
+                .Select(p => GetDirectoryName(p))
                 .Where(d => d.Length > 0)
                 .ToHashSet();
+
+            _logger.LogInformation("[LoadFoldersAsync] Retrieved {Count} distinct directories", paths.Count);
+            foreach (var p in paths.Take(10))
+                _logger.LogDebug("[LoadFoldersAsync] Dir sample: {Path}", p);
         }
 
-        var roots = BuildFolderTrees(dirs);
+        // Build tree on background thread
+        var root = new FolderNode { Name = "All Folders", Path = "", IsExpanded = true };
+        foreach (var dir in paths.OrderBy(p => p))
+        {
+            var normalizedDir = dir.Replace('\\', '/');
+            var isUnc = normalizedDir.StartsWith("//");
+            var parts = normalizedDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var current = root;
+            var cumulative = "";
 
-        // Populate asset counts for each folder node
-        if (_modeManager.IsStandalone && roots.Count > 0)
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                if (i == 0 && isUnc)
+                    cumulative = "//" + part;
+                else if (i == 0)
+                    cumulative = part;
+                else
+                    cumulative = cumulative + "/" + part;
+
+                var existing = current.Children.FirstOrDefault(c => c.Name == part);
+                if (existing == null)
+                {
+                    existing = new FolderNode { Name = part, Path = cumulative };
+                    current.Children.Add(existing);
+                }
+                current = existing;
+            }
+        }
+
+        // Populate asset counts
+        if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var allAssets = await db.DigitalAssets
+            var allPaths = await db.DigitalAssets
                 .Select(a => a.StoragePath)
                 .ToListAsync(ct);
 
-            foreach (var root in roots)
-            {
-                PopulateFolderCounts(root, allAssets);
-            }
-        }
-
-        var newFolders = new ObservableCollection<FolderNode>();
-        foreach (var root in roots)
-            newFolders.Add(root);
-        Folders = newFolders;
-    }
-
-    private static List<FolderNode> BuildFolderTrees(HashSet<string> dirs)
-    {
-        if (dirs.Count == 0)
-            return [new FolderNode { Name = "No Folders", Path = "", IsExpanded = true }];
-
-        // Normalize all paths
-        var normalizedDirs = dirs.Select(d => d.Replace("\\", "/").TrimEnd('/')).ToList();
-
-        // Find common prefix
-        var commonPrefix = FindCommonPathPrefix(normalizedDirs);
-
-        // If common prefix is empty or just a drive letter, show multiple roots
-        if (string.IsNullOrEmpty(commonPrefix) || commonPrefix.Length <= 1)
-        {
-            // Group by top-level directory (skip empty first segment from leading /)
-            var byRoot = normalizedDirs
-                .GroupBy(d => d.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Folders")
+            var folderCounts = allPaths
+                .GroupBy(p => GetDirectoryName(p))
+                .Select(g => new { Dir = g.Key, Count = g.Count() })
                 .ToList();
 
-            var roots = new List<FolderNode>();
-            foreach (var group in byRoot.OrderBy(g => g.Key))
+            foreach (var dir in folderCounts)
             {
-                var folderRoot = new FolderNode { Name = group.Key, Path = group.Key, IsExpanded = false };
-                foreach (var dir in group.OrderBy(d => d))
-                {
-                    var relative = dir[(group.Key.Length)..].TrimStart('/');
-                    AddPathToTree(folderRoot, relative, dir);
-                }
-                roots.Add(folderRoot);
+                var node = FindFolderNode(root, dir.Dir);
+                if (node != null)
+                    node.AssetCount = dir.Count;
             }
-            return roots;
+
+            _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
         }
 
-        // Strip common prefix and use last segment as root name
-        var rootName = commonPrefix.Split('/').LastOrDefault() ?? "Folders";
-        var root = new FolderNode { Name = rootName, Path = commonPrefix, IsExpanded = true };
-
-        foreach (var dir in normalizedDirs.OrderBy(d => d))
+        _logger.LogInformation("[LoadFoldersAsync] Assigning Folders collection on UI thread");
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var relative = dir[(commonPrefix.Length)..].TrimStart('/');
-            if (string.IsNullOrEmpty(relative)) continue;
-            AddPathToTree(root, relative, dir);
-        }
-
-        return [root];
+            Folders.Clear();
+            Folders.Add(root);
+            _logger.LogInformation("[LoadFoldersAsync] Folders assigned. Collection count={Count}, Root children={Children}", Folders.Count, root.Children.Count);
+        });
+        _logger.LogInformation("[LoadFoldersAsync] Completed");
     }
 
-    private static void AddPathToTree(FolderNode root, string relativePath, string fullPath)
+    private static FolderNode? FindFolderNode(FolderNode root, string path)
     {
-        var parts = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var current = root;
-        var cumulative = root.Path;
+        if (string.IsNullOrEmpty(path))
+            return root;
 
+        var normalizedPath = path.Replace('\\', '/');
+        var parts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var current = root;
         foreach (var part in parts)
         {
-            cumulative = cumulative.Length == 0 ? part : $"{cumulative}/{part}";
-            var existing = current.Children.FirstOrDefault(c => c.Name == part);
-            if (existing == null)
-            {
-                existing = new FolderNode { Name = part, Path = cumulative };
-                current.Children.Add(existing);
-            }
-            current = existing;
+            current = current.Children.FirstOrDefault(c => c.Name == part);
+            if (current == null)
+                return null;
         }
-    }
-
-    private static void PopulateFolderCounts(FolderNode node, List<string> assetPaths)
-    {
-        var prefix = node.Path.Replace("\\", "/");
-        var directCount = assetPaths.Count(p =>
-        {
-            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
-            return dir == prefix;
-        });
-
-        // Count also includes assets in subfolders
-        var totalCount = assetPaths.Count(p =>
-        {
-            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
-            return dir.StartsWith(prefix + "/") || dir == prefix;
-        });
-
-        node.AssetCount = totalCount;
-
-        foreach (var child in node.Children)
-            PopulateFolderCounts(child, assetPaths);
-    }
-
-    private static string FindCommonPathPrefix(IEnumerable<string> paths)
-    {
-        var list = paths.Where(p => p.Length > 0).OrderBy(p => p.Length).ToList();
-        if (list.Count < 2) return "";
-
-        var first = list[0];
-        var last = list[^1];
-        var prefixLen = 0;
-        var minLen = Math.Min(first.Length, last.Length);
-
-        for (var i = 0; i < minLen; i++)
-        {
-            if (first[i] != last[i]) break;
-            prefixLen = i + 1;
-        }
-
-        if (prefixLen == 0) return "";
-
-        var trimmed = first[..prefixLen];
-        var lastSep = trimmed.LastIndexOf('/');
-        return lastSep > 0 ? trimmed[..lastSep] : "";
+        return current;
     }
 
     private async Task LoadCollectionsAsync(CancellationToken ct = default)
@@ -282,10 +251,10 @@ public class SidebarViewModel : INotifyPropertyChanged
                 newCollections.Add(BuildTree(col, allCols));
         }
 
-        var coll = new ObservableCollection<CollectionNode>();
-        foreach (var col in newCollections)
-            coll.Add(col);
-        Collections = coll;
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Collections = new ObservableCollection<CollectionNode>(newCollections);
+        });
     }
 
     private static CollectionNode BuildTree(CollectionNode node, List<CollectionNode> all)
@@ -302,30 +271,35 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var keywords = await db.Keywords
-                .Include(k => k.Assets)
+            var keywordRows = await db.Keywords
+                .Select(k => new
+                {
+                    k.Id,
+                    k.Name,
+                    k.NormalizedName,
+                    k.ParentId,
+                    AssetCount = k.Assets.Count
+                })
                 .ToListAsync(ct);
 
             root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
 
-            // Build hierarchy from flat list
-            var keywordDict = keywords.ToDictionary(k => k.Id);
             var nodeDict = new Dictionary<Guid, KeywordNode>();
 
-            foreach (var kw in keywords)
+            foreach (var kw in keywordRows)
             {
                 var node = new KeywordNode
                 {
                     Name = kw.Name,
                     Path = kw.Name,
                     KeywordId = kw.Id,
-                    AssetCount = kw.Assets.Count
+                    AssetCount = kw.AssetCount
                 };
                 nodeDict[kw.Id] = node;
             }
 
             // Link parents and build tree
-            foreach (var kw in keywords.Where(k => k.ParentId.HasValue))
+            foreach (var kw in keywordRows.Where(k => k.ParentId.HasValue))
             {
                 if (nodeDict.TryGetValue(kw.Id, out var childNode) &&
                     nodeDict.TryGetValue(kw.ParentId!.Value, out var parentNode))
@@ -336,7 +310,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             // Add root-level keywords to the tree root
-            foreach (var kw in keywords.Where(k => !k.ParentId.HasValue))
+            foreach (var kw in keywordRows.Where(k => !k.ParentId.HasValue))
             {
                 if (nodeDict.TryGetValue(kw.Id, out var node))
                 {
@@ -352,7 +326,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
         }
 
-        Keywords = new ObservableCollection<KeywordNode> { root };
+        await Dispatcher.UIThread.InvokeAsync(() => Keywords = new ObservableCollection<KeywordNode> { root });
     }
 
     private static int PropagateKeywordCounts(KeywordNode node)
@@ -371,17 +345,25 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var total = await db.DigitalAssets.CountAsync(ct);
-            var images = await db.DigitalAssets.CountAsync(a => a.Type == Adam.Shared.Models.AssetType.Image, ct);
-            var videos = await db.DigitalAssets.CountAsync(a => a.Type == Adam.Shared.Models.AssetType.Video, ct);
-            var docs = await db.DigitalAssets.CountAsync(a => a.Type == Adam.Shared.Models.AssetType.Document, ct);
-            var audio = await db.DigitalAssets.CountAsync(a => a.Type == Adam.Shared.Models.AssetType.Audio, ct);
+            var counts = await db.DigitalAssets
+                .GroupBy(a => a.Type)
+                .Select(g => new { Type = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Type, x => x.Count, ct);
 
-            MediaFormats[0].Count = total;
-            MediaFormats[1].Count = images;
-            MediaFormats[2].Count = videos;
-            MediaFormats[3].Count = docs;
-            MediaFormats[4].Count = audio;
+            var total = counts.Values.Sum();
+            counts.TryGetValue(Adam.Shared.Models.AssetType.Image, out var images);
+            counts.TryGetValue(Adam.Shared.Models.AssetType.Video, out var videos);
+            counts.TryGetValue(Adam.Shared.Models.AssetType.Document, out var docs);
+            counts.TryGetValue(Adam.Shared.Models.AssetType.Audio, out var audio);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                MediaFormats[0].Count = total;
+                MediaFormats[1].Count = images;
+                MediaFormats[2].Count = videos;
+                MediaFormats[3].Count = docs;
+                MediaFormats[4].Count = audio;
+            });
         }
     }
 
@@ -392,29 +374,35 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
-            var categories = await db.Categories
-                .Include(c => c.Assets)
+            var categoryRows = await db.Categories
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    c.NormalizedName,
+                    c.ParentId,
+                    AssetCount = c.Assets.Count
+                })
                 .ToListAsync(ct);
 
-            var total = categories.Sum(c => c.Assets.Count);
+            var total = categoryRows.Sum(c => c.AssetCount);
             var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
 
-            // Build hierarchy from flat list
             var nodeDict = new Dictionary<Guid, CategoryNode>();
 
-            foreach (var cat in categories)
+            foreach (var cat in categoryRows)
             {
                 var node = new CategoryNode
                 {
                     Name = cat.Name,
                     CategoryId = cat.Id,
-                    Count = cat.Assets.Count
+                    Count = cat.AssetCount
                 };
                 nodeDict[cat.Id] = node;
             }
 
             // Link parents and build tree
-            foreach (var cat in categories.Where(c => c.ParentId.HasValue))
+            foreach (var cat in categoryRows.Where(c => c.ParentId.HasValue))
             {
                 if (nodeDict.TryGetValue(cat.Id, out var childNode) &&
                     nodeDict.TryGetValue(cat.ParentId!.Value, out var parentNode))
@@ -424,7 +412,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             // Add root-level categories to the tree root
-            foreach (var cat in categories.Where(c => !c.ParentId.HasValue))
+            foreach (var cat in categoryRows.Where(c => !c.ParentId.HasValue))
             {
                 if (nodeDict.TryGetValue(cat.Id, out var node))
                 {
@@ -441,10 +429,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
         }
 
-        var cats = new ObservableCollection<CategoryNode>();
-        foreach (var cat in newCats)
-            cats.Add(cat);
-        MetadataCategories = cats;
+        await Dispatcher.UIThread.InvokeAsync(() => MetadataCategories = new ObservableCollection<CategoryNode>(newCats));
     }
 
     private static int PropagateCategoryCounts(CategoryNode node)

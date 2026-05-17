@@ -19,7 +19,7 @@ public class DeleteServiceTests : IDisposable
     {
         _basePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         _modeManager = new ModeManager(_basePath);
-        _modeManager.Initialize();
+        _modeManager.InitializeAsync().GetAwaiter().GetResult();
 
         _db = _modeManager.CreateDbContext();
         _db.Database.EnsureCreated();

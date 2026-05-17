@@ -28,7 +28,7 @@ public sealed class ModeManager
     public bool IsConnected => BrokerClient?.IsConnected == true;
     public bool IsLoggedIn => AuthSession?.IsLoggedIn == true;
 
-    public void Initialize()
+    public async Task InitializeAsync()
     {
         Mode = "Standalone";
         DbProvider = "sqlite";
@@ -38,12 +38,12 @@ public sealed class ModeManager
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager DbPath: {DbPath}");
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager basePath: {_basePath}");
 
-        using var db = CreateDbContext();
-        db.Database.EnsureCreated();
+        await using var db = CreateDbContext();
+        await db.Database.EnsureCreatedAsync();
         ApplyMigrations(db);
     }
 
-    public void InitializeMultiUser(string host, int port, string dbProvider = "sqlite")
+    public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite")
     {
         Mode = "MultiUser";
         DbProvider = dbProvider;
@@ -51,8 +51,8 @@ public sealed class ModeManager
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
 
-        using var db = CreateDbContext();
-        db.Database.EnsureCreated();
+        await using var db = CreateDbContext();
+        await db.Database.EnsureCreatedAsync();
         ApplyMigrations(db);
     }
 
