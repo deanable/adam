@@ -13,9 +13,10 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
     public string ServiceName => "com.adam.broker";
     public bool IsSupported => OperatingSystem.IsMacOS();
 
-    public Task InstallAsync(string brokerPath, CancellationToken ct = default)
+    public async Task InstallAsync(string brokerPath, CancellationToken ct = default)
     {
-        if (!IsSupported) throw new PlatformNotSupportedException("launchd is only supported on macOS.");
+        EnsureSupported();
+        EnsureAbsolutePath(brokerPath);
 
         Directory.CreateDirectory(Path.GetDirectoryName(PlistPath)!);
 
@@ -43,13 +44,15 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 """;
 
         File.WriteAllText(PlistPath, plist, Encoding.UTF8);
-        return RunBashAsync($"launchctl load {PlistPath}", ct);
+        await RunBashAsync($"launchctl load {EscapePath(PlistPath)}", ct);
     }
 
-    public Task UninstallAsync(CancellationToken ct = default)
+    public async Task UninstallAsync(CancellationToken ct = default)
     {
-        if (!IsSupported) throw new PlatformNotSupportedException("launchd is only supported on macOS.");
-        return RunBashAsync($"launchctl unload {PlistPath} && rm -f {PlistPath}", ct);
+        EnsureSupported();
+        await RunBashAsync($"launchctl unload {EscapePath(PlistPath)}", ct);
+        if (File.Exists(PlistPath))
+            File.Delete(PlistPath);
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
@@ -58,7 +61,8 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
         try
         {
             var output = await RunBashAsync($"launchctl list {ServiceName}", ct);
-            if (output.Contains("PID")) return ServiceStatus.Running;
+            if (output.Contains("\"PID\""))
+                return ServiceStatus.Running;
             return File.Exists(PlistPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled;
         }
         catch
@@ -74,7 +78,7 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
             StartInfo = new ProcessStartInfo
             {
                 FileName = "/bin/bash",
-                Arguments = $"-c \"{command.Replace("\"", "\\\"")}\"",
+                Arguments = $"-c \"{command.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -84,7 +88,34 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 
         process.Start();
         var output = await process.StandardOutput.ReadToEndAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
         await process.WaitForExitAsync(ct);
+
+        if (process.ExitCode != 0)
+        {
+            var message = string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim();
+            throw new InvalidOperationException(
+                $"Command failed (exit code {process.ExitCode}): launchctl => {message}");
+        }
+
         return output;
+    }
+
+    private static string EscapePath(string path)
+    {
+        // Quote the path for shell safety
+        return $"\"{path.Replace("\"", "\\\"")}\"";
+    }
+
+    private void EnsureSupported()
+    {
+        if (!IsSupported)
+            throw new PlatformNotSupportedException("launchd is only supported on macOS.");
+    }
+
+    private static void EnsureAbsolutePath(string path)
+    {
+        if (!Path.IsPathFullyQualified(path))
+            throw new ArgumentException("brokerPath must be an absolute path.", nameof(path));
     }
 }
