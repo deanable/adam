@@ -40,7 +40,8 @@
               <TreeDataTemplate ItemsSource="{Binding Children}">
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Text="📁" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="#333" VerticalAlignment="Center"
+                             ToolTip.Tip="{Binding Path}" />
                 </Grid>
               </TreeDataTemplate>
             </TreeView.ItemTemplate>

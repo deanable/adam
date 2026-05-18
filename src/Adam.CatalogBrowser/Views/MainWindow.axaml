@@ -67,22 +67,6 @@
         <ScrollViewer>
           <StackPanel Spacing="0">
 
-            <!-- Navigator -->
-            <Expander Header="Navigator" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="4">
-                <Border Height="120" Background="#E8E8E8" CornerRadius="4"
-                        IsVisible="{Binding HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}">
-                  <TextBlock Text="No selection" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <Border Height="120" Background="#E8E8E8" CornerRadius="4"
-                        IsVisible="{Binding HasSelectedAsset}">
-                  <Image Source="{Binding SelectedAsset.Thumbnail}" Stretch="Uniform" />
-                </Border>
-                <TextBlock Text="{Binding SelectedAsset.Title}" FontSize="11" FontWeight="SemiBold" Foreground="#333"
-                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSelectedAsset}" />
-              </StackPanel>
-            </Expander>
-
             <!-- Folders -->
             <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
               <TreeView ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
@@ -90,7 +74,8 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333"
+                                 ToolTip.Tip="{Binding Path}" />
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
@@ -181,13 +166,6 @@
       <Border Grid.Column="4" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0" MinWidth="180">
         <ScrollViewer>
           <StackPanel Spacing="0">
-
-            <!-- Histogram -->
-            <Expander Header="Histogram" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <Border Height="80" Background="#E8E8E8" CornerRadius="4" Margin="0,4,0,0">
-                <TextBlock Text="No data" FontSize="11" Foreground="#999" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Expander>
 
             <!-- Quick Develop -->
             <Expander Header="Quick Develop" IsExpanded="False" Padding="8,4" Background="Transparent">

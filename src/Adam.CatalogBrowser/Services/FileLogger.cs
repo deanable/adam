@@ -26,9 +26,12 @@ public sealed class FileLogger(string categoryName, StreamWriter writer) : ILogg
         var now = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var level = logLevel.ToString()[..5];
         var msg = formatter(state, exception);
-        writer.WriteLine($"{now} [{level}] {categoryName}{Environment.NewLine}  {msg}");
-        if (exception != null)
-            writer.WriteLine($"  {exception}");
+        lock (writer)
+        {
+            writer.WriteLine($"{now} [{level}] {categoryName}{Environment.NewLine}  {msg}");
+            if (exception != null)
+                writer.WriteLine($"  {exception}");
+        }
     }
 }
 

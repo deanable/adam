@@ -8,6 +8,7 @@ using Adam.Shared.Services;
 using Adam.Shared.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Avalonia.Threading;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -15,7 +16,6 @@ public class IngestionViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
     private readonly AssetValidator _validator = new();
-    private readonly DuplicateDetector _duplicateDetector;
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
     private readonly MetadataExtractorService _metadataExtractor = new();
@@ -24,13 +24,13 @@ public class IngestionViewModel : INotifyPropertyChanged
     private string _progressText = string.Empty;
     private bool _isIngesting;
     private string _ingestionStatus = string.Empty;
+    private CancellationTokenSource? _cts;
 
     public event Action? IngestionCompleted;
 
-    public IngestionViewModel(ModeManager modeManager, DuplicateDetector duplicateDetector, ILogger<IngestionViewModel> logger)
+    public IngestionViewModel(ModeManager modeManager, ILogger<IngestionViewModel> logger)
     {
         _modeManager = modeManager;
-        _duplicateDetector = duplicateDetector;
         _logger = logger;
         StartIngestionCommand = new RelayCommand(async _ => await StartIngestionAsync(), _ => !IsIngesting && PendingFiles.Count > 0);
         ClearCommand = new RelayCommand(_ => ClearFiles());
@@ -138,127 +138,190 @@ public class IngestionViewModel : INotifyPropertyChanged
 
     public async Task StartIngestionAsync()
     {
+        var ingestId = Guid.NewGuid().ToString("N")[..8];
         IsIngesting = true;
         IngestionStatus = string.Empty;
-        var ingested = 0;
-        var skipped = 0;
-        var errors = 0;
         var total = PendingFiles.Count;
+        var files = PendingFiles.ToArray();
 
-        _logger.LogInformation("Starting ingestion of {Total} file(s)", total);
+        _logger.LogInformation("[{IngestId}] Starting ingestion of {Total} file(s)", ingestId, total);
 
-        for (var i = 0; i < total; i++)
-        {
-            var filePath = PendingFiles[i];
-            var fileInfo = new FileInfo(filePath);
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
 
-            var validation = _validator.ValidateForIngestion(filePath, fileInfo.Length,
-                Path.GetFileNameWithoutExtension(filePath), [], null);
-            if (!validation.IsValid)
+        int ingested = 0, skipped = 0, errors = 0, processed = 0;
+        var dbLock = new SemaphoreSlim(1, 1);
+
+        await Parallel.ForEachAsync(
+            files,
+            new ParallelOptions
             {
-                skipped++;
-                ProgressText = $"Skipped: {filePath} \u2014 {string.Join("; ", validation.Errors)}";
-                ProgressValue = (int)((i + 1.0) / total * 100);
-                continue;
-            }
-
-            try
+                MaxDegreeOfParallelism = Environment.ProcessorCount,
+                CancellationToken = ct
+            },
+            async (filePath, ct) =>
             {
-                await using var db = _modeManager.CreateDbContext();
+                var fileInfo = new FileInfo(filePath);
 
-                var existing = await _duplicateDetector.FindDuplicateAsync(filePath, db);
-                if (existing != null)
+                var validation = _validator.ValidateForIngestion(filePath, fileInfo.Length,
+                    Path.GetFileNameWithoutExtension(filePath), [], null);
+                if (!validation.IsValid)
                 {
-                    skipped++;
-                    ProgressText = $"Skipped (duplicate): {filePath}";
-                    ProgressValue = (int)((i + 1.0) / total * 100);
-                    continue;
+                    Interlocked.Increment(ref skipped);
+                    var p = Interlocked.Increment(ref processed);
+                    _logger.LogInformation("[{IngestId}] Skipped (validation): {FilePath} \u2014 {Errors}", ingestId, filePath, string.Join("; ", validation.Errors));
+                    await ReportProgressAsync(p, total, $"Skipped: {filePath} \u2014 {string.Join("; ", validation.Errors)}");
+                    return;
                 }
 
-                ProgressText = $"Ingesting: {fileInfo.Name}";
+                _logger.LogInformation("[{IngestId}] Processing: {FilePath} (size={Size}, ext={Ext})", ingestId, filePath, fileInfo.Length, fileInfo.Extension);
 
-                var assetType = GetAssetType(fileInfo.Extension);
-                var textMetadata = assetType == AssetType.Image
-                    ? _metadataExtractor.ExtractTextMetadata(filePath)
-                    : null;
-
-                var asset = new DigitalAsset
-                {
-                    Id = Guid.NewGuid(),
-                    FileName = fileInfo.Name,
-                    FileExtension = fileInfo.Extension,
-                    MimeType = GetMimeType(fileInfo.Extension),
-                    FileSize = fileInfo.Length,
-                    ChecksumSha256 = await _checksumService.ComputeSha256Async(filePath),
-                    StoragePath = filePath.Replace('\\', '/'),
-                    OriginalPath = filePath.Replace('\\', '/'),
-                    Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
-                        ? textMetadata.Title!
-                        : Path.GetFileNameWithoutExtension(filePath),
-                    Description = textMetadata?.Description,
-                    Type = assetType,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    ModifiedAt = DateTimeOffset.UtcNow
-                };
-
-                var thumbDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
                 try
                 {
-                    var thumbPath = await _thumbnailService.GenerateThumbnailAsync(filePath, thumbDir);
-                    _logger.LogInformation("Thumbnail generated: {SourcePath} -> {ThumbPath}", filePath, thumbPath);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Thumbnail generation failed for {FilePath}", filePath);
-                }
+                    var assetType = GetAssetType(fileInfo.Extension);
 
-                if (asset.Type == AssetType.Image)
-                {
+                    ExtractedTextMetadata? textMetadata = null;
+                    if (assetType == AssetType.Image)
+                    {
+                        textMetadata = _metadataExtractor.ExtractTextMetadata(filePath);
+                    }
+
+                    _logger.LogInformation("[{IngestId}] Computing SHA256: {FilePath}", ingestId, filePath);
+                    var checksum = await _checksumService.ComputeSha256Async(filePath, ct);
+                    _logger.LogInformation("[{IngestId}] SHA256 computed: {FilePath} hash={Hash}", ingestId, filePath, checksum);
+
+                    var thumbDir = Path.Combine(Path.GetDirectoryName(_modeManager.DbPath) ?? ".", "thumbnails");
                     try
                     {
-                        var metadata = _metadataExtractor.Extract(filePath);
-                        metadata.DigitalAssetId = asset.Id;
-                        if (textMetadata?.Rating.HasValue == true)
-                            metadata.Rating = textMetadata.Rating.Value;
-                        asset.MetadataProfile = metadata;
+                        var thumbPath = await _thumbnailService.GenerateThumbnailAsync(filePath, thumbDir, ct);
+                        _logger.LogInformation("[{IngestId}] Thumbnail generated: {SourcePath} -> {ThumbPath}", ingestId, filePath, thumbPath);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Metadata extraction failed for {FilePath}", filePath);
+                        _logger.LogWarning(ex, "[{IngestId}] Thumbnail generation failed for {FilePath}", ingestId, filePath);
                     }
-                }
 
-                if (textMetadata?.Keywords.Count > 0)
+                    MetadataProfile? metadata = null;
+                    if (assetType == AssetType.Image)
+                    {
+                        try
+                        {
+                            _logger.LogInformation("[{IngestId}] Extracting metadata profile: {FilePath}", ingestId, filePath);
+                            metadata = _metadataExtractor.Extract(filePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "[{IngestId}] Metadata extraction failed for {FilePath}", ingestId, filePath);
+                        }
+                    }
+
+                    _logger.LogDebug("[{IngestId}] Acquiring DB lock: {FilePath}", ingestId, filePath);
+                    await dbLock.WaitAsync(ct);
+                    try
+                    {
+                        await using var db = _modeManager.CreateDbContext();
+
+                        _logger.LogDebug("[{IngestId}] Checking duplicates: {FilePath} hash={Hash}", ingestId, filePath, checksum);
+                        var existing = await db.DigitalAssets
+                            .FirstOrDefaultAsync(a => a.ChecksumSha256 == checksum, ct);
+                        if (existing != null)
+                        {
+                            Interlocked.Increment(ref skipped);
+                            var p = Interlocked.Increment(ref processed);
+                            _logger.LogInformation("[{IngestId}] Skipped (duplicate): {FilePath} matches existing asset {AssetId}", ingestId, filePath, existing.Id);
+                            await ReportProgressAsync(p, total, $"Skipped (duplicate): {filePath}");
+                            return;
+                        }
+
+                        var assetId = Guid.NewGuid();
+                        var asset = new DigitalAsset
+                        {
+                            Id = assetId,
+                            FileName = fileInfo.Name,
+                            FileExtension = fileInfo.Extension,
+                            MimeType = GetMimeType(fileInfo.Extension),
+                            FileSize = fileInfo.Length,
+                            ChecksumSha256 = checksum,
+                            StoragePath = filePath.Replace('\\', '/'),
+                            OriginalPath = filePath.Replace('\\', '/'),
+                            Title = !string.IsNullOrWhiteSpace(textMetadata?.Title)
+                                ? textMetadata.Title!
+                                : Path.GetFileNameWithoutExtension(filePath),
+                            Description = textMetadata?.Description,
+                            Type = assetType,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            ModifiedAt = DateTimeOffset.UtcNow
+                        };
+
+                        if (metadata != null)
+                        {
+                            metadata.DigitalAssetId = asset.Id;
+                            if (textMetadata?.Rating.HasValue == true)
+                                metadata.Rating = textMetadata.Rating.Value;
+                            asset.MetadataProfile = metadata;
+                        }
+
+                        if (textMetadata?.Keywords.Count > 0)
+                        {
+                            var deduped = DeduplicateKeywords(textMetadata.Keywords);
+                            await db.AssociateKeywordsAsync(asset, deduped, ct);
+                        }
+                        if (textMetadata?.Categories.Count > 0)
+                        {
+                            await db.AssociateCategoriesAsync(asset, textMetadata.Categories, ct);
+                        }
+
+                        db.DigitalAssets.Add(asset);
+                        await db.SaveChangesAsync(ct);
+
+                        Interlocked.Increment(ref ingested);
+                        _logger.LogInformation("[{IngestId}] Ingested: {FilePath} -> asset={AssetId}, title=\"{Title}\", keywords={KwCount}, categories={CatCount}",
+                            ingestId, filePath, assetId, asset.Title, textMetadata?.Keywords.Count ?? 0, textMetadata?.Categories.Count ?? 0);
+                    }
+                    finally
+                    {
+                        dbLock.Release();
+                        _logger.LogDebug("[{IngestId}] Released DB lock: {FilePath}", ingestId, filePath);
+                    }
+
+                    var pDone = Interlocked.Increment(ref processed);
+                    await ReportProgressAsync(pDone, total, $"Ingested: {fileInfo.Name}");
+                }
+                catch (Exception ex)
                 {
-                    var deduped = DeduplicateKeywords(textMetadata.Keywords);
-                    await db.AssociateKeywordsAsync(asset, deduped);
+                    Interlocked.Increment(ref errors);
+                    var p = Interlocked.Increment(ref processed);
+                    if (ex is Microsoft.EntityFrameworkCore.DbUpdateException duex)
+                    {
+                        _logger.LogError(duex, "[{IngestId}] DB error ingesting {FilePath} (size={Size}, ext={Ext})", ingestId, filePath, fileInfo.Length, fileInfo.Extension);
+                        foreach (var entry in duex.Entries)
+                            _logger.LogError("[{IngestId}]   Entity: {Entity}, State: {State}", ingestId, entry.Entity.GetType().Name, entry.State);
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "[{IngestId}] Failed to ingest {FilePath} (size={Size}, ext={Ext})", ingestId, filePath, fileInfo.Length, fileInfo.Extension);
+                    }
+                    await ReportProgressAsync(p, total, $"Error: {fileInfo.Name} \u2014 {ex.GetType().Name}: {ex.Message}");
                 }
-                if (textMetadata?.Categories.Count > 0)
-                {
-                    await db.AssociateCategoriesAsync(asset, textMetadata.Categories);
-                }
+            });
 
-                db.DigitalAssets.Add(asset);
-                await db.SaveChangesAsync();
-
-                ingested++;
-            }
-            catch (Exception ex)
-            {
-                errors++;
-                _logger.LogError(ex, "Failed to ingest {FilePath}", filePath);
-                ProgressText = $"Error: {fileInfo.Name} \u2014 {ex.Message}";
-            }
-
-            ProgressValue = (int)((i + 1.0) / total * 100);
-        }
-
+        _cts.Dispose();
+        _cts = null;
         IsIngesting = false;
         ClearFiles();
-        _logger.LogInformation("Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingested, skipped, errors);
+        _logger.LogInformation("[{IngestId}] Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingestId, ingested, skipped, errors);
         IngestionStatus = $"Ingested: {ingested}, Skipped: {skipped}, Errors: {errors}";
         ProgressText = IngestionStatus;
         IngestionCompleted?.Invoke();
+    }
+
+    private async Task ReportProgressAsync(int processed, int total, string text)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            ProgressValue = (int)((double)processed / total * 100);
+            ProgressText = text;
+        });
     }
 
     private static List<string> DeduplicateKeywords(List<string> keywords)

@@ -114,14 +114,14 @@ public class FolderWatcherService : IDisposable
             _pendingEvents.Clear();
         }
 
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         foreach (var path in paths)
         {
             try
             {
                 if (!File.Exists(path)) continue;
-
-                using var scope = _serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
                 var hash = await _checksumService.ComputeSha256Async(path);
                 var exists = await db.DigitalAssets.AnyAsync(a => a.ChecksumSha256 == hash);

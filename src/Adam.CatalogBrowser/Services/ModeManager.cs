@@ -1,5 +1,6 @@
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.CatalogBrowser.Services;
@@ -58,8 +59,14 @@ public sealed class ModeManager
 
     public AppDbContext CreateDbContext()
     {
+        var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath};Pooling=False");
+        connection.Open();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA busy_timeout = 10000;";
+        cmd.ExecuteNonQuery();
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite($"Data Source={DbPath}")
+            .UseSqlite(connection)
             .Options;
         return new AppDbContext(options);
     }

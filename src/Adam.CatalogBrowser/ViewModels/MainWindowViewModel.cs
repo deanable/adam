@@ -7,6 +7,7 @@ using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
@@ -92,7 +93,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await LoadSelectedAssetMetadataAsync();
         };
 
-        _ = Task.Run(async () =>
+        Dispatcher.UIThread.Post(async () =>
         {
             try
             {
@@ -103,7 +104,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 _logger.LogError(ex, "Failed to load sidebar and gallery on startup");
             }
-        });
+        }, DispatcherPriority.Background);
     }
 
     private static List<Guid> GetDescendantKeywordIds(KeywordNode? node)

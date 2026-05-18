@@ -210,7 +210,12 @@ public class AppDbContext : DbContext
         foreach (var name in names)
         {
             var normalized = NormalizeKeyword(name);
-            var category = await Categories.FirstOrDefaultAsync(c => c.NormalizedName == normalized, ct);
+            var category = ChangeTracker.Entries<Category>()
+                .Where(e => e.State == EntityState.Added)
+                .Select(e => e.Entity)
+                .FirstOrDefault(c => c.NormalizedName == normalized);
+
+            category ??= await Categories.FirstOrDefaultAsync(c => c.NormalizedName == normalized, ct);
             if (category == null)
             {
                 category = new Category
@@ -245,8 +250,14 @@ public class AppDbContext : DbContext
         {
             var normalized = NormalizeKeyword(part);
             var parentId = parent?.Id;
-            current = await Keywords.FirstOrDefaultAsync(
-                k => k.NormalizedName == normalized && k.ParentId == parentId, ct);
+
+            current = ChangeTracker.Entries<Keyword>()
+                .Where(e => e.State == EntityState.Added)
+                .Select(e => e.Entity)
+                .FirstOrDefault(k => k.NormalizedName == normalized);
+
+            current ??= await Keywords.FirstOrDefaultAsync(
+                k => k.NormalizedName == normalized, ct);
 
             if (current == null)
             {

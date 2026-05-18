@@ -2,8 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Adam.CatalogBrowser.Services;
-using Adam.Shared.Contracts;
-using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.CatalogBrowser.ViewModels;
@@ -160,18 +158,18 @@ public class SidebarViewModel : INotifyPropertyChanged
             return roots;
         }
 
-        // Strip common prefix and use last segment as root name
-        var rootName = commonPrefix.Split('/').LastOrDefault() ?? "Folders";
-        var root = new FolderNode { Name = rootName, Path = commonPrefix, IsExpanded = true };
+        // Build the tree under a temporary root, then return children directly
+        // to avoid a synthetic wrapper node (same methodology as Keywords/Categories)
+        var tempRoot = new FolderNode { Name = "", Path = commonPrefix };
 
         foreach (var dir in normalizedDirs.OrderBy(d => d))
         {
             var relative = dir[(commonPrefix.Length)..].TrimStart('/');
             if (string.IsNullOrEmpty(relative)) continue;
-            AddPathToTree(root, relative, dir);
+            AddPathToTree(tempRoot, relative, dir);
         }
 
-        return [root];
+        return tempRoot.Children.Count > 0 ? [.. tempRoot.Children] : [new FolderNode { Name = commonPrefix.Split('/').LastOrDefault() ?? "Folders", Path = commonPrefix }];
     }
 
     private static void AddPathToTree(FolderNode root, string relativePath, string fullPath)
@@ -196,18 +194,15 @@ public class SidebarViewModel : INotifyPropertyChanged
     private static void PopulateFolderCounts(FolderNode node, List<string> assetPaths)
     {
         var prefix = node.Path.Replace("\\", "/");
-        var directCount = assetPaths.Count(p =>
-        {
-            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
-            return dir == prefix;
-        });
+        var totalCount = 0;
 
-        // Count also includes assets in subfolders
-        var totalCount = assetPaths.Count(p =>
+        foreach (var p in assetPaths)
         {
-            var dir = Path.GetDirectoryName(p.Replace("\\", "/")) ?? "";
-            return dir.StartsWith(prefix + "/") || dir == prefix;
-        });
+            if (p == null) continue;
+            var dir = (Path.GetDirectoryName(p.Replace("\\", "/")) ?? "").Replace("\\", "/");
+            if (dir == prefix || dir.StartsWith(prefix + "/"))
+                totalCount++;
+        }
 
         node.AssetCount = totalCount;
 
@@ -271,8 +266,6 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     private async Task LoadKeywordsAsync(CancellationToken ct = default)
     {
-        KeywordNode root;
-
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
@@ -280,10 +273,6 @@ public class SidebarViewModel : INotifyPropertyChanged
                 .Include(k => k.Assets)
                 .ToListAsync(ct);
 
-            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
-
-            // Build hierarchy from flat list
-            var keywordDict = keywords.ToDictionary(k => k.Id);
             var nodeDict = new Dictionary<Guid, KeywordNode>();
 
             foreach (var kw in keywords)
@@ -309,25 +298,22 @@ public class SidebarViewModel : INotifyPropertyChanged
                 }
             }
 
-            // Add root-level keywords to the tree root
-            foreach (var kw in keywords.Where(k => !k.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(kw.Id, out var node))
-                {
-                    root.Children.Add(node);
-                }
-            }
+            var topLevel = nodeDict.Values
+                .Where(n => keywords.Any(k => k.Id == n.KeywordId && !k.ParentId.HasValue))
+                .ToList();
 
-            // Propagate counts upward (leaf counts already set, add children to parents)
-            PropagateKeywordCounts(root);
+            // Propagate counts upward (recursive, bottom-up)
+            foreach (var node in topLevel)
+                PropagateKeywordCounts(node);
+
+            Keywords.Clear();
+            foreach (var node in topLevel)
+                Keywords.Add(node);
         }
         else
         {
-            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
+            Keywords.Clear();
         }
-
-        Keywords.Clear();
-        Keywords.Add(root);
     }
 
     private static int PropagateKeywordCounts(KeywordNode node)
@@ -362,8 +348,6 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     private async Task LoadMetadataCategoriesAsync(CancellationToken ct)
     {
-        var newCats = new List<CategoryNode>();
-
         if (_modeManager.IsStandalone)
         {
             await using var db = _modeManager.CreateDbContext();
@@ -371,10 +355,6 @@ public class SidebarViewModel : INotifyPropertyChanged
                 .Include(c => c.Assets)
                 .ToListAsync(ct);
 
-            var total = categories.Sum(c => c.Assets.Count);
-            var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
-
-            // Build hierarchy from flat list
             var nodeDict = new Dictionary<Guid, CategoryNode>();
 
             foreach (var cat in categories)
@@ -398,27 +378,22 @@ public class SidebarViewModel : INotifyPropertyChanged
                 }
             }
 
-            // Add root-level categories to the tree root
-            foreach (var cat in categories.Where(c => !c.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(cat.Id, out var node))
-                {
-                    root.Children.Add(node);
-                }
-            }
+            var topLevel = nodeDict.Values
+                .Where(n => categories.Any(c => c.Id == n.CategoryId && !c.ParentId.HasValue))
+                .ToList();
 
-            // Propagate counts upward
-            PropagateCategoryCounts(root);
-            newCats.Add(root);
+            // Propagate counts upward (recursive, bottom-up)
+            foreach (var node in topLevel)
+                PropagateCategoryCounts(node);
+
+            MetadataCategories.Clear();
+            foreach (var cat in topLevel)
+                MetadataCategories.Add(cat);
         }
         else
         {
-            newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
+            MetadataCategories.Clear();
         }
-
-        MetadataCategories.Clear();
-        foreach (var cat in newCats)
-            MetadataCategories.Add(cat);
     }
 
     private static int PropagateCategoryCounts(CategoryNode node)
