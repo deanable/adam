@@ -174,17 +174,8 @@ public class MetadataExtractorService
                 result.Description = props[descKey];
         }
 
-        // Keywords: dc:subject[*]
-        var subjectKeys = props.Keys.Where(k =>
-            k.StartsWith("dc:subject", StringComparison.OrdinalIgnoreCase));
-        foreach (var key in subjectKeys)
-        {
-            var val = props[key];
-            if (!string.IsNullOrWhiteSpace(val) && !result.Keywords.Contains(val.Trim()))
-                result.Keywords.Add(val.Trim());
-        }
-
-        // Hierarchical keywords: lr:HierarchicalSubject or Hierarchical Subject
+        // Hierarchical keywords take precedence over flat dc:subject.
+        // HierarchicalSubject already contains all keywords in structured form.
         var hierKeys = props.Keys.Where(k =>
             k.StartsWith("Hierarchical Subject", StringComparison.OrdinalIgnoreCase) ||
             k.EndsWith(":HierarchicalSubject", StringComparison.OrdinalIgnoreCase));
@@ -192,7 +183,23 @@ public class MetadataExtractorService
         {
             var val = props[key];
             if (!string.IsNullOrWhiteSpace(val) && !result.Keywords.Contains(val.Trim()))
+            {
                 result.Keywords.Add(val.Trim());
+                result.HasHierarchicalKeywords = true;
+            }
+        }
+
+        // Only fall back to flat dc:subject if no hierarchical keywords were found.
+        if (!result.HasHierarchicalKeywords)
+        {
+            var subjectKeys = props.Keys.Where(k =>
+                k.StartsWith("dc:subject", StringComparison.OrdinalIgnoreCase));
+            foreach (var key in subjectKeys)
+            {
+                var val = props[key];
+                if (!string.IsNullOrWhiteSpace(val) && !result.Keywords.Contains(val.Trim()))
+                    result.Keywords.Add(val.Trim());
+            }
         }
 
         // Rating: xmp:Rating or MicrosoftPhoto:Rating

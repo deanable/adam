@@ -42,15 +42,42 @@ public class AssetListItem : INotifyPropertyChanged
 
     public Bitmap? Thumbnail
     {
-        get
+        get => _thumbnail;
+        private set
         {
-            if (_thumbnail == null && !string.IsNullOrEmpty(_thumbnailPath) && File.Exists(_thumbnailPath))
-            {
-                try { _thumbnail = new Bitmap(_thumbnailPath); }
-                catch { }
-            }
-            return _thumbnail;
+            _thumbnail = value;
+            OnPropertyChanged();
         }
+    }
+
+    public async Task LoadThumbnailAsync(int decodeWidth = 256)
+    {
+        if (_thumbnail != null || string.IsNullOrEmpty(_thumbnailPath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[Thumbnail] Skipping load - thumbnail={_thumbnail != null}, path empty={string.IsNullOrEmpty(_thumbnailPath)}");
+            return;
+        }
+
+        await Task.Run(() =>
+        {
+            try
+            {
+                var exists = File.Exists(_thumbnailPath);
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loading thumbnail: {_thumbnailPath}, exists={exists}");
+                
+                if (!exists)
+                    return;
+
+                using var stream = File.OpenRead(_thumbnailPath);
+                var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
+                Thumbnail = bitmap;
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loaded successfully: {_thumbnailPath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Thumbnail] FAILED to load {_thumbnailPath}: {ex.GetType().Name} - {ex.Message}");
+            }
+        });
     }
 
     public string FileType
@@ -69,6 +96,21 @@ public class AssetListItem : INotifyPropertyChanged
     public int? Width { get; set; }
     public int? Height { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+
+    public string? Dimensions => Width.HasValue && Height.HasValue ? $"{Width.Value}x{Height.Value}" : null;
+
+    public string FileSizeFormatted
+    {
+        get
+        {
+            if (FileSize < 1024) return $"{FileSize} B";
+            if (FileSize < 1024 * 1024) return $"{FileSize / 1024.0:F1} KB";
+            if (FileSize < 1024L * 1024 * 1024) return $"{FileSize / (1024.0 * 1024):F1} MB";
+            return $"{FileSize / (1024.0 * 1024 * 1024):F1} GB";
+        }
+    }
+
+    public string CreatedAtFormatted => CreatedAt.ToString("g");
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

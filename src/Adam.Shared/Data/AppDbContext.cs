@@ -56,6 +56,13 @@ public class AppDbContext : DbContext
             e.Property(x => x.IsDeleted).HasDefaultValue(false);
             e.Property(x => x.Version).HasDefaultValue(1);
             e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter("NOT IsDeleted");
+            e.HasIndex(x => x.Type);
+            e.HasIndex(x => x.StoragePath);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.MimeType);
+            e.HasIndex(x => x.FileSize);
+            e.HasIndex(x => x.FileName);
+            e.HasIndex(x => new { x.Type, x.CreatedAt });
             e.HasOne(x => x.Collection).WithMany(c => c.Assets).HasForeignKey(x => x.CollectionId);
             e.HasOne(x => x.MetadataProfile).WithOne(m => m.DigitalAsset).HasForeignKey<MetadataProfile>(m => m.DigitalAssetId);
             e.HasQueryFilter(x => !x.IsDeleted);
@@ -117,7 +124,8 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
-            e.HasIndex(x => x.NormalizedName).IsUnique();
+            // Composite unique: same keyword name can exist under different parents
+            e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(k => k.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -127,7 +135,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(1000);
-            e.HasIndex(x => x.NormalizedName).IsUnique();
+            // Composite unique: same category name can exist under different parents
+            e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(c => c.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
 

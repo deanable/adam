@@ -29,7 +29,7 @@ public sealed class ModeManager
     public bool IsConnected => BrokerClient?.IsConnected == true;
     public bool IsLoggedIn => AuthSession?.IsLoggedIn == true;
 
-    public void Initialize()
+    public async Task InitializeAsync()
     {
         Mode = "Standalone";
         DbProvider = "sqlite";
@@ -39,12 +39,12 @@ public sealed class ModeManager
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager DbPath: {DbPath}");
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager basePath: {_basePath}");
 
-        using var db = CreateDbContext();
-        db.Database.EnsureCreated();
+        await using var db = CreateDbContext();
+        await db.Database.EnsureCreatedAsync();
         ApplyMigrations(db);
     }
 
-    public void InitializeMultiUser(string host, int port, string dbProvider = "sqlite")
+    public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite")
     {
         Mode = "MultiUser";
         DbProvider = dbProvider;
@@ -52,8 +52,8 @@ public sealed class ModeManager
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
 
-        using var db = CreateDbContext();
-        db.Database.EnsureCreated();
+        await using var db = CreateDbContext();
+        await db.Database.EnsureCreatedAsync();
         ApplyMigrations(db);
     }
 
@@ -84,5 +84,25 @@ public sealed class ModeManager
             db.Database.ExecuteSqlRaw("ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT");
         }
         catch { }
+
+        // Create performance indexes if they don't exist (added after initial schema creation)
+        var indexCommands = new[]
+        {
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_Type ON DigitalAssets(Type)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_StoragePath ON DigitalAssets(StoragePath)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_CreatedAt ON DigitalAssets(CreatedAt)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_MimeType ON DigitalAssets(MimeType)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileSize ON DigitalAssets(FileSize)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileName ON DigitalAssets(FileName)"
+        };
+
+        foreach (var cmd in indexCommands)
+        {
+            try
+            {
+                db.Database.ExecuteSqlRaw(cmd);
+            }
+            catch { }
+        }
     }
 }
