@@ -1,0 +1,93 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Avalonia.Media;
+
+namespace Adam.CatalogBrowser.Controls;
+
+/// <summary>
+/// How widely a tag occurs across a set of selected assets.
+/// </summary>
+public enum OccurrenceLevel
+{
+    /// <summary>Tag is present in all selected assets (green).</summary>
+    All,
+    /// <summary>Tag is present in some (but not all) assets (orange).</summary>
+    Some,
+    /// <summary>Tag is present in exactly one selected asset (red).</summary>
+    One
+}
+
+/// <summary>
+/// Represents a single tag with its occurrence information across a multi-asset selection.
+/// The <see cref="Level"/> determines the background colour rendered on the tag chip.
+/// </summary>
+public class TagOccurrence : INotifyPropertyChanged
+{
+    private string _name = string.Empty;
+    private OccurrenceLevel _level = OccurrenceLevel.All;
+
+    /// <summary>
+    /// The tag text.
+    /// </summary>
+    public string Name
+    {
+        get => _name;
+        set { _name = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// How widely this tag appears across the selected assets.
+    /// </summary>
+    public OccurrenceLevel Level
+    {
+        get => _level;
+        set
+        {
+            if (_level == value) return;
+            _level = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Background));
+            OnPropertyChanged(nameof(Border));
+            OnPropertyChanged(nameof(Foreground));
+        }
+    }
+
+    /// <summary>
+    /// Chip background brush derived from <see cref="Level"/>.
+    /// Green for All, orange for Some, red for One.
+    /// </summary>
+    public IBrush Background => _level switch
+    {
+        OccurrenceLevel.All   => new SolidColorBrush(Color.Parse("#C8E6C9")),  // soft green
+        OccurrenceLevel.Some  => new SolidColorBrush(Color.Parse("#FFE0B2")),  // soft orange
+        OccurrenceLevel.One   => new SolidColorBrush(Color.Parse("#FFCDD2")),  // soft red
+        _                     => new SolidColorBrush(Color.Parse("#E3F2FD")),  // default blue
+    };
+
+    /// <summary>
+    /// Chip border brush derived from <see cref="Level"/>.
+    /// </summary>
+    public IBrush Border => _level switch
+    {
+        OccurrenceLevel.All   => new SolidColorBrush(Color.Parse("#A5D6A7")),
+        OccurrenceLevel.Some  => new SolidColorBrush(Color.Parse("#FFCC80")),
+        OccurrenceLevel.One   => new SolidColorBrush(Color.Parse("#EF9A9A")),
+        _                     => new SolidColorBrush(Color.Parse("#BBDEFB")),
+    };
+
+    /// <summary>
+    /// Chip text foreground derived from <see cref="Level"/>.
+    /// </summary>
+    public IBrush Foreground => _level switch
+    {
+        OccurrenceLevel.All   => new SolidColorBrush(Color.Parse("#2E7D32")),
+        OccurrenceLevel.Some  => new SolidColorBrush(Color.Parse("#E65100")),
+        OccurrenceLevel.One   => new SolidColorBrush(Color.Parse("#C62828")),
+        _                     => new SolidColorBrush(Color.Parse("#1565C0")),
+    };
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}

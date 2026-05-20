@@ -1,0 +1,102 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls">
+
+  <!--
+    Default theme for TagEditorControl.
+
+    Single-asset mode:
+      ┌─────────────────────────────────────┐
+      │ [Tag1 ×] [Tag2 ×] [Tag3 ×]          │
+      │ [type to add…                 ▼]    │
+      └─────────────────────────────────────┘
+
+    Multi-asset mode:
+      ┌─────────────────────────────────────┐
+      │ [Tag1 ×] [Tag2 ×] [Tag3 ×]          │
+      │   (no text entry — managed by VM)   │
+      └─────────────────────────────────────┘
+
+    Each chip's background/border/foreground colours reflect the
+    TagOccurrence.Level: green (All), orange (Some), red (One).
+  -->
+
+  <Style Selector="controls|TagEditorControl">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="4"
+                Padding="6">
+
+          <StackPanel Spacing="6">
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Tag chips (TagOccurrence based)    -->
+            <!-- ═══════════════════════════════════ -->
+            <ItemsControl ItemsSource="{TemplateBinding TagOccurrences}"
+                          Background="Transparent">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="controls:TagOccurrence">
+                  <Border Background="{Binding Background}"
+                          BorderBrush="{Binding Border}"
+                          BorderThickness="1"
+                          CornerRadius="10"
+                          Padding="8,2,4,2"
+                          Margin="0,2,4,2">
+                    <Grid ColumnDefinitions="Auto,Auto">
+                      <!-- Tag text -->
+                      <TextBlock Text="{Binding Name}"
+                                 FontSize="11"
+                                 Foreground="{Binding Foreground}"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,2,0" />
+                      <!-- Remove button -->
+                      <Button Grid.Column="1"
+                              Content="×"
+                              Command="{Binding $parent[controls:TagEditorControl].RemoveTagCommand}"
+                              CommandParameter="{Binding}"
+                              Width="16"
+                              Height="16"
+                              FontSize="11"
+                              FontWeight="Bold"
+                              Foreground="{Binding Foreground}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="0"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Cursor="Hand" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Autocomplete text entry            -->
+            <!--  (hidden in multi-asset mode)       -->
+            <!-- ═══════════════════════════════════ -->
+            <AutoCompleteBox x:Name="PART_TagInput"
+                             ItemsSource="{TemplateBinding AutoCompleteSource}"
+                             PlaceholderText="{TemplateBinding PlaceholderText}"
+                             MinHeight="24"
+                             FontSize="12"
+                             BorderThickness="1"
+                             BorderBrush="#D0D0D0"
+                             CornerRadius="4"
+                             Padding="4,2"
+                            MaxDropDownHeight="200" />
+
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

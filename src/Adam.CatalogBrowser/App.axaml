@@ -3,5 +3,7 @@
              x:Class="Adam.CatalogBrowser.App">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="/Controls/Themes/AssetTileControlStyles.axaml" />
+    <StyleInclude Source="/Controls/Themes/TagEditorControlStyles.axaml" />
   </Application.Styles>
 </Application>

@@ -1,0 +1,170 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls">
+
+  <!--
+    Default theme for AssetTileControl.
+    Layout:
+      ┌────────────────────────┐
+      │  [Toolbar: actions]    │
+      ├────────────────────────┤
+      │                        │
+      │     [Thumbnail]        │
+      │                        │
+      ├────────────────────────┤
+      │  Rating  ●  Flag       │
+      ├────────────────────────┤
+      │  Label 1               │
+      │  Value 1               │
+      ├────────────────────────┤
+      │  Label 2               │
+      │  Value 2               │
+      ├────────────────────────┤
+      │  Label 3               │
+      │  Value 3               │
+      └────────────────────────┘
+  -->
+
+  <Style Selector="controls|AssetTileControl">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="White"
+                BorderBrush="#E0E0E0"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="6">
+
+          <StackPanel Spacing="4">
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Toolbar row (action buttons)       -->
+            <!-- ═══════════════════════════════════ -->
+            <ItemsControl ItemsSource="{TemplateBinding ToolbarActions}"
+                          HorizontalAlignment="Center"
+                          Margin="0,0,0,2">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="2" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="controls:ToolbarAction">
+                  <Button Command="{Binding Command}"
+                          Content="{Binding Icon}"
+                          ToolTip.Tip="{Binding ToolTipText}"
+                          Width="22"
+                          Height="22"
+                          FontSize="12"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          HorizontalAlignment="Center"
+                          Padding="0" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Thumbnail                          -->
+            <!-- ═══════════════════════════════════ -->
+            <Border Width="{TemplateBinding ThumbnailSize}"
+                    Height="{TemplateBinding ThumbnailSize}"
+                    Background="#F5F5F5"
+                    CornerRadius="2"
+                    HorizontalAlignment="Center">
+              <Image Source="{TemplateBinding Thumbnail}"
+                     Stretch="Uniform"
+                     MaxWidth="{TemplateBinding ThumbnailSize}"
+                     MaxHeight="{TemplateBinding ThumbnailSize}" />
+            </Border>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Metadata row                       -->
+            <!--  Rating | Colour swatch | Flag      -->
+            <!-- ═══════════════════════════════════ -->
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  Margin="0,4,0,2">
+
+              <!-- Rating text -->
+              <TextBlock Grid.Column="0"
+                         Text="{TemplateBinding Rating}"
+                         FontSize="11"
+                         Foreground="#888"
+                         VerticalAlignment="Center"
+                         Margin="0,0,6,0" />
+
+              <!-- Colour swatch + label -->
+              <StackPanel Grid.Column="1"
+                          Orientation="Horizontal"
+                          Spacing="4"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center">
+
+                <!-- Colour swatch indicator -->
+                <Border Width="10"
+                        Height="10"
+                        CornerRadius="5"
+                        Background="{TemplateBinding ColorBrush}" />
+
+                <!-- Colour label text -->
+                <TextBlock Text="{TemplateBinding ColorLabel}"
+                           FontSize="10"
+                           Foreground="#999"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+
+              <!-- Flag toggle -->
+              <CheckBox Grid.Column="2"
+                        IsChecked="{TemplateBinding IsFlagged}"
+                        IsEnabled="False"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Text field 1                       -->
+            <!-- ═══════════════════════════════════ -->
+            <StackPanel Spacing="1">
+              <TextBlock Text="{TemplateBinding TextField1Label}"
+                         FontSize="10"
+                         Foreground="#999"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{TemplateBinding TextField1}"
+                         FontSize="11"
+                         Foreground="#333"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Text field 2                       -->
+            <!-- ═══════════════════════════════════ -->
+            <StackPanel Spacing="1">
+              <TextBlock Text="{TemplateBinding TextField2Label}"
+                         FontSize="10"
+                         Foreground="#999"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{TemplateBinding TextField2}"
+                         FontSize="11"
+                         Foreground="#333"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <!-- ═══════════════════════════════════ -->
+            <!--  Text field 3                       -->
+            <!-- ═══════════════════════════════════ -->
+            <StackPanel Spacing="1">
+              <TextBlock Text="{TemplateBinding TextField3Label}"
+                         FontSize="10"
+                         Foreground="#999"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{TemplateBinding TextField3}"
+                         FontSize="11"
+                         Foreground="#333"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>
