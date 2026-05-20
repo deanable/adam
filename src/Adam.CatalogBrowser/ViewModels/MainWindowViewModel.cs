@@ -78,7 +78,28 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var folderPath = sidebar.SelectedFolder?.Path;
             var keywordIds = GetDescendantKeywordIds(sidebar.SelectedKeyword);
             var categoryIds = GetDescendantCategoryIds(sidebar.SelectedMetadataCategory);
-            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds);
+
+            // Date taken filter from sidebar tree
+            DateTime? dateFrom = null;
+            DateTime? dateTo = null;
+            var selectedDate = sidebar.SelectedDateTaken;
+            if (selectedDate != null && selectedDate.Year.HasValue)
+            {
+                if (selectedDate.Month.HasValue)
+                {
+                    // Month-level: filter to that specific month
+                    dateFrom = new DateTime(selectedDate.Year.Value, selectedDate.Month.Value, 1);
+                    dateTo = dateFrom.Value.AddMonths(1);
+                }
+                else
+                {
+                    // Year-level: filter to that full year
+                    dateFrom = new DateTime(selectedDate.Year.Value, 1, 1);
+                    dateTo = dateFrom.Value.AddYears(1);
+                }
+            }
+
+            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo);
         };
 
         ingestion.IngestionCompleted += async () =>

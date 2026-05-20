@@ -356,34 +356,9 @@ public class IngestionViewModel : INotifyPropertyChanged
             .ToList();
     }
 
-    private static string GetMimeType(string ext) => ext.ToLowerInvariant() switch
-    {
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".png" => "image/png",
-        ".webp" => "image/webp",
-        ".tiff" or ".tif" => "image/tiff",
-        ".cr2" => "image/x-canon-cr2",
-        ".nef" => "image/x-nikon-nef",
-        ".arw" => "image/x-sony-arw",
-        ".dng" => "image/x-adobe-dng",
-        ".mp4" => "video/mp4",
-        ".mov" => "video/quicktime",
-        ".pdf" => "application/pdf",
-        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".txt" => "text/plain",
-        ".mp3" => "audio/mpeg",
-        ".wav" => "audio/wav",
-        _ => "application/octet-stream"
-    };
+    private static string GetMimeType(string ext) => FileTypeHelper.GetMimeType("x" + ext);
 
-    private static AssetType GetAssetType(string ext) => ext.ToLowerInvariant() switch
-    {
-        ".jpg" or ".jpeg" or ".png" or ".webp" or ".tiff" or ".tif" or ".cr2" or ".nef" or ".arw" or ".dng" => AssetType.Image,
-        ".mp4" or ".mov" => AssetType.Video,
-        ".pdf" or ".docx" or ".txt" => AssetType.Document,
-        ".mp3" or ".wav" => AssetType.Audio,
-        _ => AssetType.Other
-    };
+    private static AssetType GetAssetType(string ext) => FileTypeHelper.GetAssetType("x" + ext);
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -1,7 +1,7 @@
-using System.Security.Cryptography;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,17 +14,19 @@ public sealed class UserHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<UserHandler> _logger;
     private readonly AuditLogger _auditLogger;
+    private readonly AuthorizationMiddleware _authz;
 
-    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger)
+    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _auditLogger = auditLogger;
+        _authz = authz;
     }
 
     public async Task<Envelope> ListUsersAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "user:read"))
+        if (!await _authz.HasPermissionAsync(request, "user:read", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
@@ -61,7 +63,7 @@ public sealed class UserHandler
 
     public async Task<Envelope> ListRolesAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "role:read"))
+        if (!await _authz.HasPermissionAsync(request, "role:read", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
@@ -90,7 +92,7 @@ public sealed class UserHandler
 
     public async Task<Envelope> CreateUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "user:create"))
+        if (!await _authz.HasPermissionAsync(request, "user:create", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         var createReq = ProtoHelper.Deserialize<CreateUserRequest>(request.Payload.ToByteArray());
@@ -113,7 +115,7 @@ public sealed class UserHandler
             Id = Guid.NewGuid(),
             Username = createReq.Username,
             Email = createReq.Email,
-            PasswordHash = HashPassword(createReq.Password),
+            PasswordHash = PasswordHelper.HashPassword(createReq.Password),
             RoleId = roleId,
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
@@ -149,7 +151,7 @@ public sealed class UserHandler
 
     public async Task<Envelope> UpdateUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "user:update"))
+        if (!await _authz.HasPermissionAsync(request, "user:update", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         var updateReq = ProtoHelper.Deserialize<UpdateUserRequest>(request.Payload.ToByteArray());
@@ -174,7 +176,7 @@ public sealed class UserHandler
 
         if (updateReq.Password != null)
         {
-            user.PasswordHash = HashPassword(updateReq.Password);
+            user.PasswordHash = PasswordHelper.HashPassword(updateReq.Password);
             changes.Add("password");
         }
 
@@ -187,9 +189,9 @@ public sealed class UserHandler
             changes.Add("role");
         }
 
-        user.IsActive = updateReq.IsActive;
         if (updateReq.IsActive != user.IsActive)
             changes.Add(updateReq.IsActive ? "activated" : "deactivated");
+        user.IsActive = updateReq.IsActive;
 
         db.Users.Update(user);
         await db.SaveChangesAsync(ct);
@@ -208,7 +210,7 @@ public sealed class UserHandler
 
     public async Task<Envelope> DeleteUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "user:delete"))
+        if (!await _authz.HasPermissionAsync(request, "user:delete", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         var deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
@@ -236,13 +238,6 @@ public sealed class UserHandler
             MessageType = nameof(DeleteUserRequest),
             StatusCode = 0
         };
-    }
-
-    private static string HashPassword(string password)
-    {
-        var salt = RandomNumberGenerator.GetBytes(32);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 600_000, HashAlgorithmName.SHA256, 32);
-        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
 
     private static Envelope ErrorResponse(Envelope request, int code, string message)

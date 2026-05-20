@@ -6,6 +6,12 @@ namespace Adam.Shared.Transport;
 
 public static class TcpFrame
 {
+    /// <summary>
+    /// Default timeout for receiving data from a peer (5 minutes).
+    /// Prevents hanging indefinitely if a peer sends a length header but no payload.
+    /// </summary>
+    private const int ReceiveTimeoutMs = 300_000;
+
     public static async Task SendAsync(NetworkStream stream, Envelope envelope, CancellationToken ct = default)
     {
         var payload = ProtoHelper.Serialize(envelope);
@@ -18,11 +24,16 @@ public static class TcpFrame
 
     public static async Task<Envelope?> ReceiveAsync(NetworkStream stream, CancellationToken ct = default)
     {
+        // Apply a read timeout so we don't hang forever if a peer disconnects mid-frame
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(ReceiveTimeoutMs);
+        var linkedCt = timeoutCts.Token;
+
         var lengthBuffer = new byte[4];
         int bytesRead = 0;
         while (bytesRead < 4)
         {
-            int n = await stream.ReadAsync(lengthBuffer.AsMemory(bytesRead, 4 - bytesRead), ct).ConfigureAwait(false);
+            int n = await stream.ReadAsync(lengthBuffer.AsMemory(bytesRead, 4 - bytesRead), linkedCt).ConfigureAwait(false);
             if (n == 0) return null;
             bytesRead += n;
         }
@@ -35,7 +46,7 @@ public static class TcpFrame
         bytesRead = 0;
         while (bytesRead < payloadLength)
         {
-            int n = await stream.ReadAsync(payloadBuffer.AsMemory(bytesRead, payloadLength - bytesRead), ct).ConfigureAwait(false);
+            int n = await stream.ReadAsync(payloadBuffer.AsMemory(bytesRead, payloadLength - bytesRead), linkedCt).ConfigureAwait(false);
             if (n == 0) return null;
             bytesRead += n;
         }

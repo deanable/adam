@@ -40,9 +40,48 @@ public sealed class AssetHandler
         if (req.Tags.Count > 0)
             query = query.Where(a => a.Keywords.Any(k => req.Tags.Contains(k.Name)));
 
+        if (!string.IsNullOrEmpty(req.FolderPath))
+        {
+            var prefix = req.FolderPath.Replace('\\', '/');
+            if (!prefix.EndsWith("/"))
+                prefix += "/";
+            query = query.Where(a => a.StoragePath.StartsWith(prefix));
+        }
+
+        if (req.KeywordIds.Count > 0)
+        {
+            var keywordGuids = req.KeywordIds.Select(Guid.Parse).ToList();
+            query = query.Where(a => a.Keywords.Any(k => keywordGuids.Contains(k.Id)));
+        }
+
+        if (req.CategoryIds.Count > 0)
+        {
+            var categoryGuids = req.CategoryIds.Select(Guid.Parse).ToList();
+            query = query.Where(a => a.Categories.Any(c => categoryGuids.Contains(c.Id)));
+        }
+
+        if (req.FromDate != 0)
+            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.DateTaken >= DateTimeOffset.FromUnixTimeSeconds(req.FromDate).DateTime);
+
+        if (req.ToDate != 0)
+            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.DateTaken < DateTimeOffset.FromUnixTimeSeconds(req.ToDate).DateTime);
+
         var total = await query.CountAsync(ct);
+
+        // Apply sort from request, defaulting to FileName ascending
+        query = (req.SortBy, req.SortDir.ToLowerInvariant()) switch
+        {
+            ("Date Added", "desc") => query.OrderByDescending(a => a.CreatedAt).ThenBy(a => a.Id),
+            ("Date Added", _) => query.OrderBy(a => a.CreatedAt).ThenBy(a => a.Id),
+            ("File Type", "desc") => query.OrderByDescending(a => a.MimeType).ThenBy(a => a.Id),
+            ("File Type", _) => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
+            ("File Size", "desc") => query.OrderByDescending(a => a.FileSize).ThenBy(a => a.Id),
+            ("File Size", _) => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
+            ("File Name", "desc") => query.OrderByDescending(a => a.FileName).ThenBy(a => a.Id),
+            _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
+        };
+
         var assets = await query
-            .OrderBy(a => a.FileName)
             .Skip((req.Page - 1) * req.PageSize)
             .Take(req.PageSize)
             .ToListAsync(ct);

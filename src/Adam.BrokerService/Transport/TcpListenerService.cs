@@ -10,7 +10,7 @@ namespace Adam.BrokerService.Transport;
 public sealed class TcpListenerService
 {
     private const int MaxConnections = 50;
-    private const int MaxRequestsPerConnection = 5;
+    private const int MaxRequestsPerConnection = 500;
 
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;

@@ -1,18 +1,11 @@
+using Adam.Shared.Services;
+
 namespace Adam.Shared.Validation;
 
 public record ValidationResult(bool IsValid, IReadOnlyList<string> Errors);
 
 public class AssetValidator
 {
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif",
-        ".cr2", ".nef", ".arw", ".dng",
-        ".mp4", ".mov",
-        ".pdf", ".docx", ".txt",
-        ".mp3", ".wav"
-    };
-
     private const long MaxFileSize = 2L * 1024 * 1024 * 1024;
     private const int MaxTitleLength = 200;
     private const int MaxTagsCount = 20;
@@ -28,7 +21,7 @@ public class AssetValidator
         var errors = new List<string>();
 
         var ext = Path.GetExtension(filePath);
-        if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
+        if (string.IsNullOrEmpty(ext) || !FileTypeHelper.IsSupported(filePath))
         {
             errors.Add($"File type '{ext}' is not supported.");
         }

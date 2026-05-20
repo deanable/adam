@@ -1,34 +1,63 @@
 using Adam.Shared.Contracts;
+using Adam.Shared.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adam.BrokerService.Handlers;
 
-public static class AuthorizationMiddleware
+/// <summary>
+/// Authorization middleware that checks permissions against the database-stored Role.Permissions.
+/// Permissions are resolved from the user's role (extracted from the JWT) and support wildcard
+/// matching (e.g., "asset:*" matches "asset:read", "asset:create", etc.).
+/// </summary>
+public sealed class AuthorizationMiddleware
 {
-    public static bool HasPermission(Envelope request, string requiredPermission)
+    private readonly IServiceProvider _serviceProvider;
+
+    public AuthorizationMiddleware(IServiceProvider serviceProvider)
     {
-        var role = AuthHandler.GetUserRole(request);
-        if (string.IsNullOrEmpty(role))
+        _serviceProvider = serviceProvider;
+    }
+
+    public async Task<bool> HasPermissionAsync(Envelope request, string requiredPermission, CancellationToken ct = default)
+    {
+        var roleName = AuthHandler.GetUserRole(request);
+        if (string.IsNullOrEmpty(roleName))
             return false;
 
-        // Administrator has all permissions
-        if (role == "Administrator")
+        // Administrator has all permissions (fast-path, no DB query needed)
+        if (roleName == "Administrator")
             return true;
 
-        return role switch
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var role = await db.Roles.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Name == roleName, ct);
+
+        if (role == null)
+            return false;
+
+        return role.Permissions.Any(p => MatchesPermission(p, requiredPermission));
+    }
+
+    /// <summary>
+    /// Checks if a permission pattern matches a required permission.
+    /// Supports wildcard: "asset:*" matches "asset:read", "asset:create", etc.
+    /// Also supports exact matches.
+    /// </summary>
+    private static bool MatchesPermission(string pattern, string required)
+    {
+        if (pattern == required)
+            return true;
+
+        // Wildcard: e.g., "asset:*" matches "asset:read"
+        if (pattern.EndsWith('*'))
         {
-            "Editor" => requiredPermission switch
-            {
-                "asset:read" or "asset:create" or "asset:update" or "asset:delete"
-                    or "collection:read" or "collection:update"
-                    => true,
-                _ => false
-            },
-            "Viewer" => requiredPermission switch
-            {
-                "asset:read" or "collection:read" => true,
-                _ => false
-            },
-            _ => false
-        };
+            var prefix = pattern.TrimEnd('*');
+            return required.StartsWith(prefix, StringComparison.Ordinal);
+        }
+
+        return false;
     }
 }

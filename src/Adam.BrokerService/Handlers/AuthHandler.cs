@@ -4,8 +4,10 @@ using System.Security.Cryptography;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -14,16 +16,46 @@ namespace Adam.BrokerService.Handlers;
 
 public sealed class AuthHandler
 {
-    private static readonly byte[] JwtKey = RandomNumberGenerator.GetBytes(32);
+    private static SymmetricSecurityKey _signingKey = null!;
     private static readonly TimeSpan TokenExpiry = TimeSpan.FromHours(24);
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuthHandler> _logger;
 
-    public AuthHandler(IServiceProvider serviceProvider, ILogger<AuthHandler> logger)
+    public AuthHandler(IServiceProvider serviceProvider, ILogger<AuthHandler> logger, IConfiguration configuration)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+
+        if (_signingKey != null) return;
+
+        var keyBase64 = configuration["Jwt:SigningKey"];
+        if (!string.IsNullOrEmpty(keyBase64))
+        {
+            try
+            {
+                var keyBytes = Convert.FromBase64String(keyBase64);
+                if (keyBytes.Length < 32)
+                {
+                    logger.LogWarning("JWT signing key is less than 32 bytes; token security may be reduced.");
+                }
+                _signingKey = new SymmetricSecurityKey(keyBytes);
+                logger.LogInformation("JWT signing key loaded from configuration.");
+            }
+            catch (FormatException)
+            {
+                logger.LogError("Jwt:SigningKey in configuration is not valid Base64. Falling back to ephemeral key.");
+                _signingKey = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+            }
+        }
+        else
+        {
+            _signingKey = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+            logger.LogWarning(
+                "No JWT signing key configured in Jwt:SigningKey (appsettings.json). " +
+                "Generated ephemeral key. All existing tokens will be invalidated on restart. " +
+                "Set a persistent key in appsettings.json to avoid this.");
+        }
     }
 
     public async Task<Envelope> LoginAsync(Envelope request, CancellationToken ct)
@@ -36,7 +68,7 @@ public sealed class AuthHandler
         var user = await db.Users.Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Username == loginReq.Username, ct);
 
-        if (user == null || !VerifyPassword(loginReq.Password, user.PasswordHash))
+        if (user == null || !PasswordHelper.VerifyPassword(loginReq.Password, user.PasswordHash))
         {
             return ErrorResponse(request, 16, "Invalid username or password");
         }
@@ -150,9 +182,7 @@ public sealed class AuthHandler
             audience: "adam-catalog",
             claims: claims,
             expires: DateTime.UtcNow.Add(TokenExpiry),
-            signingCredentials: new SigningCredentials(
-                new SymmetricSecurityKey(JwtKey),
-                SecurityAlgorithms.HmacSha256)
+            signingCredentials: new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256)
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
@@ -167,21 +197,10 @@ public sealed class AuthHandler
             ValidateAudience = true,
             ValidAudience = "adam-catalog",
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(JwtKey),
+            IssuerSigningKey = _signingKey,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
-    }
-
-    private static bool VerifyPassword(string password, string hash)
-    {
-        var parts = hash.Split(':');
-        if (parts.Length != 2) return false;
-        var salt = Convert.FromBase64String(parts[0]);
-        var storedHash = parts[1];
-        var hashBytes = Rfc2898DeriveBytes.Pbkdf2(
-            password, salt, 600_000, HashAlgorithmName.SHA256, 32);
-        return Convert.ToBase64String(hashBytes) == storedHash;
     }
 
     private static Envelope ErrorResponse(Envelope request, int code, string message)

@@ -10,6 +10,11 @@ public sealed class ListAssetsRequest : IProtoSerializable
     public List<string> Tags { get; } = [];
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 50;
+    public long FromDate { get; set; }
+    public long ToDate { get; set; }
+    public string FolderPath { get; set; } = string.Empty;
+    public List<string> KeywordIds { get; } = [];
+    public List<string> CategoryIds { get; } = [];
     public string SortBy { get; set; } = "FileName";
     public string SortDir { get; set; } = "asc";
 
@@ -24,6 +29,11 @@ public sealed class ListAssetsRequest : IProtoSerializable
         if (PageSize != 50) size += ProtoHelper.FieldSize(6, PageSize);
         if (SortBy != "FileName") size += ProtoHelper.FieldSize(7, SortBy);
         if (SortDir != "asc") size += ProtoHelper.FieldSize(8, SortDir);
+        if (FromDate != 0) size += ProtoHelper.FieldSize(9, FromDate);
+        if (ToDate != 0) size += ProtoHelper.FieldSize(10, ToDate);
+        if (!string.IsNullOrEmpty(FolderPath)) size += ProtoHelper.FieldSize(11, FolderPath);
+        size += ProtoHelper.RepeatedFieldSize(12, KeywordIds);
+        size += ProtoHelper.RepeatedFieldSize(13, CategoryIds);
         return size;
     }
 
@@ -37,6 +47,11 @@ public sealed class ListAssetsRequest : IProtoSerializable
         if (PageSize != 50) ProtoHelper.WriteField(output, 6, PageSize);
         if (SortBy != "FileName") ProtoHelper.WriteField(output, 7, SortBy);
         if (SortDir != "asc") ProtoHelper.WriteField(output, 8, SortDir);
+        if (FromDate != 0) ProtoHelper.WriteField(output, 9, FromDate);
+        if (ToDate != 0) ProtoHelper.WriteField(output, 10, ToDate);
+        if (!string.IsNullOrEmpty(FolderPath)) ProtoHelper.WriteField(output, 11, FolderPath);
+        ProtoHelper.WriteRepeatedField(output, 12, KeywordIds);
+        ProtoHelper.WriteRepeatedField(output, 13, CategoryIds);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -54,6 +69,11 @@ public sealed class ListAssetsRequest : IProtoSerializable
                 case 6: PageSize = input.ReadInt32(); break;
                 case 7: SortBy = input.ReadString(); break;
                 case 8: SortDir = input.ReadString(); break;
+                case 9: FromDate = input.ReadInt64(); break;
+                case 10: ToDate = input.ReadInt64(); break;
+                case 11: FolderPath = input.ReadString(); break;
+                case 12: KeywordIds.Add(input.ReadString()); break;
+                case 13: CategoryIds.Add(input.ReadString()); break;
                 default: input.SkipLastField(); break;
             }
         }

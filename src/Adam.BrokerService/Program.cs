@@ -25,6 +25,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<UserHandler>();
         services.AddSingleton<AuditLogHandler>();
         services.AddSingleton<AuditLogger>();
+        services.AddSingleton<AuthorizationMiddleware>();
         services.AddSingleton<StatusHandler>();
         services.AddSingleton<TcpListenerService>();
         services.AddHostedService<TcpListenerHostedService>();

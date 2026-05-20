@@ -34,6 +34,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private string? _activeFolderPath;
     private List<Guid> _activeKeywordIds = [];
     private List<Guid> _activeCategoryIds = [];
+    private DateTime? _filterDateFrom;
+    private DateTime? _filterDateTo;
 
     public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger)
     {
@@ -117,8 +119,6 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         }
     }
 
-    public event Action<AssetListItem?>? SelectionChanged;
-
     public bool HasAssets
     {
         get => _hasAssets;
@@ -136,6 +136,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         get => _isLoadingMore;
         set { _isLoadingMore = value; OnPropertyChanged(); }
     }
+
+    public event Action<AssetListItem?>? SelectionChanged;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -265,19 +267,57 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 if (!broker.IsConnected)
                     await broker.ConnectAsync(ct);
 
+                // Build the request with all active filters
+                var listReq = new ListAssetsRequest
+                {
+                    Page = _page + 1,
+                    PageSize = _pageSize,
+                    SortBy = _sortBy,
+                    SortDir = _sortBy switch
+                    {
+                        "Date Added" => "desc",
+                        _ => "asc"
+                    }
+                };
+
+                // Type/category filter
+                if (!string.IsNullOrEmpty(_activeCategory) && _activeCategory != "All")
+                    listReq.Type = _activeCategory;
+
+                foreach (var id in _activeCategoryIds)
+                    listReq.CategoryIds.Add(id.ToString());
+
+                // Folder path filter
+                if (!string.IsNullOrEmpty(_activeFolderPath))
+                    listReq.FolderPath = _activeFolderPath;
+
+                // Keyword filter
+                foreach (var id in _activeKeywordIds)
+                    listReq.KeywordIds.Add(id.ToString());
+
+                // Date range filter (from DateTaken tree, as Unix timestamps)
+                if (_filterDateFrom.HasValue)
+                    listReq.FromDate = new DateTimeOffset(_filterDateFrom.Value, TimeSpan.Zero).ToUnixTimeSeconds();
+                if (_filterDateTo.HasValue)
+                    listReq.ToDate = new DateTimeOffset(_filterDateTo.Value, TimeSpan.Zero).ToUnixTimeSeconds();
+
                 var correlationId = Guid.NewGuid().ToString();
                 var request = new Envelope
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = correlationId,
                     MessageType = nameof(ListAssetsRequest),
-                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListAssetsRequest()))
+                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(listReq))
                 };
 
                 var response = await broker.SendAsync(request, ct);
                 if (response.StatusCode != 0) return;
 
                 var listResponse = ProtoHelper.Deserialize<ListAssetsResponse>(response.Payload.ToByteArray());
+
+                if (_page == 0)
+                    _totalCount = listResponse.TotalCount;
+
                 var newItems = listResponse.Items.Select(item => new AssetListItem
                 {
                     Id = Guid.Parse(item.Id),
@@ -294,7 +334,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                         Assets.Add(item);
                 });
 
-                _hasMore = false;
+                _page++;
+                if (listResponse.Items.Count < _pageSize)
+                    _hasMore = false;
             }
         }
         catch (Exception ex)
@@ -343,15 +385,24 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             query = query.Where(a => a.Keywords.Any(k => _activeKeywordIds.Contains(k.Id)));
         }
 
+        // Date filter based on MetadataProfile.DateTaken, driven by sidebar tree selection
+        if (_filterDateFrom.HasValue)
+            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.DateTaken >= _filterDateFrom.Value);
+
+        if (_filterDateTo.HasValue)
+            query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.DateTaken < _filterDateTo.Value);
+
         return query;
     }
 
-    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null)
+    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null, DateTime? dateFrom = null, DateTime? dateTo = null)
     {
         _activeCategory = mediaFormat;
         _activeFolderPath = folderPath;
         _activeKeywordIds = keywordIds ?? [];
         _activeCategoryIds = categoryIds ?? [];
+        _filterDateFrom = dateFrom;
+        _filterDateTo = dateTo;
         _ = LoadAssetsAsync();
     }
 
@@ -424,4 +475,3 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         return result;
     }
 }
-

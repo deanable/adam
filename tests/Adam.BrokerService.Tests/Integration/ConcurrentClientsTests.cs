@@ -9,6 +9,7 @@ using Adam.Shared.Transport;
 using FluentAssertions;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -27,6 +28,15 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         var dbPath = Path.GetTempFileName();
         var services = new ServiceCollection();
 
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SigningKey"] = "dGVzdC1zaWduaW5nLWtleS1mb3ItdGVzdGluZy1vbmx5LTMyLWJ5dGVz",
+                ["Jwt:TokenExpiryHours"] = "24"
+            }!)
+            .Build();
+        services.AddSingleton<IConfiguration>(config);
+
         services.AddLogging();
         services.AddDbContext<AppDbContext>(opts =>
             opts.UseSqlite($"Data Source={dbPath}"));
@@ -39,6 +49,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         services.AddSingleton<UserHandler>();
         services.AddSingleton<AuditLogHandler>();
         services.AddSingleton<AuditLogger>();
+        services.AddSingleton<AuthorizationMiddleware>();
         services.AddSingleton<StatusHandler>();
         services.AddSingleton<TcpListenerService>();
 

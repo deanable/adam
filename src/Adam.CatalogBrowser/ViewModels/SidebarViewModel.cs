@@ -23,6 +23,8 @@ public class SidebarViewModel : INotifyPropertyChanged
     private ObservableCollection<KeywordNode> _keywords = [];
     private ObservableCollection<CategoryNode> _metadataCategories = [];
     private readonly SemaphoreSlim _loadLock = new(1, 1);
+    private DateTakenNode? _selectedDateTaken;
+    private ObservableCollection<DateTakenNode> _dateTakenTree = [];
 
     public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger)
     {
@@ -60,6 +62,12 @@ public class SidebarViewModel : INotifyPropertyChanged
         private set { _metadataCategories = value; OnPropertyChanged(); }
     }
 
+    public ObservableCollection<DateTakenNode> DateTakenTree
+    {
+        get => _dateTakenTree;
+        private set { _dateTakenTree = value; OnPropertyChanged(); }
+    }
+
     public CategoryNode SelectedMediaFormat
     {
         get => _selectedMediaFormat;
@@ -90,6 +98,20 @@ public class SidebarViewModel : INotifyPropertyChanged
         set { _selectedKeyword = value; OnPropertyChanged(); OnFilterChanged(); }
     }
 
+    public DateTakenNode? SelectedDateTaken
+    {
+        get => _selectedDateTaken;
+        set
+        {
+            if (_selectedDateTaken != value)
+            {
+                _selectedDateTaken = value;
+                OnPropertyChanged();
+                OnFilterChanged();
+            }
+        }
+    }
+
     public event Action? FilterChanged;
 
     public async Task LoadAsync(CancellationToken ct = default)
@@ -104,7 +126,8 @@ public class SidebarViewModel : INotifyPropertyChanged
                 LoadCollectionsAsync(ct),
                 LoadKeywordsAsync(ct),
                 LoadMediaFormatCountsAsync(ct),
-                LoadMetadataCategoriesAsync(ct));
+                LoadMetadataCategoriesAsync(ct),
+                LoadDateTakenTreeAsync(ct));
             _logger.LogInformation("[LoadAsync] All parallel loads completed successfully");
         }
         catch (Exception ex)
@@ -354,6 +377,62 @@ public class SidebarViewModel : INotifyPropertyChanged
         return node.AssetCount;
     }
 
+    private async Task LoadDateTakenTreeAsync(CancellationToken ct = default)
+    {
+        var root = new DateTakenNode { Name = "All Dates", IsExpanded = true };
+
+        if (_modeManager.IsStandalone)
+        {
+            await using var db = _modeManager.CreateDbContext();
+
+            // Group MetadataProfiles with a DateTaken by year/month and count distinct assets
+            var dateGroups = await db.MetadataProfiles
+                .Where(mp => mp.DateTaken.HasValue)
+                .GroupBy(mp => new { mp.DateTaken!.Value.Year, mp.DateTaken.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync(ct);
+
+            // Group by year then month
+            var byYear = dateGroups
+                .GroupBy(g => g.Year)
+                .OrderByDescending(g => g.Key)
+                .ToList();
+
+            foreach (var yearGroup in byYear)
+            {
+                var yearNode = new DateTakenNode
+                {
+                    Name = yearGroup.Key.ToString(),
+                    Year = yearGroup.Key,
+                    AssetCount = yearGroup.Sum(g => g.Count),
+                    IsExpanded = false
+                };
+
+                foreach (var monthGroup in yearGroup.OrderByDescending(g => g.Month))
+                {
+                    var monthNode = new DateTakenNode
+                    {
+                        Name = new DateTime(yearGroup.Key, monthGroup.Month, 1).ToString("MMMM"),
+                        Year = yearGroup.Key,
+                        Month = monthGroup.Month,
+                        AssetCount = monthGroup.Count
+                    };
+                    yearNode.Children.Add(monthNode);
+                }
+
+                root.Children.Add(yearNode);
+            }
+
+            // Total count on root
+            root.AssetCount = byYear.Sum(g => g.Sum(x => x.Count));
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            DateTakenTree = new ObservableCollection<DateTakenNode> { root };
+        });
+    }
+
     private async Task LoadMediaFormatCountsAsync(CancellationToken ct = default)
     {
         if (_modeManager.IsStandalone)
@@ -543,6 +622,31 @@ public class CategoryNode : INotifyPropertyChanged
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<CategoryNode> Children { get; } = [];
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? n = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+}
+
+public class DateTakenNode : INotifyPropertyChanged
+{
+    private bool _isExpanded;
+    private bool _isSelected;
+    private string _name = string.Empty;
+    private int _assetCount;
+
+    public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
+    public int? Year { get; set; }
+    public int? Month { get; set; }
+    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+    public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
+    public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
+    public ObservableCollection<DateTakenNode> Children { get; } = [];
+
+    /// <summary>
+    /// Whether this node represents a year (true) or a month (false).
+    /// </summary>
+    public bool IsYear => Year.HasValue && !Month.HasValue;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)

@@ -11,16 +11,18 @@ public sealed class AuditLogHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuditLogHandler> _logger;
+    private readonly AuthorizationMiddleware _authz;
 
-    public AuditLogHandler(IServiceProvider serviceProvider, ILogger<AuditLogHandler> logger)
+    public AuditLogHandler(IServiceProvider serviceProvider, ILogger<AuditLogHandler> logger, AuthorizationMiddleware authz)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _authz = authz;
     }
 
     public async Task<Envelope> ListAuditLogsAsync(Envelope request, CancellationToken ct)
     {
-        if (!AuthorizationMiddleware.HasPermission(request, "audit:read"))
+        if (!await _authz.HasPermissionAsync(request, "audit:read", ct))
             return ErrorResponse(request, 7, "Forbidden");
 
         var filterReq = ProtoHelper.Deserialize<ListAuditLogsRequest>(request.Payload.ToByteArray());

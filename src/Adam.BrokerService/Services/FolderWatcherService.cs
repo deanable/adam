@@ -19,15 +19,6 @@ public class FolderWatcherService : IDisposable
     private readonly Timer? _debounceTimer;
     private bool _disposed;
 
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif",
-        ".cr2", ".nef", ".arw", ".dng",
-        ".mp4", ".mov",
-        ".pdf", ".docx", ".txt",
-        ".mp3", ".wav"
-    };
-
     public FolderWatcherService(
         IServiceProvider serviceProvider,
         ILogger<FolderWatcherService> logger,
@@ -79,7 +70,7 @@ public class FolderWatcherService : IDisposable
 
     private void OnFileEvent(object sender, FileSystemEventArgs e)
     {
-        if (!SupportedExtensions.Contains(Path.GetExtension(e.Name ?? ""))) return;
+        if (!FileTypeHelper.IsSupported(e.Name ?? "")) return;
 
         lock (_pendingEvents)
         {
@@ -90,7 +81,7 @@ public class FolderWatcherService : IDisposable
 
     private void OnRenamed(object sender, RenamedEventArgs e)
     {
-        if (!SupportedExtensions.Contains(Path.GetExtension(e.Name ?? ""))) return;
+        if (!FileTypeHelper.IsSupported(e.Name ?? "")) return;
 
         lock (_pendingEvents)
         {

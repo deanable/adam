@@ -142,6 +142,21 @@
               </TreeView>
             </Expander>
 
+            <!-- Date Taken -->
+            <Expander Header="Date Taken" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <TreeView ItemsSource="{Binding Sidebar.DateTakenTree}" SelectedItem="{Binding Sidebar.SelectedDateTaken}"
+                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
+                    </Grid>
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+            </Expander>
+
           </StackPanel>
         </ScrollViewer>
       </Border>

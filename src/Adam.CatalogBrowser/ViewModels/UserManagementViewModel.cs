@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 
@@ -319,13 +320,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
 
     private void CancelEdit() => IsEditing = false;
 
-    private static string HashPassword(string password)
-    {
-        var salt = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        var hash = System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(
-            password, salt, 600_000, System.Security.Cryptography.HashAlgorithmName.SHA256, 32);
-        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
-    }
+    private static string HashPassword(string password) => PasswordHelper.HashPassword(password);
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
