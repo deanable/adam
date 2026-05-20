@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
              x:Class="Adam.CatalogBrowser.Views.UserManagementView"
              x:CompileBindings="False">
+  <Grid>
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
       <TextBlock Text="User Management" FontSize="20" FontWeight="Bold" />
@@ -63,4 +65,12 @@
       <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
     </StackPanel>
   </ScrollViewer>
+
+  <!-- Loading overlay -->
+  <Border Background="#CCFFFFFF" IsVisible="{Binding IsLoading}"
+          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <controls:LoadingSpinner Width="40" Height="40" Foreground="#1976D2"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+  </Border>
+  </Grid>
 </UserControl>

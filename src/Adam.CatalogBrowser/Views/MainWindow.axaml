@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
-        xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"             xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
         x:Class="Adam.CatalogBrowser.Views.MainWindow"
         Title="adam - Digital Asset Manager"
         Width="1400"
@@ -167,9 +167,22 @@
                     Cursor="SizeWestEast" />
 
       <!-- Center content -->
-      <Border Grid.Column="2" Background="White" Padding="0">
-        <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
-      </Border>
+      <!-- Center content -->
+      <Grid Grid.Column="2" Background="White">
+        <Border Padding="0">
+          <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
+        </Border>
+        <!-- Startup loading overlay -->
+        <Border Background="#CCFFFFFF" IsVisible="{Binding IsInitialLoading}"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+          <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="12">
+            <controls:LoadingSpinner Grid.Row="0" Width="48" Height="48" Foreground="#1976D2"
+                                      HorizontalAlignment="Center" />
+            <TextBlock Grid.Row="1" Text="Loading assets..." FontSize="14" Foreground="#666"
+                       HorizontalAlignment="Center" />
+          </Grid>
+        </Border>
+      </Grid>
 
       <!-- Right splitter -->
       <GridSplitter Grid.Column="3" Width="4" Background="#D0D0D0"
@@ -181,7 +194,7 @@
         <ScrollViewer>
           <StackPanel Spacing="0">
 
-            <!-- Metadata -->
+            <!-- Metadata (single asset) -->
             <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0">
                 <ItemsControl ItemsSource="{Binding SelectedAssetMetadata}"
@@ -199,6 +212,21 @@
                 <TextBlock Text="No selection" FontSize="11" Foreground="#999" Margin="0,4,0,0"
                            IsVisible="{Binding HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}"
                            HorizontalAlignment="Center" />
+              </StackPanel>
+            </Expander>
+
+            <!-- Tags (multi-asset aggregation) -->
+            <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <StackPanel Margin="0,4,0,0" Spacing="4">
+                <controls:TagEditorControl
+                  TagOccurrences="{Binding AggregatedTags}"
+                  AutoCompleteSource="{Binding TagAutoCompleteSource}"
+                  IsMultiAsset="True"
+                  IsVisible="{Binding HasMultiSelection}" />
+                <TextBlock Text="Select multiple assets with Ctrl+Click to compare tags"
+                           FontSize="11" Foreground="#999"
+                           HorizontalAlignment="Center"
+                           IsVisible="{Binding HasMultiSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
               </StackPanel>
             </Expander>
 

@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
              x:Class="Adam.CatalogBrowser.Views.AdminPanelView"
              x:CompileBindings="False">
+  <Grid>
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
 
@@ -66,4 +68,12 @@
 
     </StackPanel>
   </ScrollViewer>
+
+  <!-- Loading overlay -->
+  <Border Background="#CCFFFFFF" IsVisible="{Binding IsBusy}"
+          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <controls:LoadingSpinner Width="40" Height="40" Foreground="#1976D2"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+  </Border>
+  </Grid>
 </UserControl>

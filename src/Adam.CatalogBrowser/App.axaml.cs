@@ -34,7 +34,6 @@ public partial class App : Application
             services.AddSingleton(broker);
             services.AddSingleton(auth);
             var modeManager = new ModeManager(basePath, broker, auth);
-            modeManager.InitializeAsync().GetAwaiter().GetResult();
             services.AddSingleton(modeManager);
 
             services.AddSingleton<ChecksumService>();

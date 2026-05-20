@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Services;
+using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 
@@ -71,19 +72,27 @@ public class UserManagementViewModel : INotifyPropertyChanged
 
     public async Task LoadUsersAsync()
     {
-        IsLoading = true;
-        Users.Clear();
-        Roles.Clear();
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            IsLoading = true;
+            Users.Clear();
+            Roles.Clear();
+        });
 
         try
         {
             if (_modeManager.IsStandalone)
             {
-                await using var db = _modeManager.CreateDbContext();
-                var users = db.Users.Include(u => u.Role).OrderBy(u => u.Username).ToList();
-                foreach (var u in users)
+                List<UserItem> userItems;
+                List<RoleItem> roleItems;
+
+                await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
                 {
-                    Users.Add(new UserItem
+                    var users = await db.Users
+                        .Include(u => u.Role)
+                        .OrderBy(u => u.Username)
+                        .ToListAsync().ConfigureAwait(false);
+                    userItems = users.Select(u => new UserItem
                     {
                         Id = u.Id,
                         Username = u.Username,
@@ -91,11 +100,19 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         RoleName = u.Role?.Name ?? "",
                         IsActive = u.IsActive,
                         CreatedAt = u.CreatedAt
-                    });
+                    }).ToList();
+
+                    var roles = await db.Roles.OrderBy(r => r.Name).ToListAsync().ConfigureAwait(false);
+                    roleItems = roles.Select(r => new RoleItem { Id = r.Id, Name = r.Name }).ToList();
                 }
 
-                foreach (var r in db.Roles.OrderBy(r => r.Name))
-                    Roles.Add(new RoleItem { Id = r.Id, Name = r.Name });
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    foreach (var u in userItems)
+                        Users.Add(u);
+                    foreach (var r in roleItems)
+                        Roles.Add(r);
+                });
             }
             else if (_modeManager.IsMultiUser)
             {
@@ -104,7 +121,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 if (broker == null || auth == null) return;
 
                 if (!broker.IsConnected)
-                    await broker.ConnectAsync();
+                    await broker.ConnectAsync().ConfigureAwait(false);
 
                 var corrId = Guid.NewGuid().ToString();
                 var req = new Envelope
@@ -115,22 +132,25 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListUsersRequest()))
                 };
 
-                var resp = await broker.SendAsync(req);
+                var resp = await broker.SendAsync(req).ConfigureAwait(false);
                 if (resp.StatusCode == 0)
                 {
                     var listResp = ProtoHelper.Deserialize<ListUsersResponse>(resp.Payload.ToByteArray());
-                    foreach (var u in listResp.Items)
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        Users.Add(new UserItem
+                        foreach (var u in listResp.Items)
                         {
-                            Id = Guid.Parse(u.Id),
-                            Username = u.Username,
-                            Email = u.Email,
-                            RoleName = u.RoleName,
-                            IsActive = u.IsActive,
-                            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(u.CreatedAt)
-                        });
-                    }
+                            Users.Add(new UserItem
+                            {
+                                Id = Guid.Parse(u.Id),
+                                Username = u.Username,
+                                Email = u.Email,
+                                RoleName = u.RoleName,
+                                IsActive = u.IsActive,
+                                CreatedAt = DateTimeOffset.FromUnixTimeSeconds(u.CreatedAt)
+                            });
+                        }
+                    });
                 }
 
                 var roleReq = new Envelope
@@ -140,24 +160,27 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     MessageType = nameof(ListRolesRequest),
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListRolesRequest()))
                 };
-                var roleResp = await broker.SendAsync(roleReq);
+                var roleResp = await broker.SendAsync(roleReq).ConfigureAwait(false);
                 if (roleResp.StatusCode == 0)
                 {
                     var listRoles = ProtoHelper.Deserialize<ListRolesResponse>(roleResp.Payload.ToByteArray());
-                    foreach (var r in listRoles.Items)
-                        Roles.Add(new RoleItem { Id = Guid.Parse(r.Id), Name = r.Name });
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        foreach (var r in listRoles.Items)
+                            Roles.Add(new RoleItem { Id = Guid.Parse(r.Id), Name = r.Name });
+                    });
                 }
             }
 
-            StatusText = $"{Users.Count} user(s)";
+            await Dispatcher.UIThread.InvokeAsync(() => StatusText = $"{Users.Count} user(s)");
         }
         catch (Exception ex)
         {
-            StatusText = $"Error: {ex.Message}";
+            await Dispatcher.UIThread.InvokeAsync(() => StatusText = $"Error: {ex.Message}");
         }
         finally
         {
-            IsLoading = false;
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
         }
     }
 
@@ -190,7 +213,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
         {
             if (_modeManager.IsStandalone)
             {
-                await using var db = _modeManager.CreateDbContext();
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
                 if (_editUserId == Guid.Empty)
                 {
                     var roleId = Guid.Parse(EditRoleId);
@@ -208,7 +231,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 }
                 else
                 {
-                    var user = await db.Users.FindAsync(_editUserId);
+                    var user = await db.Users.FindAsync(_editUserId).ConfigureAwait(false);
                     if (user != null)
                     {
                         user.Email = EditEmail;
@@ -219,7 +242,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         db.Users.Update(user);
                     }
                 }
-                await db.SaveChangesAsync();
+                await db.SaveChangesAsync().ConfigureAwait(false);
             }
             else if (_modeManager.IsMultiUser)
             {
@@ -281,13 +304,13 @@ public class UserManagementViewModel : INotifyPropertyChanged
         {
             if (_modeManager.IsStandalone)
             {
-                await using var db = _modeManager.CreateDbContext();
-                var user = await db.Users.FindAsync(SelectedUser.Id);
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                var user = await db.Users.FindAsync(SelectedUser.Id).ConfigureAwait(false);
                 if (user != null)
                 {
                     user.IsActive = false;
                     db.Users.Update(user);
-                    await db.SaveChangesAsync();
+                    await db.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
             else if (_modeManager.IsMultiUser)

@@ -98,12 +98,12 @@ public class IngestionViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
             var storagePaths = await db.DigitalAssets
                 .Select(a => a.StoragePath)
                 .Where(p => p != null && p.Length > 0)
                 .Distinct()
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
             var dirs = storagePaths
                 .Select(p => Path.GetDirectoryName(p.Replace('\\', '/')) ?? "")
@@ -221,7 +221,7 @@ public class IngestionViewModel : INotifyPropertyChanged
                     await dbLock.WaitAsync(ct);
                     try
                     {
-                        await using var db = _modeManager.CreateDbContext();
+                        await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
 
                         _logger.LogDebug("[{IngestId}] Checking duplicates: {FilePath} hash={Hash}", ingestId, filePath, checksum);
                         var existing = await db.DigitalAssets

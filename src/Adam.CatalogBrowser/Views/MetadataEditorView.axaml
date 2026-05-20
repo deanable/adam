@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
              x:Class="Adam.CatalogBrowser.Views.MetadataEditorView"
              x:CompileBindings="False">
+  <Grid>
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
       <TextBlock Text="Metadata Editor" FontSize="20" FontWeight="Bold" />
@@ -30,9 +32,12 @@
               <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}"
                        AcceptsReturn="True" MaxHeight="80" />
 
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Center" Margin="0,4,0,0" />
-              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding TagsText}"
-                       PlaceholderText="Comma-separated tags" />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Top" Margin="0,4,0,0" />
+              <controls:TagEditorControl Grid.Row="2" Grid.Column="1"
+                Tags="{Binding Tags}"
+                AutoCompleteSource="{Binding AutoCompleteSource}"
+                PlaceholderText="Add tag..."
+                Margin="0,2,0,0" />
 
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" Margin="0,4,0,0" />
               <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
@@ -99,4 +104,12 @@
       </StackPanel>
     </StackPanel>
   </ScrollViewer>
+
+  <!-- Loading overlay -->
+  <Border Background="#CCFFFFFF" IsVisible="{Binding IsLoading}"
+          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <controls:LoadingSpinner Width="40" Height="40" Foreground="#1976D2"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+  </Border>
+  </Grid>
 </UserControl>

@@ -1,0 +1,80 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls">
+
+  <!--
+    Default theme for AssetListRowControl.
+    Layout:
+      ┌──────────────────────────────────────────────────────────────┐
+      │ [Thumb] │  FileName               │  Size   │  Dims  │ Date │
+      │  40x40  │  FileType               │         │        │      │
+      └──────────────────────────────────────────────────────────────┘
+  -->
+
+  <Style Selector="controls|AssetListRowControl">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent"
+                Padding="8,6"
+                MinHeight="48">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+
+            <!-- ─── Thumbnail ─── -->
+            <Border Grid.Column="0"
+                    Width="{TemplateBinding ThumbnailSize}"
+                    Height="{TemplateBinding ThumbnailSize}"
+                    Background="#F5F5F5"
+                    CornerRadius="4"
+                    Margin="0,0,12,0">
+              <Image Source="{TemplateBinding Thumbnail}"
+                     Stretch="Uniform"
+                     MaxWidth="{TemplateBinding ThumbnailSize}"
+                     MaxHeight="{TemplateBinding ThumbnailSize}" />
+            </Border>
+
+            <!-- ─── File name + type ─── -->
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        MinWidth="180"
+                        MaxWidth="320">
+              <TextBlock Text="{TemplateBinding FileName}"
+                         FontSize="12"
+                         Foreground="#333"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{TemplateBinding FileType}"
+                         FontSize="10"
+                         Foreground="#888" />
+            </StackPanel>
+
+            <!-- ─── Size ─── -->
+            <TextBlock Grid.Column="2"
+                       Text="{TemplateBinding FileSizeFormatted}"
+                       FontSize="11"
+                       Foreground="#666"
+                       VerticalAlignment="Center"
+                       Margin="12,0"
+                       MinWidth="60"
+                       HorizontalAlignment="Right" />
+
+            <!-- ─── Dimensions ─── -->
+            <TextBlock Grid.Column="3"
+                       Text="{TemplateBinding Dimensions}"
+                       FontSize="11"
+                       Foreground="#666"
+                       VerticalAlignment="Center"
+                       Margin="12,0"
+                       MinWidth="60" />
+
+            <!-- ─── Created date ─── -->
+            <TextBlock Grid.Column="4"
+                       Text="{TemplateBinding CreatedAtFormatted}"
+                       FontSize="11"
+                       Foreground="#666"
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0" />
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

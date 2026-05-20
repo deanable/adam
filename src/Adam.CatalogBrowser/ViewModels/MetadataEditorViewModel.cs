@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -14,10 +16,12 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     private MetadataProfile? _profile;
     private string _title = string.Empty;
     private string? _description;
-    private string _tagsText = string.Empty;
+    private ObservableCollection<string> _tags = [];
+    private IEnumerable<string>? _autoCompleteSource;
     private int _rating;
     private bool _isDirty;
     private bool _hasAsset;
+    private bool _isLoading;
     private string _statusText = string.Empty;
 
     private string _cameraMake = string.Empty;
@@ -51,6 +55,12 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     public ICommand SaveCommand { get; }
     public ICommand SetRatingCommand { get; }
 
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set { _isLoading = value; OnPropertyChanged(); }
+    }
+
     public bool HasAsset
     {
         get => _hasAsset;
@@ -59,7 +69,36 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
 
     public string Title { get => _title; set { _title = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
     public string? Description { get => _description; set { _description = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
-    public string TagsText { get => _tagsText; set { _tagsText = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
+
+    /// <summary>
+    /// The collection of tags displayed and edited in the TagEditorControl.
+    /// Setting this replaces the collection and subscribes to change notifications.
+    /// </summary>
+    public ObservableCollection<string> Tags
+    {
+        get => _tags;
+        set
+        {
+            if (_tags != null)
+                _tags.CollectionChanged -= OnTagsCollectionChanged;
+            _tags = value ?? [];
+            _tags.CollectionChanged += OnTagsCollectionChanged;
+            OnPropertyChanged();
+            IsDirty = true;
+            OnPropertyChanged(nameof(SaveCommand));
+        }
+    }
+
+    /// <summary>
+    /// All keyword names in the system, used as autocomplete suggestions
+    /// in the TagEditorControl.
+    /// </summary>
+    public IEnumerable<string>? AutoCompleteSource
+    {
+        get => _autoCompleteSource;
+        set { _autoCompleteSource = value; OnPropertyChanged(); }
+    }
+
     public int Rating { get => _rating; set { _rating = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
 
     public string CameraMake { get => _cameraMake; set { _cameraMake = value; OnPropertyChanged(); } }
@@ -79,26 +118,39 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
     public bool IsDirty { get => _isDirty; set { _isDirty = value; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
 
+    private void OnTagsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        _isDirty = true;
+        OnPropertyChanged(nameof(SaveCommand));
+    }
+
+    /// <summary>
+    /// Loads a single asset's metadata and populates the tag collection.
+    /// Also loads the system-wide keyword list for autocomplete.
+    /// </summary>
     public async Task LoadAssetAsync(Guid assetId, CancellationToken ct = default)
     {
-        await using var db = _modeManager.CreateDbContext();
-        _asset = await db.DigitalAssets
-            .Include(a => a.MetadataProfile)
-            .Include(a => a.Keywords)
-            .FirstOrDefaultAsync(a => a.Id == assetId, ct);
-
-        if (_asset == null)
+        IsLoading = true;
+        try
         {
-            HasAsset = false;
-            return;
-        }
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+            _asset = await db.DigitalAssets
+                .Include(a => a.MetadataProfile)
+                .Include(a => a.Keywords)
+                .FirstOrDefaultAsync(a => a.Id == assetId, ct).ConfigureAwait(false);
+
+            if (_asset == null)
+            {
+                HasAsset = false;
+                return;
+            }
 
         _profile = _asset.MetadataProfile;
         HasAsset = true;
         FileName = _asset.FileName;
         Title = _asset.Title;
         Description = _asset.Description;
-        TagsText = string.Join(", ", _asset.Keywords.Select(k => k.Name));
+        Tags = new ObservableCollection<string>(_asset.Keywords.Select(k => k.Name));
         Rating = _profile?.Rating ?? 0;
 
         CameraMake = _profile?.CameraMake ?? "";
@@ -116,38 +168,65 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         Copyright = _profile?.Copyright ?? "";
         Headline = _profile?.Headline ?? "";
 
+        // Load keyword suggestions for autocomplete
+        await LoadAutoCompleteSourceAsync(db);
+
         IsDirty = false;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
-    public async Task SaveAsync()
+    /// <summary>
+    /// Loads all known keyword names from the database for autocomplete suggestions.
+    /// </summary>
+    private async Task LoadAutoCompleteSourceAsync(Adam.Shared.Data.AppDbContext db, CancellationToken ct = default)
+    {
+        try
+        {
+            AutoCompleteSource = await db.Keywords
+                .Select(k => k.Name)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToListAsync(ct);
+        }
+        catch
+        {
+            AutoCompleteSource = null;
+        }
+    }
+
+    public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_asset == null) return;
-        await using var db = _modeManager.CreateDbContext();
+        await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
 
         // Reload asset with keywords tracking
         var asset = await db.DigitalAssets
             .Include(a => a.Keywords)
-            .FirstOrDefaultAsync(a => a.Id == _asset.Id);
+            .FirstOrDefaultAsync(a => a.Id == _asset.Id, ct).ConfigureAwait(false);
         if (asset == null) return;
 
         asset.Title = Title;
         asset.Description = Description;
         asset.Keywords.Clear();
 
-        var tagNames = (TagsText ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var tagNames = Tags.ToArray();
         if (tagNames.Length > 0)
         {
-            await db.AssociateKeywordsAsync(asset, tagNames);
+            await db.AssociateKeywordsAsync(asset, tagNames, ct);
         }
 
         if (_profile != null)
         {
-            var profile = await db.MetadataProfiles.FirstOrDefaultAsync(m => m.DigitalAssetId == asset.Id);
+            var profile = await db.MetadataProfiles.FirstOrDefaultAsync(m => m.DigitalAssetId == asset.Id, ct).ConfigureAwait(false);
             if (profile != null)
                 profile.Rating = Rating;
         }
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         IsDirty = false;
         StatusText = "Saved.";

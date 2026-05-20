@@ -71,6 +71,24 @@ public sealed class ModeManager
         return new AppDbContext(options);
     }
 
+    /// <summary>
+    /// Async version of <see cref="CreateDbContext"/> that opens the connection
+    /// asynchronously so the calling thread is not blocked during I/O.
+    /// </summary>
+    public async Task<AppDbContext> CreateDbContextAsync(CancellationToken ct = default)
+    {
+        var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath};Pooling=False");
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA busy_timeout = 10000;";
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        return new AppDbContext(options);
+    }
+
     private static void ApplyMigrations(AppDbContext db)
     {
         try

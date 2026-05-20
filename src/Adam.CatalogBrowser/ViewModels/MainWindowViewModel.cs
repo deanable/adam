@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
@@ -25,8 +26,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private object? _currentView;
     private string _statusText = "Ready";
     private bool _isBusy;
+    private bool _isInitialLoading;
     private AssetListItem? _selectedAsset;
+    private readonly List<AssetListItem> _selectedAssets = [];
     private ObservableCollection<MetadataEntry> _selectedAssetMetadata = [];
+    private ObservableCollection<TagOccurrence>? _aggregatedTags;
+    private List<string>? _tagAutoCompleteSource;
 
     public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
@@ -112,12 +117,27 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _selectedAsset = asset;
             await LoadSelectedAssetMetadataAsync();
+            OnPropertyChanged(nameof(HasSelectedAsset));
         };
+
+        assetGallery.MultiSelectionChanged += async assets =>
+        {
+            _selectedAssets.Clear();
+            _selectedAssets.AddRange(assets);
+            OnPropertyChanged(nameof(HasMultiSelection));
+            await ComputeAggregatedTagsAsync();
+        };
+
+        IsInitialLoading = true;
 
         Dispatcher.UIThread.Post(async () =>
         {
             try
             {
+                _logger.LogInformation("[Startup] Initializing database...");
+                await modeManager.InitializeAsync();
+                _logger.LogInformation("[Startup] Database initialized");
+
                 _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
                 await Sidebar.LoadAsync();
                 _logger.LogInformation("[Startup] Sidebar.LoadAsync() completed");
@@ -125,10 +145,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogInformation("[Startup] Beginning AssetGallery.LoadAssetsAsync()...");
                 await AssetGallery.LoadAssetsAsync();
                 _logger.LogInformation("[Startup] AssetGallery.LoadAssetsAsync() completed");
+
+                // Pre-load keyword names for tag autocomplete
+                await LoadTagAutoCompleteSourceAsync();
+                _logger.LogInformation("[Startup] TagAutoCompleteSource loaded with {Count} entries", _tagAutoCompleteSource?.Count ?? 0);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery on startup. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
+            }
+            finally
+            {
+                IsInitialLoading = false;
             }
         }, DispatcherPriority.Background);
     }
@@ -171,6 +199,31 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public bool HasSelectedAsset => _selectedAsset != null;
 
+    /// <summary>
+    /// True when multiple assets are selected in the gallery.
+    /// </summary>
+    public bool HasMultiSelection => _selectedAssets.Count > 1;
+
+    /// <summary>
+    /// Aggregated tag occurrences across all selected assets.
+    /// Each <see cref="TagOccurrence"/> carries a level indicating whether the
+    /// tag is present in all, some, or exactly one of the selected assets.
+    /// </summary>
+    public ObservableCollection<TagOccurrence>? AggregatedTags
+    {
+        get => _aggregatedTags;
+        set { _aggregatedTags = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// All keywords in the system, used as autocomplete suggestions.
+    /// </summary>
+    public IEnumerable<string>? TagAutoCompleteSource
+    {
+        get => _tagAutoCompleteSource;
+        set { _tagAutoCompleteSource = value?.ToList(); OnPropertyChanged(); }
+    }
+
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowAdminCommand { get; }
     public ICommand ShowIngestionCommand { get; }
@@ -196,6 +249,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         set { _isBusy = value; OnPropertyChanged(); }
     }
 
+    public bool IsInitialLoading
+    {
+        get => _isInitialLoading;
+        set { _isInitialLoading = value; OnPropertyChanged(); }
+    }
+
     private async Task LoadSelectedAssetMetadataAsync()
     {
         OnPropertyChanged(nameof(SelectedAsset));
@@ -218,12 +277,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             try
             {
-                await using var db = _modeManager.CreateDbContext();
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
                 var asset = await db.DigitalAssets
                     .Include(a => a.Keywords)
                     .Include(a => a.Categories)
                     .Include(a => a.MetadataProfile)
-                    .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id);
+                    .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
 
                 if (asset != null)
                 {
@@ -280,7 +339,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
         }
 
-        SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
+        });
     }
 
     private static void AddIfValue(List<MetadataEntry> entries, string label, string? value)
@@ -298,6 +360,101 @@ public class MainWindowViewModel : INotifyPropertyChanged
             : bytes >= mb ? $"{bytes / (double)mb:F2} MB"
             : bytes >= kb ? $"{bytes / (double)kb:F2} KB"
             : $"{bytes} B";
+    }
+
+    // ──────────────────────────────────────────────
+    //  Multi-asset tag aggregation
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads all keyword names from the database for autocomplete suggestions.
+    /// </summary>
+    private async Task LoadTagAutoCompleteSourceAsync()
+    {
+        try
+        {
+            if (_modeManager.IsStandalone)
+            {
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                var names = await db.Keywords
+                    .Select(k => k.Name)
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToListAsync().ConfigureAwait(false);
+                await Dispatcher.UIThread.InvokeAsync(() => TagAutoCompleteSource = names);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load tag autocomplete source");
+        }
+    }
+
+    /// <summary>
+    /// Computes aggregated <see cref="TagOccurrence"/> levels across all
+    /// currently selected assets. Tags present in all assets get
+    /// <see cref="OccurrenceLevel.All"/> (green), some get
+    /// <see cref="OccurrenceLevel.Some"/> (orange), and tags in exactly
+    /// one asset get <see cref="OccurrenceLevel.One"/> (red).
+    /// </summary>
+    private async Task ComputeAggregatedTagsAsync()
+    {
+        if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
+            return;
+        }
+
+        try
+        {
+            List<(string name, OccurrenceLevel level)> aggregated;
+
+            await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
+            {
+                var assetIds = _selectedAssets.Select(a => a.Id).ToList();
+                var total = assetIds.Count;
+
+                var assets = await db.DigitalAssets
+                    .Include(a => a.Keywords)
+                    .Where(a => assetIds.Contains(a.Id))
+                    .ToListAsync().ConfigureAwait(false);
+
+                // Count occurrences of each keyword name across all selected assets
+                var occurrenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var asset in assets)
+                {
+                    foreach (var kw in asset.Keywords)
+                    {
+                        occurrenceCounts[kw.Name] = occurrenceCounts.GetValueOrDefault(kw.Name) + 1;
+                    }
+                }
+
+                aggregated = occurrenceCounts
+                    .OrderBy(kv => kv.Key)
+                    .Select(kvp =>
+                    {
+                        var level = kvp.Value == total ? OccurrenceLevel.All
+                                  : kvp.Value == 1 ? OccurrenceLevel.One
+                                  : OccurrenceLevel.Some;
+                        return (kvp.Key, level);
+                    })
+                    .ToList();
+
+                _logger.LogInformation("[AggregatedTags] Computed {Count} aggregated tags across {AssetCount} assets", aggregated.Count, total);
+            }
+
+            // Marshal to UI thread
+            var tags = new ObservableCollection<TagOccurrence>();
+            foreach (var (name, level) in aggregated)
+                tags.Add(new TagOccurrence { Name = name, Level = level });
+
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = tags);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to compute aggregated tags");
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -24,7 +25,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private string _sortBy = "File Name";
     private string _statusText = string.Empty;
     private AssetListItem? _selectedAsset;
+    private readonly ObservableCollection<AssetListItem> _selectedAssets = [];
     private bool _hasAssets;
+    private bool _isLoading;
     private int _page;
     private int _pageSize = 50;
     private int _totalCount;
@@ -108,6 +111,11 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         set { _statusText = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// All currently selected assets (multi-select).
+    /// </summary>
+    public ObservableCollection<AssetListItem> SelectedAssets => _selectedAssets;
+
     public AssetListItem? SelectedAsset
     {
         get => _selectedAsset;
@@ -117,6 +125,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             SelectionChanged?.Invoke(value);
         }
+    }
+
+    /// <summary>
+    /// True while a full reload is in progress (initial load or filter change).
+    /// </summary>
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set { _isLoading = value; OnPropertyChanged(); }
     }
 
     public bool HasAssets
@@ -137,7 +154,38 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         set { _isLoadingMore = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// Fires when the multi-asset selection changes.
+    /// Carries the full list of currently selected assets.
+    /// </summary>
+    public event Action<IReadOnlyList<AssetListItem>>? MultiSelectionChanged;
+
     public event Action<AssetListItem?>? SelectionChanged;
+
+    /// <summary>
+    /// Called from code-behind when the ListBox selection changes.
+    /// Updates <see cref="SelectedAssets"/>, <see cref="SelectedAsset"/> (primary),
+    /// and fires <see cref="MultiSelectionChanged"/>.
+    /// </summary>
+    public void UpdateSelection(IList<object?> selectedItems)
+    {
+        var items = selectedItems
+            .OfType<AssetListItem>()
+            .ToList();
+
+        // Update SelectedAssets collection
+        _selectedAssets.Clear();
+        foreach (var item in items)
+            _selectedAssets.Add(item);
+
+        OnPropertyChanged(nameof(SelectedAssets));
+
+        // Primary selection (first item)
+        SelectedAsset = items.Count > 0 ? items[0] : null;
+
+        // Fire multi-selection event
+        MultiSelectionChanged?.Invoke(items.AsReadOnly());
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -152,21 +200,41 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         _page = 0;
         _hasMore = true;
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        try
         {
-            Assets.Clear();
-            _logger.LogInformation("[LoadAssetsAsync] Assets cleared, count={Count}", Assets.Count);
-        });
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = true);
 
-        await LoadPageAsync(ct);
+            // Preserve selection across reloads
+            var savedSelectedId = _selectedAsset?.Id;
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Assets.Clear();
+                _logger.LogInformation("[LoadAssetsAsync] Assets cleared, count={Count}", Assets.Count);
+            });
+
+            await LoadPageAsync(ct);
+
+            // Restore selection if the same item still exists in the new results
+            if (savedSelectedId.HasValue)
+            {
+                var match = Assets.FirstOrDefault(a => a.Id == savedSelectedId.Value);
+                if (match != null)
+                    SelectedAsset = match;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                HasMore = _hasMore;
+                HasAssets = Assets.Count > 0;
+                StatusText = _totalCount > 0 ? $"{Assets.Count} of {_totalCount} asset(s)" : "0 asset(s)";
+                _logger.LogInformation("[LoadAssetsAsync] Completed - loaded {Count} assets, total={Total}, hasMore={HasMore}", Assets.Count, _totalCount, _hasMore);
+            });
+        }
+        finally
         {
-            HasMore = _hasMore;
-            HasAssets = Assets.Count > 0;
-            StatusText = _totalCount > 0 ? $"{Assets.Count} of {_totalCount} asset(s)" : "0 asset(s)";
-            _logger.LogInformation("[LoadAssetsAsync] Completed - loaded {Count} assets, total={Total}, hasMore={HasMore}", Assets.Count, _totalCount, _hasMore);
-        });
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
+        }
     }
 
     public async Task LoadMoreAsync(CancellationToken ct = default)
@@ -188,7 +256,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         {
             if (_modeManager.IsStandalone)
             {
-                await using var db = _modeManager.CreateDbContext();
+                await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
                 _logger.LogInformation("[LoadPageAsync] DbContext created");
 
                 var query = ApplyFilters(db.DigitalAssets.AsQueryable());
@@ -196,7 +264,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
 
                 if (_page == 0)
                 {
-                    _totalCount = await query.CountAsync(ct);
+                    _totalCount = await query.CountAsync(ct).ConfigureAwait(false);
                     _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
                 }
 
@@ -212,7 +280,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 var assets = await query
                     .Skip(_page * _pageSize)
                     .Take(_pageSize)
-                    .ToListAsync(ct);
+                    .ToListAsync(ct).ConfigureAwait(false);
                 _logger.LogInformation("[LoadPageAsync] Retrieved {Count} assets from database", assets.Count);
 
                 var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
@@ -411,11 +479,10 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         Collections.Clear();
 
         if (_modeManager.IsStandalone)
-        {
-            await using var db = _modeManager.CreateDbContext();
+        {                await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var collections = await db.Collections
                 .Include(c => c.Children)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             foreach (var col in collections.Where(c => c.ParentId == null))
                 Collections.Add(BuildCollectionNode(col, collections));

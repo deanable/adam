@@ -47,7 +47,7 @@ public class AuditLogViewModel : INotifyPropertyChanged
         {
             if (_modeManager.IsStandalone)
             {
-                await using var db = _modeManager.CreateDbContext();
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
                 var query = db.AccessLogs.Include(l => l.User).AsQueryable();
 
                 if (!string.IsNullOrEmpty(FilterAction))
@@ -59,7 +59,7 @@ public class AuditLogViewModel : INotifyPropertyChanged
                 if (FilterTo.HasValue)
                     query = query.Where(l => l.Timestamp <= FilterTo.Value);
 
-                var logs = await query.OrderByDescending(l => l.Timestamp).ToListAsync();
+                var logs = await query.OrderByDescending(l => l.Timestamp).ToListAsync().ConfigureAwait(false);
 
                 foreach (var l in logs)
                 {

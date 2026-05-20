@@ -23,6 +23,7 @@ public class SidebarViewModel : INotifyPropertyChanged
     private ObservableCollection<KeywordNode> _keywords = [];
     private ObservableCollection<CategoryNode> _metadataCategories = [];
     private readonly SemaphoreSlim _loadLock = new(1, 1);
+    private bool _isLoading;
     private DateTakenNode? _selectedDateTaken;
     private ObservableCollection<DateTakenNode> _dateTakenTree = [];
 
@@ -55,6 +56,12 @@ public class SidebarViewModel : INotifyPropertyChanged
         new() { Name = "Documents", Count = 0 },
         new() { Name = "Audio", Count = 0 },
     ];
+
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set { _isLoading = value; OnPropertyChanged(); }
+    }
 
     public ObservableCollection<CategoryNode> MetadataCategories
     {
@@ -116,8 +123,9 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     public async Task LoadAsync(CancellationToken ct = default)
     {
+        await Dispatcher.UIThread.InvokeAsync(() => IsLoading = true);
         _logger.LogInformation("[LoadAsync] Acquiring load lock...");
-        await _loadLock.WaitAsync(ct);
+        await _loadLock.WaitAsync(ct).ConfigureAwait(false);
         _logger.LogInformation("[LoadAsync] Lock acquired. Starting parallel loads...");
         try
         {
@@ -127,7 +135,7 @@ public class SidebarViewModel : INotifyPropertyChanged
                 LoadKeywordsAsync(ct),
                 LoadMediaFormatCountsAsync(ct),
                 LoadMetadataCategoriesAsync(ct),
-                LoadDateTakenTreeAsync(ct));
+                LoadDateTakenTreeAsync(ct)).ConfigureAwait(false);
             _logger.LogInformation("[LoadAsync] All parallel loads completed successfully");
         }
         catch (Exception ex)
@@ -139,6 +147,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         {
             _loadLock.Release();
             _logger.LogInformation("[LoadAsync] Lock released");
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
         }
     }
 
@@ -157,13 +166,13 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             _logger.LogInformation("[LoadFoldersAsync] Querying directories from database...");
 
             var storagePaths = await db.DigitalAssets
                 .Select(a => a.StoragePath)
                 .Where(p => p != null)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             paths = storagePaths
                 .Select(p => GetDirectoryName(p))
@@ -208,10 +217,10 @@ public class SidebarViewModel : INotifyPropertyChanged
         // Populate asset counts
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var allPaths = await db.DigitalAssets
                 .Select(a => a.StoragePath)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             var folderCounts = allPaths
                 .GroupBy(p => GetDirectoryName(p))
@@ -264,10 +273,10 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var all = await db.Collections
                 .Select(c => new { c.Id, c.Name, c.ParentId, AssetCount = c.Assets.Count })
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
             var allCols = all.Select(c => new CollectionNode
             {
                 Id = c.Id, Name = c.Name, ParentId = c.ParentId, AssetCount = c.AssetCount
@@ -296,7 +305,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var keywordRows = await db.Keywords
                 .Select(k => new
                 {
@@ -306,7 +315,7 @@ public class SidebarViewModel : INotifyPropertyChanged
                     k.ParentId,
                     AssetCount = k.Assets.Count
                 })
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
 
@@ -383,14 +392,14 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
 
             // Group MetadataProfiles with a DateTaken by year/month and count distinct assets
             var dateGroups = await db.MetadataProfiles
                 .Where(mp => mp.DateTaken.HasValue)
                 .GroupBy(mp => new { mp.DateTaken!.Value.Year, mp.DateTaken.Value.Month })
                 .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             // Group by year then month
             var byYear = dateGroups
@@ -437,11 +446,11 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var counts = await db.DigitalAssets
                 .GroupBy(a => a.Type)
                 .Select(g => new { Type = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.Type, x => x.Count, ct);
+                .ToDictionaryAsync(x => x.Type, x => x.Count, ct).ConfigureAwait(false);
 
             var total = counts.Values.Sum();
             counts.TryGetValue(Adam.Shared.Models.AssetType.Image, out var images);
@@ -466,7 +475,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         if (_modeManager.IsStandalone)
         {
-            await using var db = _modeManager.CreateDbContext();
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var categoryRows = await db.Categories
                 .Select(c => new
                 {
@@ -476,7 +485,7 @@ public class SidebarViewModel : INotifyPropertyChanged
                     c.ParentId,
                     AssetCount = c.Assets.Count
                 })
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             var total = categoryRows.Sum(c => c.AssetCount);
             var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };

@@ -1,6 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
+
              x:Class="Adam.CatalogBrowser.Views.AssetGalleryView"
              x:CompileBindings="False">
   <UserControl.Resources>
@@ -41,16 +43,35 @@
       </Grid>
     </Border>
 
-    <!-- Gallery grid -->
-    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+    <!-- Gallery grid (wrapped in overlay for loading) -->
+    <Grid Grid.Row="1">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   x:Name="GalleryScroller">
       <StackPanel>
         <!-- Grid view -->
-        <ListBox ItemsSource="{Binding Assets}"
+        <ListBox x:Name="GridViewBox"
+                 ItemsSource="{Binding Assets}"
                  SelectedItem="{Binding SelectedAsset}"
+                 SelectionMode="Multiple"
+                 SelectionChanged="OnGallerySelectionChanged"
                  Background="Transparent"
                  BorderThickness="0"
                  IsVisible="{Binding IsGridView}">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="Padding" Value="0" />
+            </Style>
+            <Style Selector="ListBoxItem:pointerover">
+              <Setter Property="Background" Value="#EFF2F7" />
+            </Style>
+            <Style Selector="ListBoxItem:selected">
+              <Setter Property="Background" Value="#E3EDFA" />
+            </Style>
+            <Style Selector="ListBoxItem:selected:pointerover">
+              <Setter Property="Background" Value="#D8E5F7" />
+            </Style>
+          </ListBox.Styles>
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel />
@@ -58,41 +79,51 @@
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border Margin="4"
-                      Padding="4"
-                      BorderBrush="#E0E0E0"
-                      BorderThickness="1"
-                      CornerRadius="4"
-                      Background="White">
-                <StackPanel>
-                  <Border Width="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
-                          Height="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
-                          Background="#F5F5F5"
-                          CornerRadius="2">
-                    <Image Source="{Binding Thumbnail}"
-                           Width="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
-                           Height="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
-                           Stretch="Uniform" />
-                  </Border>
-                  <TextBlock Text="{Binding Title}"
-                             MaxWidth="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
-                             TextTrimming="CharacterEllipsis"
-                             FontSize="11"
-                             Foreground="#333"
-                             Margin="0,4,0,0"
-                             HorizontalAlignment="Center" />
-                </StackPanel>
-              </Border>
+              <controls:AssetTileControl
+                Thumbnail="{Binding Thumbnail}"
+                ThumbnailSize="{Binding $parent[ListBox].DataContext.ThumbnailSize}"
+                TextField1Label="Name"
+                TextField1="{Binding Title}"
+                TextField2Label="Type"
+                TextField2="{Binding FileType}"
+                TextField3Label="Size"
+                TextField3="{Binding FileSizeFormatted}"
+                Margin="4" />
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
 
         <!-- List view -->
-        <ListBox ItemsSource="{Binding Assets}"
+        <ListBox x:Name="ListViewBox"
+                 ItemsSource="{Binding Assets}"
                  SelectedItem="{Binding SelectedAsset}"
+                 SelectionMode="Multiple"
+                 SelectionChanged="OnGallerySelectionChanged"
                  Background="Transparent"
                  BorderThickness="0"
                  IsVisible="{Binding IsListView}">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Background" Value="White" />
+              <Setter Property="Padding" Value="0" />
+            </Style>
+            <Style Selector="ListBoxItem:pointerover">
+              <Setter Property="Background" Value="#EFF2F7" />
+            </Style>
+            <Style Selector="ListBoxItem:selected">
+              <Setter Property="Background" Value="#E3EDFA" />
+            </Style>
+            <Style Selector="ListBoxItem:selected:pointerover">
+              <Setter Property="Background" Value="#D8E5F7" />
+            </Style>
+            <!-- Left accent bar on selected rows -->
+            <Style Selector="ListBoxItem:selected Border.LeftAccent">
+              <Setter Property="Background" Value="#1976D2" />
+            </Style>
+            <Style Selector="ListBoxItem:selected:pointerover Border.LeftAccent">
+              <Setter Property="Background" Value="#1565C0" />
+            </Style>
+          </ListBox.Styles>
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
               <VirtualizingStackPanel />
@@ -100,62 +131,54 @@
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Border Margin="2"
-                      Padding="8"
-                      BorderBrush="#E8E8E8"
-                      BorderThickness="0,0,0,1"
-                      Background="White">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                  <Image Source="{Binding Thumbnail}"
-                         Width="40"
-                         Height="40"
-                         Stretch="Uniform"
-                         Grid.Column="0"
-                         Margin="0,0,12,0" />
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding FileName}"
-                               FontSize="12"
-                               Foreground="#333"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding FileType}"
-                               FontSize="10"
-                               Foreground="#888" />
-                  </StackPanel>
-                  <TextBlock Grid.Column="2"
-                             Text="{Binding FileSizeFormatted}"
-                             FontSize="11"
-                             Foreground="#666"
-                             VerticalAlignment="Center"
-                             Margin="12,0" />
-                  <TextBlock Grid.Column="3"
-                             Text="{Binding Dimensions}"
-                             FontSize="11"
-                             Foreground="#666"
-                             VerticalAlignment="Center"
-                             Margin="12,0" />
-                  <TextBlock Grid.Column="4"
-                             Text="{Binding CreatedAtFormatted}"
-                             FontSize="11"
-                             Foreground="#666"
-                             VerticalAlignment="Center"
-                             Margin="12,0,0,0" />
-                </Grid>
-              </Border>
+              <Grid>
+                <!-- Row content (rendered first, behind) -->
+                <Border BorderBrush="#E8E8E8"
+                        BorderThickness="0,0,0,1"
+                        Background="Transparent">
+                  <controls:AssetListRowControl
+                    Thumbnail="{Binding Thumbnail}"
+                    ThumbnailSize="40"
+                    FileName="{Binding FileName}"
+                    FileType="{Binding FileType}"
+                    FileSizeFormatted="{Binding FileSizeFormatted}"
+                    Dimensions="{Binding Dimensions}"
+                    CreatedAtFormatted="{Binding CreatedAtFormatted}" />
+                </Border>
+
+                <!-- Left accent bar (rendered on top, visible on selected rows) -->
+                <Border Classes="LeftAccent"
+                        Width="3"
+                        HorizontalAlignment="Left"
+                        Background="Transparent" />
+              </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
 
-        <Border Height="40" IsVisible="{Binding HasMore}"
+        <!-- Load-more indicator -->
+        <Border Height="32" IsVisible="{Binding HasMore}"
                 Background="Transparent">
-          <TextBlock Text="Loading more assets..."
-                     FontSize="11"
-                     Foreground="#999"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     IsVisible="{Binding IsLoadingMore}" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                      IsVisible="{Binding IsLoadingMore}">
+            <controls:LoadingSpinner Width="16" Height="16" Foreground="#1976D2" DotSize="5" />
+            <TextBlock Text="Loading more..." FontSize="11" Foreground="#999" VerticalAlignment="Center" />
+          </StackPanel>
         </Border>
       </StackPanel>
     </ScrollViewer>
+
+    <!-- Full-loading overlay (initial load / filter changes) -->
+    <Border Background="#CCFFFFFF" IsVisible="{Binding IsLoading}"
+            HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+      <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
+        <controls:LoadingSpinner Grid.Row="0" Width="36" Height="36" Foreground="#1976D2"
+                                  HorizontalAlignment="Center" />
+        <TextBlock Grid.Row="1" Text="Loading..." FontSize="12" Foreground="#888"
+                   HorizontalAlignment="Center" />
+      </Grid>
+    </Border>
+    </Grid>
 
     <!-- Empty state -->
     <Border Grid.Row="2"
