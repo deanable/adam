@@ -59,7 +59,7 @@ public class AuditLogViewModel : INotifyPropertyChanged
                 if (FilterTo.HasValue)
                     query = query.Where(l => l.Timestamp <= FilterTo.Value);
 
-                var logs = await query.OrderByDescending(l => l.Timestamp).Take(500).ToListAsync();
+                var logs = await query.OrderByDescending(l => l.Timestamp).ToListAsync();
 
                 foreach (var l in logs)
                 {

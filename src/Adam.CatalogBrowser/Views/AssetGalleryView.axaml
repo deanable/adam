@@ -177,7 +177,7 @@
 
     <!-- Status bar info -->
     <Border Grid.Row="2" Background="Transparent" Padding="4">
-      <TextBlock FontSize="11" Foreground="#888" Text="{Binding Assets.Count}" />
+      <TextBlock FontSize="11" Foreground="#888" Text="{Binding StatusText}" />
     </Border>
   </Grid>
 </UserControl>

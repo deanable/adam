@@ -203,6 +203,9 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
+
+            // Propagate counts upward so parents show totals
+            PropagateFolderCounts(root);
         }
 
         _logger.LogInformation("[LoadFoldersAsync] Assigning Folders collection on UI thread");
@@ -335,6 +338,17 @@ public class SidebarViewModel : INotifyPropertyChanged
         foreach (var child in node.Children)
         {
             childSum += PropagateKeywordCounts(child);
+        }
+        node.AssetCount += childSum;
+        return node.AssetCount;
+    }
+
+    private static int PropagateFolderCounts(FolderNode node)
+    {
+        var childSum = 0;
+        foreach (var child in node.Children)
+        {
+            childSum += PropagateFolderCounts(child);
         }
         node.AssetCount += childSum;
         return node.AssetCount;

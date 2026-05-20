@@ -25,6 +25,7 @@ public class IngestionViewModel : INotifyPropertyChanged
     private bool _isIngesting;
     private string _ingestionStatus = string.Empty;
     private CancellationTokenSource? _cts;
+    private System.Diagnostics.Stopwatch? _ingestStopwatch;
 
     public event Action? IngestionCompleted;
 
@@ -146,6 +147,7 @@ public class IngestionViewModel : INotifyPropertyChanged
 
         _logger.LogInformation("[{IngestId}] Starting ingestion of {Total} file(s)", ingestId, total);
 
+        _ingestStopwatch = System.Diagnostics.Stopwatch.StartNew();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
 
@@ -317,11 +319,30 @@ public class IngestionViewModel : INotifyPropertyChanged
 
     private async Task ReportProgressAsync(int processed, int total, string text)
     {
+        string etaText = string.Empty;
+        if (_ingestStopwatch != null && processed > 0 && processed < total)
+        {
+            var elapsed = _ingestStopwatch.Elapsed;
+            var avgPerFile = elapsed.TotalSeconds / processed;
+            var remainingSeconds = avgPerFile * (total - processed);
+            var eta = TimeSpan.FromSeconds(remainingSeconds);
+            etaText = $" (ETA {FormatEta(eta)})";
+        }
+
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             ProgressValue = (int)((double)processed / total * 100);
-            ProgressText = text;
+            ProgressText = $"{text}{etaText}";
         });
+    }
+
+    private static string FormatEta(TimeSpan eta)
+    {
+        if (eta.TotalHours >= 1)
+            return $"{(int)eta.TotalHours}h {eta.Minutes}m";
+        if (eta.TotalMinutes >= 1)
+            return $"{eta.Minutes}m {eta.Seconds}s";
+        return $"{eta.Seconds}s";
     }
 
     private static List<string> DeduplicateKeywords(List<string> keywords)
