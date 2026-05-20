@@ -15,11 +15,10 @@ public partial class AssetGalleryView : UserControl
         SetupItemTransitions();
     }
 
-    private void SetupItemTransitions()
+    private static Style CreateItemTransitionStyle()
     {
-        // Smooth background transitions on ListBoxItem
-        var itemStyle = new Style(x => x.OfType<ListBoxItem>());
-        itemStyle.Add(new Setter
+        var style = new Style(x => x.OfType<ListBoxItem>());
+        style.Add(new Setter
         {
             Property = ListBoxItem.TransitionsProperty,
             Value = new Transitions
@@ -31,12 +30,13 @@ public partial class AssetGalleryView : UserControl
                 }
             }
         });
-        ListViewBox?.Styles.Add(itemStyle);
-        GridViewBox?.Styles.Add(itemStyle);
+        return style;
+    }
 
-        // Smooth left accent bar transition (list view selected rows)
-        var accentStyle = new Style(x => x.OfType<Border>().Class("LeftAccent"));
-        accentStyle.Add(new Setter
+    private static Style CreateAccentTransitionStyle()
+    {
+        var style = new Style(x => x.OfType<Border>().Class("LeftAccent"));
+        style.Add(new Setter
         {
             Property = Border.TransitionsProperty,
             Value = new Transitions
@@ -48,7 +48,14 @@ public partial class AssetGalleryView : UserControl
                 }
             }
         });
-        ListViewBox?.Styles.Add(accentStyle);
+        return style;
+    }
+
+    private void SetupItemTransitions()
+    {
+        ListViewBox?.Styles.Add(CreateItemTransitionStyle());
+        GridViewBox?.Styles.Add(CreateItemTransitionStyle());
+        ListViewBox?.Styles.Add(CreateAccentTransitionStyle());
     }
 
     private async void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
