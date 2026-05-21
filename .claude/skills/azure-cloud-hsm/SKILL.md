@@ -1,0 +1,64 @@
+---
+name: azure-cloud-hsm
+description: Expert knowledge for Azure Cloud Hsm development including troubleshooting, best practices, limits & quotas, security, configuration, and integrations & coding patterns. Use when managing Cloud HSM clusters, PKCS#11 apps, key lifecycle, backups/logs, or capacity/algorithm choices, and other Azure Cloud Hsm related development tasks. Not for Azure Dedicated HSM (use azure-dedicated-hsm), Azure Payment Hsm (use azure-payment-hsm), Azure Key Vault (use azure-key-vault), Azure Confidential Computing (use azure-confidential-computing).
+compatibility: Requires network access. Uses mcp_microsoftdocs:microsoft_docs_fetch or WebFetch to retrieve documentation.
+user-invocable: false
+---
+# Azure Cloud HSM Skill
+
+This skill provides expert guidance for Azure Cloud HSM. Covers troubleshooting, best practices, limits & quotas, security, configuration, and integrations & coding patterns. It combines local quick-reference content with remote documentation fetching capabilities.
+
+## How to Use This Skill
+
+> **IMPORTANT for Agent**: This file may be large. Use the **Category Index** below to locate relevant sections, then use `read_file` with specific line ranges (e.g., `L136-L144`) to read the sections needed for the user's question
+This skill requires **network access** to fetch documentation content.
+Use `mcp_microsoftdocs:microsoft_docs_fetch` to retrieve full articles.
+- **Fallback**: Use the built-in `WebFetch` tool if the Microsoft Learn MCP server is not available.
+
+## Category Index
+
+| Category | Lines | Description |
+|----------|-------|-------------|
+| Troubleshooting | L28-L32 | Diagnosing and fixing Cloud HSM issues, including user/key synchronization problems, common error patterns, and step-by-step resolution guidance. |
+| Best Practices | L34-L37 | Guidance on secure key lifecycle management in Cloud HSM: generation, storage, rotation, access control, backup/recovery, and operational best practices for cryptographic keys. |
+| Limits & Quotas | L39-L43 | Details on Cloud HSM capacity limits, object/transaction quotas, and which cryptographic algorithms and key sizes are supported for keys and operations |
+| Security | L45-L51 | Configuring auth methods, network hardening, deployment security best practices, and secure user/role management for Azure Cloud HSM environments. |
+| Configuration | L53-L57 | Configuring Azure Cloud HSM cluster backups/restores and enabling, querying, and interpreting HSM operation logs for auditing and troubleshooting |
+| Integrations & Coding Patterns | L59-L63 | Using PKCS#11 with Azure Cloud HSM for certificate storage and lifecycle management, including setup, configuration, and integration patterns for apps and services. |
+
+### Troubleshooting
+| Topic | URL |
+|-------|-----|
+| Diagnose and fix Cloud HSM user/key sync issues | https://learn.microsoft.com/en-us/azure/cloud-hsm/synchronize-users-keys |
+| Diagnose and resolve common Azure Cloud HSM issues | https://learn.microsoft.com/en-us/azure/cloud-hsm/troubleshoot |
+
+### Best Practices
+| Topic | URL |
+|-------|-----|
+| Apply key management best practices in Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/key-management |
+
+### Limits & Quotas
+| Topic | URL |
+|-------|-----|
+| Understand Azure Cloud HSM object and transaction limits | https://learn.microsoft.com/en-us/azure/cloud-hsm/service-limits |
+| Review supported algorithms and key sizes in Azure Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/supported-algorithms |
+
+### Security
+| Topic | URL |
+|-------|-----|
+| Configure authentication methods for Azure Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/authentication |
+| Harden Azure Cloud HSM network configuration | https://learn.microsoft.com/en-us/azure/cloud-hsm/network-security |
+| Harden and secure Azure Cloud HSM deployments | https://learn.microsoft.com/en-us/azure/cloud-hsm/secure-cloud-hsm |
+| Secure user management in Azure Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/user-management |
+
+### Configuration
+| Topic | URL |
+|-------|-----|
+| Configure backup and restore for Azure Cloud HSM clusters | https://learn.microsoft.com/en-us/azure/cloud-hsm/backup-restore |
+| Configure and query Azure Cloud HSM operation logs | https://learn.microsoft.com/en-us/azure/cloud-hsm/tutorial-operation-event-logging |
+
+### Integrations & Coding Patterns
+| Topic | URL |
+|-------|-----|
+| Use PKCS#11 API for certificate management in Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/pkcs-api-certificate-storage |
+| Set up PKCS#11-based certificate storage with Azure Cloud HSM | https://learn.microsoft.com/en-us/azure/cloud-hsm/tutorial-certificate-storage |

@@ -49,6 +49,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var userManagement = new UserManagementViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var migrationWizard = new MigrationWizardViewModel(_modeManager);
+        var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
 
         // Construct the ViewModel. The constructor fires Task.Run startup
         // which dispatches IsInitialLoading = false to the UI thread in its
@@ -58,7 +59,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         _vm = new MainWindowViewModel(
             _logger, _modeManager, _sidebar, _gallery,
             adminPanel, ingestion, metadataEditor,
-            userManagement, auditLog, migrationWizard);
+            userManagement, auditLog, migrationWizard, bulkQueue);
         SetField("_isInitialLoading", false);
 
         // Open a DB connection for seeding/verifying test data

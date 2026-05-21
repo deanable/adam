@@ -1,0 +1,1439 @@
+{
+  "version": 1,
+  "skills": {
+    "aspire": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/aspire/skills/aspire/SKILL.md",
+      "computedHash": "c7b0808d0b9cc154ea2cd2a007b3a0c72cda67ad0d5d2286d7b5d9db3509f1f5"
+    },
+    "az-cost-optimize": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/az-cost-optimize/SKILL.md",
+      "computedHash": "e81b383069c1e68575ff963d6ac7eb96e939befab867d3f9a28565414a8580e2"
+    },
+    "azure-active-directory-b2c": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-active-directory-b2c/SKILL.md",
+      "computedHash": "f0cac13e4aeffbd42f25c5d604d682bb2282f3da80433936a67671f7a22a5989"
+    },
+    "azure-advisor": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-advisor/SKILL.md",
+      "computedHash": "e5871e643c86c9341ba2c420188e86b7cdcc816cca0321f2470fc6dbf0805ea4"
+    },
+    "azure-ai-foundry-local": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-ai-foundry-local/SKILL.md",
+      "computedHash": "ad812f4b2be595b13e63a9314f60c47d5fe45445479e33f9f70acbe2c17480e8"
+    },
+    "azure-ai-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-ai-services/SKILL.md",
+      "computedHash": "4b6c487480510fe2645f3cbe431c2e7b8a6526336f2dcb06b2302c1e76f2e600"
+    },
+    "azure-ai-vision": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-ai-vision/SKILL.md",
+      "computedHash": "24837882073ffc238d99b435e0dd3e97c9a72e5044581afec6c980c2a7174d58"
+    },
+    "azure-aks-edge-essentials": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-aks-edge-essentials/SKILL.md",
+      "computedHash": "6b5396e69ba9ed44ce2b05853b519af149eb74d56737e2702e470285807d29cb"
+    },
+    "azure-analysis-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-analysis-services/SKILL.md",
+      "computedHash": "51b3173dfd859940ab70090ed140faa210cfd1de267d8a72df4f9bce93acd30a"
+    },
+    "azure-anomaly-detector": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-anomaly-detector/SKILL.md",
+      "computedHash": "f17b9f5884915376c10ac5ca78ad303b6eaf7d9d24b2f726341aa693fb9234b0"
+    },
+    "azure-api-center": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-api-center/SKILL.md",
+      "computedHash": "88e2bdefb1365ff98fec87ba23d9f2267e1718ec9b4d1a314242f6462a8f3b87"
+    },
+    "azure-api-management": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-api-management/SKILL.md",
+      "computedHash": "7afbfb9133b95d5da4e95ac8d58924f1be49abd8cd989e72aad503784cb6560e"
+    },
+    "azure-app-configuration": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-app-configuration/SKILL.md",
+      "computedHash": "26d1f9e0fc0ba35a9571d1368a931b417a1fd5fea269f46933fa07a03b272681"
+    },
+    "azure-app-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-app-service/SKILL.md",
+      "computedHash": "8b93042e945a6ac935349ef27497bc2e26fa2c656279ff55f79948229ecc11aa"
+    },
+    "azure-app-testing": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-app-testing/SKILL.md",
+      "computedHash": "5d0ddb06e3499ee73d7eec169bf27f4da73f90e3bf1c438280480c6736fa7b18"
+    },
+    "azure-application-gateway": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-application-gateway/SKILL.md",
+      "computedHash": "87fdfbd3abdb76a5f926b5a43a8818a1f28690ff06d17e0b44897e0b92f52ced"
+    },
+    "azure-arc": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-arc/SKILL.md",
+      "computedHash": "2c39e64afa19ad883b5c8a131106057ecf01e023fa3b0454dcca54750ee5a0eb"
+    },
+    "azure-architecture": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-architecture/SKILL.md",
+      "computedHash": "85702830b74a68808c766d71969839b6b8b168a0ae2bc4489f6dfc23848b3ff8"
+    },
+    "azure-artifact-signing": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-artifact-signing/SKILL.md",
+      "computedHash": "1a37a6c07d4db14c25a359d0f96fab6b5ef547689452ea12fc6873d674961515"
+    },
+    "azure-artifacts": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-artifacts/SKILL.md",
+      "computedHash": "66dd917480358e5ce7f3e8b297698348f47a3e8148403737141b2dc354ab9dba"
+    },
+    "azure-attestation": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-attestation/SKILL.md",
+      "computedHash": "64919ce6e59fb44b6d6f6911f96ce3d56c398912d2aff93d4292bad964d536e7"
+    },
+    "azure-automation": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-automation/SKILL.md",
+      "computedHash": "4f42bc39da5cf5ffcbb198596184d8d7ce7eb9ba27aee5b87309ae5073789321"
+    },
+    "azure-backup": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-backup/SKILL.md",
+      "computedHash": "05d5a392de8eff29a35d6fde94085aed25673cbf2183f6669a4dd796a56178f8"
+    },
+    "azure-baremetal-infrastructure": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-baremetal-infrastructure/SKILL.md",
+      "computedHash": "a49080d47f65267795e87f902692032b4f81b2acb55b8838b2fcdd17de561f3a"
+    },
+    "azure-bastion": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-bastion/SKILL.md",
+      "computedHash": "23a9d8d7d139b7851cdaf175665e690832136cff9a72a6dff91ce5d614d05433"
+    },
+    "azure-batch": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-batch/SKILL.md",
+      "computedHash": "e866f3cebcbf2893465779cad31cb2333bf9ce49f76396fa7965d129de8367df"
+    },
+    "azure-blob-storage": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-blob-storage/SKILL.md",
+      "computedHash": "672a64ac4cb9fb7c40e221cea43596331afb2ec63349963f285435fbb6c5b802"
+    },
+    "azure-blueprints": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-blueprints/SKILL.md",
+      "computedHash": "0495dfc88a12aa20f3cd3c6b97fe0a62a15c42190c84dfb0a7989d1f32653ad7"
+    },
+    "azure-boards": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-boards/SKILL.md",
+      "computedHash": "5b6121b73c73c145a791fa1f956511afb78f7a444a5c3460feb991a226dde5f6"
+    },
+    "azure-bot-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-bot-service/SKILL.md",
+      "computedHash": "fd3b8515e5ef8bfe3d2e5b7c6399350a79b04f675bc20be54a864e2a425bae58"
+    },
+    "azure-business-process-tracking": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-business-process-tracking/SKILL.md",
+      "computedHash": "4c61176ffd87e186b31f00f6d91c581b15e6dfedfb5abbad613ff64b4de888dd"
+    },
+    "azure-cache-redis": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cache-redis/SKILL.md",
+      "computedHash": "8ecb7bf8b779056f05b04a36f14baed19ee767674a6942770ed24c69d712e6a3"
+    },
+    "azure-carbon-optimization": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-carbon-optimization/SKILL.md",
+      "computedHash": "c315156db551079c9d394934457181ef716f0bedcdf04ab45dbb627cfdb6a53d"
+    },
+    "azure-chaos-studio": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-chaos-studio/SKILL.md",
+      "computedHash": "b7880d781c67e92402acc1c52eb814c149bc8a95f5936e3c86a6a8d467944c41"
+    },
+    "azure-cloud-adoption-framework": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cloud-adoption-framework/SKILL.md",
+      "computedHash": "ad02f22cf47c78cb314e36561aaa1b1c61ea6d9a54c9f430d544cffe63343b59"
+    },
+    "azure-cloud-hsm": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cloud-hsm/SKILL.md",
+      "computedHash": "6a6b55852736c5f36ce665e7b08610f68cd04dae9fb7bae2ad13daba2246516e"
+    },
+    "azure-cloud-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cloud-services/SKILL.md",
+      "computedHash": "e7d1850dde1af3e0d39eb32f8a538c6d035de0dacff4137197f5d75572f85a4b"
+    },
+    "azure-cloud-shell": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cloud-shell/SKILL.md",
+      "computedHash": "93271ec55d99730ae8d77262e4bd5f4ec543b21eb8af3d0819b689e86168aadc"
+    },
+    "azure-cognitive-search": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cognitive-search/SKILL.md",
+      "computedHash": "578323c76b072d01650bbfce83bd2104527439ff5011ca3a3494ee3c0405f373"
+    },
+    "azure-communication-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-communication-services/SKILL.md",
+      "computedHash": "f50c34eef52918e2819b14002061b1944976a4dc5e8c1cc74f203148e7ac4f12"
+    },
+    "azure-confidential-computing": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-confidential-computing/SKILL.md",
+      "computedHash": "3d6e0198a6939db33c2538958ad2eaf2841981283c80b4b1fd688e3ee9c7f23a"
+    },
+    "azure-confidential-ledger": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-confidential-ledger/SKILL.md",
+      "computedHash": "65c5980372fe5229a7a72715a35da9311802d2b13606ea330d9c67b6eacd68f5"
+    },
+    "azure-container-apps": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-container-apps/SKILL.md",
+      "computedHash": "657b50223671338321191d19277326eb4caed00118c3548ab171c454e696acf1"
+    },
+    "azure-container-instances": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-container-instances/SKILL.md",
+      "computedHash": "98339352aa209740ae0126f2ee428ec159e9646ab4e0cd998dcb6244f8457dc6"
+    },
+    "azure-container-registry": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-container-registry/SKILL.md",
+      "computedHash": "4727a65086e933dcd47c9eb621d84211ad5861fd6ebb7bcd74c89ad3369f4e73"
+    },
+    "azure-container-storage": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-container-storage/SKILL.md",
+      "computedHash": "a16c82c3d171396ad954fc28a21d5376819f1ef88d4a7daf3c4193707fb22266"
+    },
+    "azure-content-safety": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-content-safety/SKILL.md",
+      "computedHash": "e2a9227ef1641d6910ba8af066a2691343c36045d4175d5c6692b65ea7e62a07"
+    },
+    "azure-copilot": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-copilot/SKILL.md",
+      "computedHash": "4b66f185f3538841933229128a0ad7b19d75e5fb237ef03f5a255750e5eb899a"
+    },
+    "azure-cosmos-db": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cosmos-db/SKILL.md",
+      "computedHash": "dfd9850efa824185709560549e82d963d8a3968f2a439c37bf9a5544c85a35ad"
+    },
+    "azure-cosmosdb-datamodeling": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cosmosdb-datamodeling/SKILL.md",
+      "computedHash": "ab41c84ad44de995ed18d4953e1427ef2d63fa8b68ac14ae21f745d665e0b4a5"
+    },
+    "azure-cost-management": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cost-management/SKILL.md",
+      "computedHash": "9aa60773ac0d79464073f99f1a8ea2edcaa904ac2822ed1827bb11c6067a5388"
+    },
+    "azure-custom-vision": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-custom-vision/SKILL.md",
+      "computedHash": "83c9b26f119d4e77de4e2ccb234f96e04e0a762880ac611b85a76576a54f5172"
+    },
+    "azure-cyclecloud": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-cyclecloud/SKILL.md",
+      "computedHash": "681ae432bf61dddb1072e9aece88b556f0d854f17e2a0ff1e29649a64bb20c6f"
+    },
+    "azure-data-api-builder": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-api-builder/SKILL.md",
+      "computedHash": "e84705cae505e28a20756a38dcde4cdd929afca53d3e9ef69e8df9c9c731bd88"
+    },
+    "azure-data-box-family": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-box-family/SKILL.md",
+      "computedHash": "e5694e1796eec373044ee3f37d4e0c090b5fc6aee7769576eadbbc5c5356f861"
+    },
+    "azure-data-explorer": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-explorer/SKILL.md",
+      "computedHash": "d4b54a3fa4d00bb8386146ad0e2d624f3409afbf2a2b8d517a044981c4a12131"
+    },
+    "azure-data-factory": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-factory/SKILL.md",
+      "computedHash": "153736630defe21d67dd2202d6d9250877bec6199429d2e7f46c41e9838e25d7"
+    },
+    "azure-data-manager-for-agri": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-manager-for-agri/SKILL.md",
+      "computedHash": "baa2ce4223a7f7b12ebc6f3b9fabc4d7bb9ebc033ef51406b259fa27bef2fba6"
+    },
+    "azure-data-science-vm": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-science-vm/SKILL.md",
+      "computedHash": "31680ec5f3925a409491dcda7fecb4cca3d7068f214647244b2fdb05808da53f"
+    },
+    "azure-data-share": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-data-share/SKILL.md",
+      "computedHash": "debe180f18d338621fc9c5186e450d11a285d47b00c76c2cf4029226dfc1ab26"
+    },
+    "azure-database-migration": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-database-migration/SKILL.md",
+      "computedHash": "ac1f67d54184f7030032b96e4bd960e41a46cb1d8246b0281f9728b111557231"
+    },
+    "azure-database-mysql": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-database-mysql/SKILL.md",
+      "computedHash": "4367e069aa7bbe6f9f1dd4440b40392b17ded2275a8b63cfa99657277a7309f7"
+    },
+    "azure-database-postgresql": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-database-postgresql/SKILL.md",
+      "computedHash": "d055a63853d4d627f4058a889ef81b1995eab2347793e4fa58d529bb40651736"
+    },
+    "azure-databricks": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-databricks/SKILL.md",
+      "computedHash": "cc6b41ef3472bcbc4b09c15cf7afb0811e110611643106f6baa2a0e11ec14697"
+    },
+    "azure-ddos-protection": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-ddos-protection/SKILL.md",
+      "computedHash": "45e5d7495c064d6c0c61604827b0468538fa99103bf1d8508b7f61559d5a2b9c"
+    },
+    "azure-dedicated-hsm": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-dedicated-hsm/SKILL.md",
+      "computedHash": "48c74b1b7f6d05cc8e9c4e4699a29b80a37b6611eaf1675046d108d05e5c5639"
+    },
+    "azure-defender-for-cloud": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-defender-for-cloud/SKILL.md",
+      "computedHash": "c7c6ddf5bc864704e0ac001ed774a35540d4c2854803ae89fe606e96630a59db"
+    },
+    "azure-defender-for-iot": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-defender-for-iot/SKILL.md",
+      "computedHash": "2f38e155729b40013ac3236a11ab66aa247e6b9f337cc3cd9637ab043957c5f8"
+    },
+    "azure-deployment-environments": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-deployment-environments/SKILL.md",
+      "computedHash": "4f33e32548092fbdd729f40fe6515986e646525fe00c377c771c4141c48b065e"
+    },
+    "azure-dev-box": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-dev-box/SKILL.md",
+      "computedHash": "826e75b0385c72cb836664f18e36ce63ae9caaa531ad53f4cbf09666ca8965f2"
+    },
+    "azure-devops": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-devops/SKILL.md",
+      "computedHash": "8f034ac4810ba668c508493963c589dcc7f0fea874fb7e98d427ba1ce4195a34"
+    },
+    "azure-devops-cli": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-devops-cli/SKILL.md",
+      "computedHash": "6116fd71a0bb990a1668d97ae2d2db236bfa6609cbc9ed360e0018ec27753650"
+    },
+    "azure-devops-pipelines-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-devops-pipelines-conventions/SKILL.md",
+      "computedHash": "52e20f58f0756a5f804a6097c09e5b384a9d731ef5edd149683e9e1f418091b7"
+    },
+    "azure-devtest-labs": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-devtest-labs/SKILL.md",
+      "computedHash": "93870c3804a966125b1db680d7eb30f5226828a0da1f2282d502de7f75028863"
+    },
+    "azure-digital-twins": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-digital-twins/SKILL.md",
+      "computedHash": "b024486506e389841b47f6b0fa6ba0b31ee0fd5045e759100ba67b20ee9a0885"
+    },
+    "azure-dns": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-dns/SKILL.md",
+      "computedHash": "0b1a44fa606d9b57c83fe929647bf59cbf621c0f8d6a7314857db762509256fc"
+    },
+    "azure-document-intelligence": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-document-intelligence/SKILL.md",
+      "computedHash": "391c88bbac10801a9e0aa2b22ddd4d91607e35c79c316ef2aeee705b5f161c0d"
+    },
+    "azure-education-hub": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-education-hub/SKILL.md",
+      "computedHash": "0f7a9a54af57201e13a761ee5d3b44697b459675904a8aa440bb5aee31766424"
+    },
+    "azure-elastic-san": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-elastic-san/SKILL.md",
+      "computedHash": "619d3815e6e71a77d23aaead6270bc62b25c88e86d4c51e1be0fa412f8a79cec"
+    },
+    "azure-energy-data-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-energy-data-services/SKILL.md",
+      "computedHash": "a1cb5cd121750bd068b50e394681f680c3f5a72da1a31953a15aab6a22a6af5a"
+    },
+    "azure-event-grid": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-event-grid/SKILL.md",
+      "computedHash": "641cb6e946df4f4d25f9f913d8cccbf738bd44526796fdcd667b1f4c42db9dae"
+    },
+    "azure-event-hubs": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-event-hubs/SKILL.md",
+      "computedHash": "668a9cb85d2d370439cc9209eddbcd63cd093eeec87f7cdb1d09c7a15e6454ac"
+    },
+    "azure-expressroute": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-expressroute/SKILL.md",
+      "computedHash": "201b0b853ae03ffa35b71360a7e4a473d63a93b37d5a77550726751a47dd7550"
+    },
+    "azure-extended-zones": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-extended-zones/SKILL.md",
+      "computedHash": "a9e75a16f459ee388cb4f100de19443b50c4addf89477d8b9c057b8f5e3e8b16"
+    },
+    "azure-external-attack-surface-management": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-external-attack-surface-management/SKILL.md",
+      "computedHash": "3df8815c505c3c3b73533193bd144b822e2a1fb39a672a8539823416a3a14d06"
+    },
+    "azure-files": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-files/SKILL.md",
+      "computedHash": "63ea0790c6b7630423d08b924ff8d7b322c9feafe6794dbf02e48ad0a5470fea"
+    },
+    "azure-firewall": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-firewall/SKILL.md",
+      "computedHash": "6434cebbf4fd4ad4a16df1bed4e379eed567d764b417ca65eb109ad1ffba3a82"
+    },
+    "azure-firewall-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-firewall-manager/SKILL.md",
+      "computedHash": "31e6715f52494751be7d23bea0b3b09e5ba5d7a887d3adb1f48b91dc7eb7118d"
+    },
+    "azure-firmware-analysis": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-firmware-analysis/SKILL.md",
+      "computedHash": "027224ce45752b55135f91722b29ea697ce4638bb355346e49d6edc75931691a"
+    },
+    "azure-fluid-relay": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-fluid-relay/SKILL.md",
+      "computedHash": "e54e7b5eb78a89326d13b1e44e7394b51cb73e52bee7c8133dd5204a68864279"
+    },
+    "azure-foundry-classic": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-foundry-classic/SKILL.md",
+      "computedHash": "48f16e972cf2c23eefdb4535e9ec21136a05b745b366cb8cbe57d8d46216251e"
+    },
+    "azure-foundry-tools": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-foundry-tools/SKILL.md",
+      "computedHash": "40683c986c45444cd84683be2be9a79df398cdf679f912f9fa452b26429fd990"
+    },
+    "azure-front-door": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-front-door/SKILL.md",
+      "computedHash": "9e12a7eea3ce26f150c4b81557cfcd7e2e977eac79b8a49157fee680731d8586"
+    },
+    "azure-functions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-functions/SKILL.md",
+      "computedHash": "5a13e5e690a0acae37a9753ab8913437cd2ee9be16307f7d28e2d8ff8d464052"
+    },
+    "azure-hdinsight": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-hdinsight/SKILL.md",
+      "computedHash": "d4792add7af8dabe6b9bdf0b2800efb8b69e88b2ef982efe65258e7977e3106c"
+    },
+    "azure-health-bot": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-health-bot/SKILL.md",
+      "computedHash": "b2b760a87a198d0968334ed2629002430b8ea39cc0eadcc95cfaa6851742a690"
+    },
+    "azure-health-data-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-health-data-services/SKILL.md",
+      "computedHash": "2989d990a0a49403e861b577c8c4b6102fb8298dc70658588e15b1ce7ac1c08f"
+    },
+    "azure-hpc-cache": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-hpc-cache/SKILL.md",
+      "computedHash": "d9e789f572e709394286079d1450fc408aeaa9932eb2fff4acd1cb9b415d008a"
+    },
+    "azure-immersive-reader": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-immersive-reader/SKILL.md",
+      "computedHash": "ecd6a4ca56cb83037104bed14c5043cfc449ddf1fc3e93b2ef83e29ac0350362"
+    },
+    "azure-impact-reporting": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-impact-reporting/SKILL.md",
+      "computedHash": "1ff0c8a420148724dc64b85ddc1de8d2a5e42f9bbc6124af7b739057e94b5223"
+    },
+    "azure-import-export": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-import-export/SKILL.md",
+      "computedHash": "4e714e2100ca88971c47a039d0f74a9a55f135aff4862e687a1989b942e69678"
+    },
+    "azure-industry": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-industry/SKILL.md",
+      "computedHash": "4b7b5f5293b2d1c98ef7f1c8eaf28ddc47b691973b820c181c59a26936772751"
+    },
+    "azure-information-protection": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-information-protection/SKILL.md",
+      "computedHash": "ef79818d3979eb22ba4e5daa2adf36eb443ecda45ff791baaa326a021ba56c3d"
+    },
+    "azure-internet-peering": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-internet-peering/SKILL.md",
+      "computedHash": "3f157d2162e9b4b3ce1005ab70ab25b09e1fb9fedeccd00bf896f1f53393994b"
+    },
+    "azure-iot": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot/SKILL.md",
+      "computedHash": "e512bdafb79ebb030c6b61a192f9a10c3a1ec3e624fd555296de9ca530e305f3"
+    },
+    "azure-iot-central": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot-central/SKILL.md",
+      "computedHash": "1e1674eb4b93988a5bb5330588d01bc1f23cdd4720ae79e397bf166e9169fd7a"
+    },
+    "azure-iot-edge": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot-edge/SKILL.md",
+      "computedHash": "e013188d9a3045e4c27e95b6bdd769e445a2dc989c853a0c919c107b4e3e48ee"
+    },
+    "azure-iot-edge-module": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot-edge-module/SKILL.md",
+      "computedHash": "97521aa6f793bcdb84aa219f4ea60dcdce058c82365251aa8137d46e099f42c8"
+    },
+    "azure-iot-hub": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot-hub/SKILL.md",
+      "computedHash": "4e5b0dd3622ea1c51f3607e50f35cd79de8c7e8aa82b13a08f0e55ad1cdaff5a"
+    },
+    "azure-iot-operations": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-iot-operations/SKILL.md",
+      "computedHash": "6da8675f3f3d832bb792f8f7f95f3dd1310d71398dde2f4c0fde92c7df19f69a"
+    },
+    "azure-key-vault": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-key-vault/SKILL.md",
+      "computedHash": "6d2ffd09dcbd34f69835fdca7527d651300c0c9778f29f7ab837b92a9873736d"
+    },
+    "azure-kubernetes-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-kubernetes-service/SKILL.md",
+      "computedHash": "2555cc5efb20744ba6058de2c5e437619c58534368404f76f943f42e8f4c3941"
+    },
+    "azure-lab-services": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-lab-services/SKILL.md",
+      "computedHash": "3547e88224839889b4a1aff5937383c907abf2b83785152a2f291a823cbb9a97"
+    },
+    "azure-language-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-language-service/SKILL.md",
+      "computedHash": "1ca0029505d1d88f54a64cff26d95360b3054f34f9bb3b81f275f11db4bf6f73"
+    },
+    "azure-large-instances": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-large-instances/SKILL.md",
+      "computedHash": "4fc397c3ccdbc008308447d9bf6a4abc889f613677478a7fcbf40de402cf2faf"
+    },
+    "azure-lighthouse": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-lighthouse/SKILL.md",
+      "computedHash": "a6f4e997c0e6240592740af8666fc7a2dbd221712dca052c3b827424b33e7d2e"
+    },
+    "azure-load-balancer": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-load-balancer/SKILL.md",
+      "computedHash": "0ad4480e411311efcb002664d3f81ae49538f0aa07bbe08361e6f08ba5e39fa6"
+    },
+    "azure-local": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-local/SKILL.md",
+      "computedHash": "7550baa36375b23addc0cbc51fd0c16040d046ec209e791fe0d12fe7e946fe38"
+    },
+    "azure-logic-apps": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-logic-apps/SKILL.md",
+      "computedHash": "576a780a78ed2ed6e9a9e085ba1dd2d54e5b926aa97152b64f0d8114c04cd9d0"
+    },
+    "azure-machine-learning": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-machine-learning/SKILL.md",
+      "computedHash": "661b604be7ab5f9f0c57df34536f32d96abc3806cbb7ac5d3477af1d237ee73a"
+    },
+    "azure-managed-applications": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-managed-applications/SKILL.md",
+      "computedHash": "2c915a52b20ed80598d8ea175c25a7f212c31959baef23f7e3b65becbbc24e8c"
+    },
+    "azure-managed-grafana": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-managed-grafana/SKILL.md",
+      "computedHash": "b83a4eb3eedd9fb63523ce493cf7386842e28f43f40c96a7e37e149e436fb333"
+    },
+    "azure-managed-lustre": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-managed-lustre/SKILL.md",
+      "computedHash": "2dc0bea899da85d348f79bd6c28290cda317038eb80bba236364c4bd261e39b5"
+    },
+    "azure-managed-redis": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-managed-redis/SKILL.md",
+      "computedHash": "cfaf8fbfe7d2be87af86adbaea46e6c3e5e712f07c195da230014b487f70c795"
+    },
+    "azure-maps": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-maps/SKILL.md",
+      "computedHash": "9e2f4ebda7135a23ce1687b30463ce61de6ed8af93ea17965cbff30176c7f7b1"
+    },
+    "azure-metrics-advisor": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-metrics-advisor/SKILL.md",
+      "computedHash": "d93fc126faa7b8b44619874e0ab6074f257c986ab18cc94d03d0d86b486821bf"
+    },
+    "azure-microsoft-foundry": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-microsoft-foundry/SKILL.md",
+      "computedHash": "11026e19f3130fb3e068ebbe18fb42ae2f46b8abbc1562be7fcf74cc32cd99eb"
+    },
+    "azure-migrate": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-migrate/SKILL.md",
+      "computedHash": "939d83df093d8056281480824eddceae02dad586dc2c33f7d104cf235e6852c5"
+    },
+    "azure-monitor": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-monitor/SKILL.md",
+      "computedHash": "9d5ab59ed43296171cfd51825f3c2ff2f3537198fb2fdea29a949069a4e43463"
+    },
+    "azure-nat-gateway": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-nat-gateway/SKILL.md",
+      "computedHash": "50e274cb5b68d67beec9faf4389b8328042241c9f222d1bd48f8690f090ab2ca"
+    },
+    "azure-netapp-files": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-netapp-files/SKILL.md",
+      "computedHash": "a5b8bb57c0454a7a7f3dee76143fd8dd5b61ff8f5e54feb172dfce9f19e0f7b2"
+    },
+    "azure-network-function-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-network-function-manager/SKILL.md",
+      "computedHash": "7f7721633496475dbf8f6a6b9baa410ff0f49bbbdc5fa2af8748158867581848"
+    },
+    "azure-network-watcher": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-network-watcher/SKILL.md",
+      "computedHash": "7345c451101eecd271757443ca7d38e022bb871e4efb7439028b2a1b02f3de45"
+    },
+    "azure-networking": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-networking/SKILL.md",
+      "computedHash": "e871314481947558f89fe3312a01d30c392f358d7ac9925476957e5c6671af47"
+    },
+    "azure-notification-hubs": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-notification-hubs/SKILL.md",
+      "computedHash": "be4ef317631e82f8ab924756a971661ef364d3418baf61a34e14f8b08529751d"
+    },
+    "azure-open-datasets": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-open-datasets/SKILL.md",
+      "computedHash": "035edaa5e821705c1e22583e3222e1ba2d0e412dd1ea6cb542c6512c1efe7acd"
+    },
+    "azure-operator-nexus": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-operator-nexus/SKILL.md",
+      "computedHash": "c960d11b8df61d5540729e0844621c34de7b6add8f4d8092e897abe9011d22af"
+    },
+    "azure-operator-service-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-operator-service-manager/SKILL.md",
+      "computedHash": "84b9bc292c638fb34c318319af31d4f3c1571006166402987f463a89fd8fe074"
+    },
+    "azure-oracle": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-oracle/SKILL.md",
+      "computedHash": "cc96c2435307a507209c99bde9b978e2cede59fb03d49de0d9d01ede03f3b277"
+    },
+    "azure-osconfig": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-osconfig/SKILL.md",
+      "computedHash": "7cdb6b927736dfc4a3a2a31143e00f085c63ef19a81613698a87e2dc2345b4b1"
+    },
+    "azure-partner-solutions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-partner-solutions/SKILL.md",
+      "computedHash": "a87cd59431b13f74daac2b454c37e7e0a1fcb5f04db711f63ffbd152e365dade"
+    },
+    "azure-payment-hsm": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-payment-hsm/SKILL.md",
+      "computedHash": "48a118d74939008783b2d9fc6b343c061831927190002f9f23999285a0db9023"
+    },
+    "azure-peering-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-peering-service/SKILL.md",
+      "computedHash": "7e129a6e4353ce06c80c03e8cbf2fb3ca2fdf82a62fbce0dad7b96f001b5d0ce"
+    },
+    "azure-personalizer": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-personalizer/SKILL.md",
+      "computedHash": "845b2d382d696aba8a60f55b1fa614c7f73a35ee80353f9442ed46a999ec150f"
+    },
+    "azure-pipelines": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-pipelines/SKILL.md",
+      "computedHash": "c4f85068952ad52213eb4c48f1b693f46ef87d8d4458b05de4a8b9da9600d186"
+    },
+    "azure-planetary-computer-pro": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-planetary-computer-pro/SKILL.md",
+      "computedHash": "1da7335032ff1d07f8e927c1ad168a16ecdcc7a60b8795c26e06ae5f7d8130be"
+    },
+    "azure-playwright-workspaces": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-playwright-workspaces/SKILL.md",
+      "computedHash": "1ecee4e11fb6dbc9c85638f13feb3c4a93e9dbcebab77c69e603dcc3805dc826"
+    },
+    "azure-policy": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-policy/SKILL.md",
+      "computedHash": "ab0591b6902e400a93b791dae3c76dea2a6808771c31fda99497d3772bbb206e"
+    },
+    "azure-portal": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-portal/SKILL.md",
+      "computedHash": "e12bab05f56619421f24fdb501b2a3a634489be16cb9f0213e3c13d77e1c918c"
+    },
+    "azure-private-link": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-private-link/SKILL.md",
+      "computedHash": "b66a4bd31103bbfbeb1000d665811d3244010e8cd6f242bb8a0f8d9261fed4d6"
+    },
+    "azure-quantum": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-quantum/SKILL.md",
+      "computedHash": "686a1748a9afbafed6c18918205ee4d8bfa33c8f4c2e56c5e21cd705d9542dee"
+    },
+    "azure-queue-storage": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-queue-storage/SKILL.md",
+      "computedHash": "cf3034ad07c1869ba104a9423a396c2d6283926a70cc185461708e43558799e2"
+    },
+    "azure-quotas": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-quotas/SKILL.md",
+      "computedHash": "949e058f262f907be30d09163842729b9871d38cf018263d2583064892995cca"
+    },
+    "azure-rbac": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-rbac/SKILL.md",
+      "computedHash": "00d344071779d86032d7ac179fd07545572b2e44d9022799b796b45a45c21991"
+    },
+    "azure-redhat-openshift": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-redhat-openshift/SKILL.md",
+      "computedHash": "3c234d38b9aec841dfa04f4db0b0b391fadd2657c50c324134917ba43439cc83"
+    },
+    "azure-relay": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-relay/SKILL.md",
+      "computedHash": "7567792bce99982442baaa7ff8fb034739ee36b1564049acd8f4532fafcd653c"
+    },
+    "azure-reliability": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-reliability/SKILL.md",
+      "computedHash": "f67383e665567763f2b696caccd69af0e4e23a9851dea863ef21a24244fa3fb6"
+    },
+    "azure-repos": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-repos/SKILL.md",
+      "computedHash": "3bbab7abe01f791d3ac2f154eed43eef4218692ab7209240a847cdf33572f945"
+    },
+    "azure-resiliency": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-resiliency/SKILL.md",
+      "computedHash": "2c545b2d63697231ad36fe29a749b4e29dca9ab6e60ad2338cd54feddcf84f8b"
+    },
+    "azure-resource-graph": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-resource-graph/SKILL.md",
+      "computedHash": "1ec4c3d756df6abea72b39c489f3717fe1eb9873e1b2ba65d3aa26702f8f7580"
+    },
+    "azure-resource-health-diagnose": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-resource-health-diagnose/SKILL.md",
+      "computedHash": "6fb34fe4827264e8ab9f57a4b202603044545a4ab8c11d9cca8ea44c0e8b8d8d"
+    },
+    "azure-resource-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-resource-manager/SKILL.md",
+      "computedHash": "859b6cfaa2a6ef4419bbe318a09b65755297ab226bdb79eda5023745339d2294"
+    },
+    "azure-resource-visualizer": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-resource-visualizer/SKILL.md",
+      "computedHash": "07e04ca197afc9508d0914a2bdacf6666bf028c816c33d9bf3363544ae5e9e59"
+    },
+    "azure-role-selector": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-role-selector/SKILL.md",
+      "computedHash": "67cb3850e0e8bcb7e1fd6abc4fa1fccecbccf4d45f01ae79f09455085a2ec39f"
+    },
+    "azure-route-server": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-route-server/SKILL.md",
+      "computedHash": "dabc7306e182b2570c320e28cc43799fb84ff35efffccecf46834d523edb8ade"
+    },
+    "azure-sap": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sap/SKILL.md",
+      "computedHash": "af35b16506ebdf6068a3e471ca668ad5864b6e444c153b0600fbcc4736dd9f28"
+    },
+    "azure-security": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-security/SKILL.md",
+      "computedHash": "5eefe99cf7a1ba52a8b081da607bbb4e8f0685039d04cf6a5a739e82172ad98b"
+    },
+    "azure-sentinel": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sentinel/SKILL.md",
+      "computedHash": "ae885f3b34cfd55581fa20ecebad9f3259085d3c9efb3cf4c08b1cc45c81b375"
+    },
+    "azure-service-bus": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-service-bus/SKILL.md",
+      "computedHash": "6959b7a61373bb86880a51897cb062d415b4cadb3f245481d6ae051960755de5"
+    },
+    "azure-service-connector": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-service-connector/SKILL.md",
+      "computedHash": "38cf97f1a18229d06e3cb8f7461f90f3cd18dfa299cac64fffd8856e53fbb2a9"
+    },
+    "azure-service-fabric": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-service-fabric/SKILL.md",
+      "computedHash": "937e852e9d5c2ac1ae8b49582852e16ddcc70f0b6b7c6c049b4dc2b0540583a2"
+    },
+    "azure-service-health": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-service-health/SKILL.md",
+      "computedHash": "89ec8ca867e9ddf59404ff6fb38d0bbf90a711b047b2e0c2979a7676523227c6"
+    },
+    "azure-signalr-service": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-signalr-service/SKILL.md",
+      "computedHash": "891112781a2e7232cf8b80b844826a58a2626a2a1a003093c6c63e913fa4eaea"
+    },
+    "azure-site-recovery": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-site-recovery/SKILL.md",
+      "computedHash": "b26c223ddd3ef96b8dec45d2f9ed5c35963ab41c2304a99cea0d2748f689f70c"
+    },
+    "azure-sovereign-us": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sovereign-us/SKILL.md",
+      "computedHash": "7ecda20a95142430ca1c7806cb5c19c6e1a497c384710cc7bf92157fe61b2e85"
+    },
+    "azure-speech": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-speech/SKILL.md",
+      "computedHash": "b0e18e85bb9ca57a7bf4ddd2ff06b0bd76a75b8b36543bb138c4e11b2d75bf03"
+    },
+    "azure-spring-apps": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-spring-apps/SKILL.md",
+      "computedHash": "5aeccf85d7b4f7abf90918a015141225c4981f3a93b23667ffbb021181f2bc1d"
+    },
+    "azure-sql-database": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sql-database/SKILL.md",
+      "computedHash": "fefffc7f88e33190f6f1f85da12d129e4407e3aad54181c88db0e9217d5269ef"
+    },
+    "azure-sql-managed-instance": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sql-managed-instance/SKILL.md",
+      "computedHash": "124104c18b86d039facdfa84fc5e83a284d58adfd68c455f05b131297631b9fe"
+    },
+    "azure-sql-virtual-machines": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sql-virtual-machines/SKILL.md",
+      "computedHash": "0f0f1f3a13f903ccdbd536f81c9051c72963811492821d945120b88a82645010"
+    },
+    "azure-sre-agent": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-sre-agent/SKILL.md",
+      "computedHash": "2abcbcef3b1e9ded533b12b6f0ed97ff14ff3850440999609f7674f855b2c924"
+    },
+    "azure-stack-edge": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-stack-edge/SKILL.md",
+      "computedHash": "5231795c2ad837993e002737e6baf98e4ee0a9716bb73e68909eb7e2ea6d7a21"
+    },
+    "azure-static-web-apps": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-static-web-apps/SKILL.md",
+      "computedHash": "177a9a3244582a750d1d6e6bec49f1ce6833cc61b45cf2c0414f0452f779d5ff"
+    },
+    "azure-stream-analytics": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-stream-analytics/SKILL.md",
+      "computedHash": "b9687bcb0b26a2b758006f04a7461215d9f4ff9965494fe9600d194eae34c4b8"
+    },
+    "azure-synapse-analytics": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-synapse-analytics/SKILL.md",
+      "computedHash": "75c951616388c683639b851dc56ebf913ae447865d1f8ed2ae2ae214ae4b2625"
+    },
+    "azure-table-storage": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-table-storage/SKILL.md",
+      "computedHash": "b6d92b139f462a4c8325f6208a9e8c96a3b9e562b13aedaca4f2fc28a821be8b"
+    },
+    "azure-test-plans": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-test-plans/SKILL.md",
+      "computedHash": "db3bdf651376afe0b8b522858de4fab19ef959047c7df30a2c5e1c3ceb1a5511"
+    },
+    "azure-traffic-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-traffic-manager/SKILL.md",
+      "computedHash": "516e26600fafdc8dc59a99c8459ff99d90a4865d50c0a0769ea46c75bb26eec7"
+    },
+    "azure-translator": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-translator/SKILL.md",
+      "computedHash": "427086654dd8ca11c42c9488c54cbff582c1ab1e7715ae506e9731e1af214594"
+    },
+    "azure-update-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-update-manager/SKILL.md",
+      "computedHash": "1ec6f9a6da2c9078b343fe01e5cc023a3b22f9df979e61ad70d7bb81a4e0bdfb"
+    },
+    "azure-video-indexer": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-video-indexer/SKILL.md",
+      "computedHash": "da398d51016988044ff0988baff49f62c86ffd7d65dbf02bd5a217f099d9d225"
+    },
+    "azure-virtual-desktop": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-virtual-desktop/SKILL.md",
+      "computedHash": "6f95b2097c165157233949f738024c2830e97b97404d2d56b15c091b2132d633"
+    },
+    "azure-virtual-machines": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-virtual-machines/SKILL.md",
+      "computedHash": "d7d3134f31409532f9de12ce3af09521a52cf61bb37eea6a5beeaed09736fd93"
+    },
+    "azure-virtual-network": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-virtual-network/SKILL.md",
+      "computedHash": "1fd94b01af4a1c75ce9e46b57a17b37915560b1fdeb40583cd129baa4dd43ab7"
+    },
+    "azure-virtual-network-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-virtual-network-manager/SKILL.md",
+      "computedHash": "2153e81a4466d9225ea36004c49db51bc76dabae370e420f383d596917bc3432"
+    },
+    "azure-virtual-wan": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-virtual-wan/SKILL.md",
+      "computedHash": "32b7128aa5d6e2cdcac7433730e732188622d8450aef59afe86f52a229075114"
+    },
+    "azure-vm-scalesets": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-vm-scalesets/SKILL.md",
+      "computedHash": "5660fea29e0d6fc7308bd62935ad25a5de0b81af8ade041a515a485fc0eab65f"
+    },
+    "azure-vmware-solution": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-vmware-solution/SKILL.md",
+      "computedHash": "6a716446d0f5f9d1477ef3f7b281b7e65a889ee68c9a4e9be37826e632bd2d3c"
+    },
+    "azure-vpn-gateway": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-vpn-gateway/SKILL.md",
+      "computedHash": "4b8052f975cd9f090e2c08605adabbbf0a7fd2e9b9a2b89613f2bea439f4a1a0"
+    },
+    "azure-web-application-firewall": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-web-application-firewall/SKILL.md",
+      "computedHash": "295d4492cb4c4c0b359759a3629d735581a4d69df30179265e1b97f24c417c1b"
+    },
+    "azure-web-pubsub": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-web-pubsub/SKILL.md",
+      "computedHash": "b9d5ef399c1472c4c96fe1bbe12138d41e618eeeba51b650d09fc877e4291ad8"
+    },
+    "azure-well-architected": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/azure/skills/azure-well-architected/SKILL.md",
+      "computedHash": "827d830cc669501bd927c218d504cefecbb4895586802edb8df18db77e2b7504"
+    },
+    "bicep-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/bicep/skills/bicep-conventions/SKILL.md",
+      "computedHash": "24e0f44a2644825ab68dca1c87953c596c4ac9402aa139580f15256b6b76a45d"
+    },
+    "blazor-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/blazor-conventions/SKILL.md",
+      "computedHash": "1409f33998bd9e3413c5bfc3d3f8024baef10fe93a945ff1a7d879920c251e4b"
+    },
+    "create-agentsmd": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/create-agentsmd/SKILL.md",
+      "computedHash": "4dad7713f9b1877fdae9b44275fd8b2ba3909cd64e1be075766d1bd3ec2dbb1c"
+    },
+    "create-implementation-plan": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/create-implementation-plan/SKILL.md",
+      "computedHash": "90600bd6b844f71d57acf4d72c9361803e1e6b479306cda44062d9204477197a"
+    },
+    "create-llms": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/create-llms/SKILL.md",
+      "computedHash": "52b2a7f0be419a9029fe4599a8ef62bc635dfdfce74932472e032e20576530cc"
+    },
+    "csharp-async": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/csharp-async/SKILL.md",
+      "computedHash": "36eee8e82b2d0dfeff54acfaf4062f6b7809dfb75853295cafc5507e6a7b2a2b"
+    },
+    "csharp-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/csharp-conventions/SKILL.md",
+      "computedHash": "b4aecf9148210b7782b378533730337542c23b73da43fbea6b4cf6d1bc9ab5b6"
+    },
+    "csharp-docs": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/csharp-docs/SKILL.md",
+      "computedHash": "b250114c3ebf213bdc966c39aa88790a1f59b3d6c8d5bad5d6c42ff17e60e1cf"
+    },
+    "csharp-xunit": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/csharp-xunit/SKILL.md",
+      "computedHash": "518987655c2aa8cc7b4ac9172369e27053d5d6ec3a6d2485fa1e0b9df9589730"
+    },
+    "docker-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/docker/skills/docker-conventions/SKILL.md",
+      "computedHash": "d3b0fe292318b341167d6dea55314aff11bfb986a1b8428e83beb160f98e784f"
+    },
+    "dotnet-architecture": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/dotnet-architecture/SKILL.md",
+      "computedHash": "ca0d0d2949b666f9e4cab1fdf27716f98c4e523e6c0edddf7ece374e9245afee"
+    },
+    "dotnet-design-pattern-review": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/dotnet-design-pattern-review/SKILL.md",
+      "computedHash": "5c6da120d64ac62ec195ce4e93f6f5402df3a591fccb783c700a91a5e0a88919"
+    },
+    "dotnet-upgrade": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/dotnet-upgrade/SKILL.md",
+      "computedHash": "6d6737c937911b6f66771599819bb5f9b7acbc3f0965e82f984bafcc7f39190a"
+    },
+    "excalidraw": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/excalidraw/SKILL.md",
+      "computedHash": "cbd12c9b16c32f075b60ba7b7cbea9a93116b0b1e1d1d5fdcff72cada2673a4b"
+    },
+    "fix-trailing-newlines": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/fix-trailing-newlines/SKILL.md",
+      "computedHash": "a6a9845f99a6d4e80f0eb922fa8a131f1aa75c50aa578862d8a3d996bff7617a"
+    },
+    "format-params": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/format-params/SKILL.md",
+      "computedHash": "eefb99ea840ce9fb5c10d5735799b78d1af56fabeb8e278a53ac0763d7106143"
+    },
+    "github-actions-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/github/skills/github-actions-conventions/SKILL.md",
+      "computedHash": "12cf0acb3f85a2ecb8f1433410a50c360914953f33ecedfe8800ba498af3bcc2"
+    },
+    "github-issues": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/github/skills/github-issues/SKILL.md",
+      "computedHash": "bca5211eadfb4745adc72d3a7a8713618d6c1fda02ce6a8bff585efb911c0f98"
+    },
+    "interview": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/interview/SKILL.md",
+      "computedHash": "5dc9a0771fb85582458e71124ab33ef694ce66056e9f5606210adf4908d9f6b2"
+    },
+    "markdown-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/markdown-conventions/SKILL.md",
+      "computedHash": "b73f49c6fd998bf1a521a39c642aaf814201e0f5a7bf868327d28d6be72c75ed"
+    },
+    "markdown-to-html": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/markdown-to-html/SKILL.md",
+      "computedHash": "a50e3a4f6a1db57467e338d478e03fad8ff1bb32e6508cd02614bac036462e83"
+    },
+    "nuget-manager": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/nuget-manager/SKILL.md",
+      "computedHash": "7e1bd72ccc3773ae3a1f1ae463f94d91d7e1f3c175eec0bb6ebb36ae6ef2ae26"
+    },
+    "playwright-cli": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/playwright/skills/playwright-cli/SKILL.md",
+      "computedHash": "336bbf8e60be26fe1bbeec379651a7e34d7eb1d209452c5b6b73d4870fab4002"
+    },
+    "playwright-explore-website": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/playwright/skills/playwright-explore-website/SKILL.md",
+      "computedHash": "30f1bddbac50766cd277ba0b7003fc27c8c3108a61ebda49da295868d7c9d8c7"
+    },
+    "playwright-generate-test": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/playwright/skills/playwright-generate-test/SKILL.md",
+      "computedHash": "4461e599ac6fe6ca24394e799350906c75da6d8abebf81ca7e6b88fc1fd883db"
+    },
+    "powershell-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/powershell/skills/powershell-conventions/SKILL.md",
+      "computedHash": "637d94dc6bb2ff8e95c4624515afb6195f2040584458303c957ef71c3d8dfa6f"
+    },
+    "repo-story-time": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/repo-story-time/SKILL.md",
+      "computedHash": "12fe0b7493f09f8580342d6db533c7fd68204a1cadfbddb387074015ce718306"
+    },
+    "rest-api-generator": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/atc/skills/rest-api-generator/SKILL.md",
+      "computedHash": "da20d5733f78cfa9c68f75a0c2a9badf4b1ef60109b3627ca2d1ae026261d8c6"
+    },
+    "security-owasp": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/security/skills/security-owasp/SKILL.md",
+      "computedHash": "4765d6cb8d6c8391903106ac049c7d52871f304b8e5081722cd3a433cd64175a"
+    },
+    "skill-creator": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/skill-creator/SKILL.md",
+      "computedHash": "57f470f512f45bdac598e302bc72fd62bf2b649fc7fad032efe97720149cde4d"
+    },
+    "suggest-commit": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/git/skills/suggest-commit/SKILL.md",
+      "computedHash": "a25e300439314ac6d3b829af0ba5307950290fec561d477eaf5565b2d02f32f2"
+    },
+    "suggest-pr": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/git/skills/suggest-pr/SKILL.md",
+      "computedHash": "5537a24234205f6c84b4cae0fdb46b2dd09067d864e4eaa4b74473f78f83e52d"
+    },
+    "typescript-conventions": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/typescript-conventions/SKILL.md",
+      "computedHash": "ad8920b8461da89cccb9a950c44ec6f13bd1ccedce3f16e99252eac7f668a213"
+    },
+    "update-llms": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/common/skills/update-llms/SKILL.md",
+      "computedHash": "61d200663dc3c8cc3f0b82a851c0746b97835de4a637f581853f7e9f37fd16bf"
+    },
+    "web-coder": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/web-coder/SKILL.md",
+      "computedHash": "a5e3d039671e1046620921cf4dd78a1e31d8a929baeac6df34dbe3891a3dc988"
+    },
+    "winapp-cli": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet/skills/winapp-cli/SKILL.md",
+      "computedHash": "52d45190adddf8a7f5b375e417ddda0260c76e412525ad678d302eb5ed06cb0f"
+    },
+    "wpf": {
+      "source": "atc-net/atc-agentic-toolkit",
+      "sourceType": "github",
+      "skillPath": "plugins/atc/skills/wpf/SKILL.md",
+      "computedHash": "ec163c90502d14ce70d161d2d7a4421eee4dd17daf15f50bfb75f672d7d0cb1c"
+    }
+  }
+}

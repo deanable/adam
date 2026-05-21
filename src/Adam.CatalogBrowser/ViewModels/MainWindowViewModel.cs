@@ -7,8 +7,8 @@ using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
-using Microsoft.EntityFrameworkCore;
 using Avalonia.Threading;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
@@ -43,13 +43,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private ObservableCollection<string> _selectedAssetCategories = [];
     private bool _categoriesDirty;
     private IEnumerable<string>? _categoryAutoCompleteSource;
+    private DateTime? _selectedAssetDateTaken;
+    private bool _dateTakenDirty;
     private bool _showSaveToast;
     private string _saveToastText = "Changes saved";
 
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
+    // Bulk operation queue
+    private readonly BulkOperationQueue _bulkQueue;
+    private string _bulkProgressText = string.Empty;
+    private bool _isBulkOperationActive;
+    private double _bulkProgressPercentage;
+
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue)
     {
         _logger = logger;
         _modeManager = modeManager;
+        _bulkQueue = bulkQueue;
         ModeManager = modeManager;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
@@ -61,9 +70,31 @@ public class MainWindowViewModel : INotifyPropertyChanged
         MigrationWizard = migrationWizard;
         _currentView = assetGallery;
 
+        // Wire up bulk queue progress
+        _bulkQueue.ProgressChanged += (_, progress) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                BulkProgressPercentage = progress.Percentage;
+                IsBulkOperationActive = progress.IsActive;
+                BulkProgressText = progress.IsActive
+                    ? $"Applying {progress.CurrentOperation}... ({progress.Completed}/{progress.Total})"
+                    : string.Empty;
+                if (!progress.IsActive && progress.Total > 0)
+                {
+                    StatusText = progress.Failed > 0
+                        ? $"Bulk update complete: {progress.Completed} applied, {progress.Failed} failed"
+                        : $"Bulk update complete: {progress.Completed} applied";
+                }
+            });
+        };
+
+        AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
+        AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
+
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
-            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty));
+            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty));
 
         ShowGalleryCommand = new RelayCommand(async _ =>
         {
@@ -171,7 +202,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
                     SaveTagsCommand.RaiseCanExecuteChanged();
                 });
                 await LoadSelectedAssetMetadataAsync();
-                await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasSelectedAsset)));
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    OnPropertyChanged(nameof(HasSelectedAsset));
+                    OnPropertyChanged(nameof(HasSingleSelection));
+                });
             });
         };
 
@@ -184,7 +219,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
                     _selectedAssets.Clear();
                     _selectedAssets.AddRange(assets);
                 });
-                await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasMultiSelection)));
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    OnPropertyChanged(nameof(HasMultiSelection));
+                    OnPropertyChanged(nameof(HasSingleSelection));
+                });
                 await ComputeAggregatedTagsAsync();
                 await ComputeAggregatedCategoriesAsync();
             });
@@ -332,6 +371,26 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Editable date taken for the currently selected single asset.
+    /// Bound to a DatePicker in the property inspector. Changes are tracked
+    /// and auto-saved when a different asset is selected.
+    /// </summary>
+    public DateTime? SelectedAssetDateTaken
+    {
+        get => _selectedAssetDateTaken;
+        set
+        {
+            if (_selectedAssetDateTaken != value)
+            {
+                _selectedAssetDateTaken = value;
+                _dateTakenDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
     /// Editable categories for the currently selected asset (single-asset mode).
     /// Each string is a category name. Changes are auto-saved on selection switch.
     /// </summary>
@@ -378,6 +437,25 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+
+    /// <summary>
+    /// Command fired when assets are dropped on a keyword node in the sidebar.
+    /// The parameter is a <see cref="DropPayload"/> containing the target node
+    /// and asset IDs.
+    /// </summary>
+    public ICommand AssignKeywordDropCommand { get; }
+
+    /// <summary>
+    /// Command fired when assets are dropped on a category node in the sidebar.
+    /// The parameter is a <see cref="DropPayload"/> containing the target node
+    /// and asset IDs.
+    /// </summary>
+    public ICommand AssignCategoryDropCommand { get; }
+
+    /// <summary>
+    /// Bulk operation queue for processing background metadata updates.
+    /// </summary>
+    public BulkOperationQueue BulkQueue => _bulkQueue;
 
     public object? CurrentView
     {
@@ -429,6 +507,33 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _saveToastText;
         set { _saveToastText = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Progress text for the bulk operation queue, shown in the status bar.
+    /// </summary>
+    public string BulkProgressText
+    {
+        get => _bulkProgressText;
+        set { _bulkProgressText = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Whether a bulk operation is currently active.
+    /// </summary>
+    public bool IsBulkOperationActive
+    {
+        get => _isBulkOperationActive;
+        set { _isBulkOperationActive = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Bulk operation progress percentage (0–100).
+    /// </summary>
+    public double BulkProgressPercentage
+    {
+        get => _bulkProgressPercentage;
+        set { _bulkProgressPercentage = value; OnPropertyChanged(); }
     }
 
     private async Task LoadSelectedAssetMetadataAsync()
@@ -500,6 +605,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
                             SelectedAssetDescription = asset.Description;
                             _descriptionDirty = false;
+
+                            SelectedAssetDateTaken = asset.MetadataProfile?.DateTaken;
+                            _dateTakenDirty = false;
 
                             SaveTagsCommand.RaiseCanExecuteChanged();
                         });
@@ -746,9 +854,84 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// the database for the currently selected asset.  Called automatically
     /// before switching to a different asset.
     /// </summary>
+    // ──────────────────────────────────────────────
+    //  Drag-drop handlers (bulk assign keywords/categories)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Fired when assets are dropped on a keyword tree node.
+    /// Enqueues a <see cref="BulkOperation"/> to assign the keyword to all
+    /// dragged assets.
+    /// </summary>
+    private void OnAssignKeywordDrop(object? parameter)
+    {
+        if (parameter is not DropPayload payload) return;
+
+        var targetNode = payload.TargetNode;
+        if (targetNode is not KeywordNode kw || kw.KeywordId == Guid.Empty)
+            return;
+
+        var assetIds = ParseAssetIds(payload.AssetIdsCsv);
+        if (assetIds.Count == 0) return;
+
+        // If the user dropped on a non-leaf keyword, assign to all descendant
+        // assets that have this keyword or any child keyword. But for simplicity
+        // we assign the dropped keyword directly.
+        _bulkQueue.Enqueue(new BulkOperation
+        {
+            AssetIds = assetIds,
+            Name = kw.Name,
+            IsKeyword = true
+        });
+    }
+
+    /// <summary>
+    /// Fired when assets are dropped on a category tree node.
+    /// Enqueues a <see cref="BulkOperation"/> to assign the category to all
+    /// dragged assets.
+    /// </summary>
+    private void OnAssignCategoryDrop(object? parameter)
+    {
+        if (parameter is not DropPayload payload) return;
+
+        var targetNode = payload.TargetNode;
+        if (targetNode is not CategoryNode cat || cat.CategoryId == Guid.Empty)
+            return;
+
+        var assetIds = ParseAssetIds(payload.AssetIdsCsv);
+        if (assetIds.Count == 0) return;
+
+        _bulkQueue.Enqueue(new BulkOperation
+        {
+            AssetIds = assetIds,
+            Name = cat.Name,
+            IsKeyword = false
+        });
+    }
+
+    private static List<Guid> ParseAssetIds(string csv)
+    {
+        try
+        {
+            return csv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(Guid.Parse)
+                .Distinct()
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  Auto-save tags
+    // ──────────────────────────────────────────────
+
     private async Task AutoSaveTagsAsync()
     {
-        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
+        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty && !_dateTakenDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
             return;
 
         try
@@ -757,6 +940,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var asset = await db.DigitalAssets
                 .Include(a => a.Keywords)
                 .Include(a => a.Categories)
+                .Include(a => a.MetadataProfile)
                 .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
 
             if (asset == null)
@@ -790,12 +974,28 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 }
             }
 
+            // Save date taken if dirty
+            if (_dateTakenDirty)
+            {
+                // Ensure MetadataProfile exists
+                if (asset.MetadataProfile == null)
+                {
+                    asset.MetadataProfile = new MetadataProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        DigitalAssetId = asset.Id
+                    };
+                }
+                asset.MetadataProfile.DateTaken = SelectedAssetDateTaken;
+            }
+
             await db.SaveChangesAsync().ConfigureAwait(false);
-            _logger.LogInformation("[AutoSaveTags] Saved description/categories/tags for asset {Id}",
+            _logger.LogInformation("[AutoSaveTags] Saved description/categories/tags/date for asset {Id}",
                 _selectedAsset.Id);
             _tagsDirty = false;
             _categoriesDirty = false;
             _descriptionDirty = false;
+            _dateTakenDirty = false;
             SaveTagsCommand.RaiseCanExecuteChanged();
 
             // Show the save-toast notification

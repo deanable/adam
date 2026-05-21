@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Adam.CatalogBrowser.Controls.SearchableTreeView"
+             x:CompileBindings="False">
+  <StackPanel Spacing="4">
+
+    <!-- Search box -->
+    <TextBox x:Name="SearchTextBox"
+             PlaceholderText="Search..."
+             FontSize="11"
+             Padding="4,2"
+             BorderThickness="1"
+             BorderBrush="#D0D0D0"
+             CornerRadius="4" />
+
+    <Border BorderThickness="0" Background="Transparent">
+      <Grid>
+
+        <!-- ─── TreeView mode (no search) ─── -->
+        <TreeView x:Name="TreeViewBox"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  SelectionMode="Single">
+          <TreeView.ItemTemplate>
+            <TreeDataTemplate ItemsSource="{Binding Children}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Count}"
+                           FontSize="10"
+                           Foreground="#888"
+                           Margin="4,0,0,0" />
+              </Grid>
+            </TreeDataTemplate>
+          </TreeView.ItemTemplate>
+        </TreeView>
+
+        <!-- ─── Flat ListBox mode (search active) ─── -->
+        <ListBox x:Name="FlatListBox"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 IsVisible="False">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding DisplayPath}"
+                           FontSize="11"
+                           Foreground="#333"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Count}"
+                           FontSize="10"
+                           Foreground="#888"
+                           Margin="4,0,0,0" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+      </Grid>
+    </Border>
+
+  </StackPanel>
+</UserControl>
