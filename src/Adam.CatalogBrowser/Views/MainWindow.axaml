@@ -41,6 +41,11 @@
     </Style>
   </Window.Styles>
 
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveTagsCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveTagsCommand}" />
+  </Window.KeyBindings>
+
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Title bar -->
@@ -218,24 +223,99 @@
 
             <!-- Tags (single-asset editing) -->
             <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="4">
-                <!-- Single-asset mode: editable tag chips -->
-                <controls:TagEditorControl
-                  Tags="{Binding SelectedAssetTags}"
-                  AutoCompleteSource="{Binding TagAutoCompleteSource}"
-                  IsVisible="{Binding HasSingleSelection}" />
+              <StackPanel Margin="0,4,0,0" Spacing="6">
 
-                <!-- Multi-asset mode: aggregated tag occurrences -->
-                <controls:TagEditorControl
-                  TagOccurrences="{Binding AggregatedTags}"
-                  AutoCompleteSource="{Binding TagAutoCompleteSource}"
-                  IsMultiAsset="True"
-                  IsVisible="{Binding HasMultiSelection}" />
+                <!-- Description (single-asset mode only) -->
+                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                  <TextBlock Text="Description:" FontSize="10" Foreground="#666" />
+                  <TextBox Text="{Binding SelectedAssetDescription}"
+                           AcceptsReturn="True"
+                           MinHeight="40"
+                           MaxHeight="60"
+                           FontSize="11"
+                           BorderThickness="1"
+                           BorderBrush="#D0D0D0"
+                           CornerRadius="4"
+                           Padding="4,2" />
+                </StackPanel>
 
-                <TextBlock Text="Select an asset to edit its tags"
+                <!-- Categories (single-asset mode) -->
+                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                  <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
+                  <controls:TagEditorControl
+                    Tags="{Binding SelectedAssetCategories}"
+                    AutoCompleteSource="{Binding CategoryAutoCompleteSource}"
+                    PlaceholderText="Add category..." />
+                </StackPanel>
+
+                <!-- Keywords - single-asset mode: editable tag chips -->
+                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                  <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
+                  <controls:TagEditorControl
+                    Tags="{Binding SelectedAssetTags}"
+                    AutoCompleteSource="{Binding TagAutoCompleteSource}" />
+                </StackPanel>
+
+                <!-- Save button (single-asset mode) -->
+                <Button Content="Save Changes"
+                        Command="{Binding SaveTagsCommand}"
+                        IsVisible="{Binding HasSingleSelection}"
+                        HorizontalAlignment="Right"
+                        Margin="0,4,0,0"
+                        Padding="12,4"
+                        FontSize="11"
+                        Background="#1976D2"
+                        Foreground="White"
+                        BorderThickness="0"
+                        CornerRadius="4"
+                        Cursor="Hand">
+                  <Button.Styles>
+                    <Style Selector="Button:disabled">
+                      <Setter Property="Background" Value="#E0E0E0" />
+                      <Setter Property="Foreground" Value="#999" />
+                    </Style>
+                    <Style Selector="Button:pointerover">
+                      <Setter Property="Background" Value="#1565C0" />
+                    </Style>
+                    <Style Selector="Button:pressed">
+                      <Setter Property="Background" Value="#0D47A1" />
+                    </Style>
+                  </Button.Styles>
+                </Button>
+
+                <!-- Multi-asset mode: aggregated categories -->
+                <StackPanel IsVisible="{Binding HasMultiSelection}" Spacing="2">
+                  <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
+                  <controls:TagEditorControl
+                    TagOccurrences="{Binding AggregatedCategories}"
+                    AutoCompleteSource="{Binding CategoryAutoCompleteSource}"
+                    IsMultiAsset="True" />
+                </StackPanel>
+
+                <!-- Multi-asset mode: aggregated keyword occurrences -->
+                <StackPanel IsVisible="{Binding HasMultiSelection}" Spacing="2">
+                  <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
+                  <controls:TagEditorControl
+                    TagOccurrences="{Binding AggregatedTags}"
+                    AutoCompleteSource="{Binding TagAutoCompleteSource}"
+                    IsMultiAsset="True" />
+                </StackPanel>
+
+                <TextBlock Text="Select an asset to edit its metadata"
                            FontSize="11" Foreground="#999"
                            HorizontalAlignment="Center"
                            IsVisible="{Binding HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+
+                <!-- Save-toast notification -->
+                <Border IsVisible="{Binding ShowSaveToast}"
+                        Background="#323232"
+                        CornerRadius="6"
+                        Padding="12,8"
+                        Margin="0,4,0,0"
+                        HorizontalAlignment="Center"
+                        Opacity="0.95">
+                  <TextBlock Text="{Binding SaveToastText}" FontSize="12" Foreground="White" HorizontalAlignment="Center" />
+                </Border>
               </StackPanel>
             </Expander>
 

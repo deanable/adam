@@ -32,9 +32,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isPropertyInspectorLoading;
     private ObservableCollection<MetadataEntry> _selectedAssetMetadata = [];
     private ObservableCollection<TagOccurrence>? _aggregatedTags;
+    private ObservableCollection<TagOccurrence>? _aggregatedCategories;
     private List<string>? _tagAutoCompleteSource;
     private readonly ObservableCollection<string> _selectedAssetTags = [];
     private bool _tagsDirty;
+
+    // Editable fields in the property inspector panel
+    private string? _selectedAssetDescription;
+    private bool _descriptionDirty;
+    private ObservableCollection<string> _selectedAssetCategories = [];
+    private bool _categoriesDirty;
+    private IEnumerable<string>? _categoryAutoCompleteSource;
+    private bool _showSaveToast;
+    private string _saveToastText = "Changes saved";
 
     public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
@@ -50,6 +60,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AuditLog = auditLog;
         MigrationWizard = migrationWizard;
         _currentView = assetGallery;
+
+        SaveTagsCommand = new RelayCommand(
+            async _ => await AutoSaveTagsAsync(),
+            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty));
 
         ShowGalleryCommand = new RelayCommand(async _ =>
         {
@@ -132,8 +146,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
             });
         };
 
-        // Track tag edits in the property inspector for auto-save
-        _selectedAssetTags.CollectionChanged += (_, _) => _tagsDirty = true;
+        // Track edits in the property inspector for auto-save + manual save
+        _selectedAssetTags.CollectionChanged += (_, _) =>
+        {
+            _tagsDirty = true;
+            SaveTagsCommand.RaiseCanExecuteChanged();
+        };
+        _selectedAssetCategories.CollectionChanged += (_, _) =>
+        {
+            _categoriesDirty = true;
+            SaveTagsCommand.RaiseCanExecuteChanged();
+        };
 
         assetGallery.SelectionChanged += asset =>
         {
@@ -142,7 +165,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 // Save any pending tag edits before switching assets
                 await AutoSaveTagsAsync();
 
-                await Dispatcher.UIThread.InvokeAsync(() => _selectedAsset = asset);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _selectedAsset = asset;
+                    SaveTagsCommand.RaiseCanExecuteChanged();
+                });
                 await LoadSelectedAssetMetadataAsync();
                 await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasSelectedAsset)));
             });
@@ -159,6 +186,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 });
                 await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasMultiSelection)));
                 await ComputeAggregatedTagsAsync();
+                await ComputeAggregatedCategoriesAsync();
             });
         };
 
@@ -259,6 +287,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Aggregated category occurrences across all selected assets.
+    /// Each <see cref="TagOccurrence"/> carries a level indicating whether the
+    /// category is present in all, some, or exactly one of the selected assets.
+    /// </summary>
+    public ObservableCollection<TagOccurrence>? AggregatedCategories
+    {
+        get => _aggregatedCategories;
+        set { _aggregatedCategories = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
     /// All keywords in the system, used as autocomplete suggestions.
     /// </summary>
     public IEnumerable<string>? TagAutoCompleteSource
@@ -273,6 +312,65 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// when&#160;a different asset is selected.
     /// </summary>
     public ObservableCollection<string> SelectedAssetTags => _selectedAssetTags;
+
+    /// <summary>
+    /// Editable description for the currently selected single asset.
+    /// </summary>
+    public string? SelectedAssetDescription
+    {
+        get => _selectedAssetDescription;
+        set
+        {
+            if (_selectedAssetDescription != value)
+            {
+                _selectedAssetDescription = value;
+                _descriptionDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Editable categories for the currently selected asset (single-asset mode).
+    /// Each string is a category name. Changes are auto-saved on selection switch.
+    /// </summary>
+    public ObservableCollection<string> SelectedAssetCategories
+    {
+        get => _selectedAssetCategories;
+        set
+        {
+            if (_selectedAssetCategories != null)
+                _selectedAssetCategories.CollectionChanged -= (_, _) =>
+                {
+                    _categoriesDirty = true;
+                    SaveTagsCommand.RaiseCanExecuteChanged();
+                };
+            _selectedAssetCategories = value ?? [];
+            _selectedAssetCategories.CollectionChanged += (_, _) =>
+            {
+                _categoriesDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+            };
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// All category names in the system, used as autocomplete suggestions
+    /// for the category editor.
+    /// </summary>
+    public IEnumerable<string>? CategoryAutoCompleteSource
+    {
+        get => _categoryAutoCompleteSource;
+        set { _categoryAutoCompleteSource = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Command to manually save pending description/categories/keywords edits.
+    /// Enabled only when an asset is selected and at least one field is dirty.
+    /// </summary>
+    public RelayCommand SaveTagsCommand { get; }
 
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowAdminCommand { get; }
@@ -315,14 +413,38 @@ public class MainWindowViewModel : INotifyPropertyChanged
         set { _isPropertyInspectorLoading = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// True when the save-toast notification should be visible.
+    /// </summary>
+    public bool ShowSaveToast
+    {
+        get => _showSaveToast;
+        set { _showSaveToast = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Text displayed in the save-toast notification.
+    /// </summary>
+    public string SaveToastText
+    {
+        get => _saveToastText;
+        set { _saveToastText = value; OnPropertyChanged(); }
+    }
+
     private async Task LoadSelectedAssetMetadataAsync()
     {
         await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = true);
-        try
+        // Dispatch property-changed notifications to the UI thread so the
+        // binding system can update the inspector even though we're running
+        // on a background thread (called from Task.Run).
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             OnPropertyChanged(nameof(SelectedAsset));
             OnPropertyChanged(nameof(HasSelectedAsset));
+        });
 
+        try
+        {
             if (_selectedAsset == null)
             {
                 SelectedAssetMetadata = [];
@@ -349,7 +471,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
                     if (asset != null)
                     {
-                        AddIfValue(entries, "Description:", asset.Description);
                         AddIfValue(entries, "Type:", asset.MimeType);
                         AddIfValue(entries, "Dimensions:", asset.Width.HasValue && asset.Height.HasValue
                             ? $"{asset.Width} x {asset.Height}" : null);
@@ -364,19 +485,39 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
                         // Populate the editable tag collection for the property inspector
                         var tagNames = asset.Keywords.Select(k => k.Name).ToList();
+                        var categoryNames = asset.Categories.Select(c => c.Name).ToList();
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             _selectedAssetTags.Clear();
                             foreach (var name in tagNames)
                                 _selectedAssetTags.Add(name);
                             _tagsDirty = false;
+
+                            _selectedAssetCategories.Clear();
+                            foreach (var name in categoryNames)
+                                _selectedAssetCategories.Add(name);
+                            _categoriesDirty = false;
+
+                            SelectedAssetDescription = asset.Description;
+                            _descriptionDirty = false;
+
+                            SaveTagsCommand.RaiseCanExecuteChanged();
                         });
 
-                        if (asset.Keywords.Count > 0)
-                            AddIfValue(entries, "Keywords:", string.Join(", ", asset.Keywords.Select(k => k.Name)));
-
-                        if (asset.Categories.Count > 0)
-                            AddIfValue(entries, "Categories:", string.Join(", ", asset.Categories.Select(c => c.Name)));
+                        // Load category names for autocomplete
+                        try
+                        {
+                            var catNames = await db.Categories
+                                .Select(c => c.Name)
+                                .Distinct()
+                                .OrderBy(n => n)
+                                .ToListAsync().ConfigureAwait(false);
+                            await Dispatcher.UIThread.InvokeAsync(() => CategoryAutoCompleteSource = catNames);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to load category autocomplete source");
+                        }
 
                         if (asset.MetadataProfile != null)
                         {
@@ -536,13 +677,78 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Computes aggregated <see cref="TagOccurrence"/> levels across all
+    /// currently selected assets for categories. Works identically to
+    /// <see cref="ComputeAggregatedTagsAsync"/> but operates on category names.
+    /// </summary>
+    private async Task ComputeAggregatedCategoriesAsync()
+    {
+        if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = null);
+            return;
+        }
+
+        try
+        {
+            List<(string name, OccurrenceLevel level)> aggregated;
+
+            await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
+            {
+                var assetIds = _selectedAssets.Select(a => a.Id).ToList();
+                var total = assetIds.Count;
+
+                var assets = await db.DigitalAssets
+                    .Include(a => a.Categories)
+                    .Where(a => assetIds.Contains(a.Id))
+                    .ToListAsync().ConfigureAwait(false);
+
+                // Count occurrences of each category name across all selected assets
+                var occurrenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var asset in assets)
+                {
+                    foreach (var cat in asset.Categories)
+                    {
+                        occurrenceCounts[cat.Name] = occurrenceCounts.GetValueOrDefault(cat.Name) + 1;
+                    }
+                }
+
+                aggregated = occurrenceCounts
+                    .OrderBy(kv => kv.Key)
+                    .Select(kvp =>
+                    {
+                        var level = kvp.Value == total ? OccurrenceLevel.All
+                                  : kvp.Value == 1 ? OccurrenceLevel.One
+                                  : OccurrenceLevel.Some;
+                        return (kvp.Key, level);
+                    })
+                    .ToList();
+
+                _logger.LogInformation("[AggregatedCategories] Computed {Count} aggregated categories across {AssetCount} assets", aggregated.Count, total);
+            }
+
+            // Marshal to UI thread
+            var cats = new ObservableCollection<TagOccurrence>();
+            foreach (var (name, level) in aggregated)
+                cats.Add(new TagOccurrence { Name = name, Level = level });
+
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = cats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to compute aggregated categories");
+            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = null);
+        }
+    }
+
+    /// <summary>
     /// Persists any pending tag edits in <see cref="SelectedAssetTags"/> to
     /// the database for the currently selected asset.  Called automatically
     /// before switching to a different asset.
     /// </summary>
     private async Task AutoSaveTagsAsync()
     {
-        if (!_tagsDirty || _selectedAsset == null || !_modeManager.IsStandalone)
+        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
             return;
 
         try
@@ -550,22 +756,55 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
             var asset = await db.DigitalAssets
                 .Include(a => a.Keywords)
+                .Include(a => a.Categories)
                 .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
 
             if (asset == null)
                 return;
 
-            // Clear and reassociate keywords
-            asset.Keywords.Clear();
-            var tagNames = _selectedAssetTags.ToArray();
-            if (tagNames.Length > 0)
+            // Save description if dirty
+            if (_descriptionDirty)
             {
-                await db.AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
+                asset.Description = SelectedAssetDescription;
+            }
+
+            // Clear and reassociate keywords (only if the tag collection was dirtied)
+            if (_tagsDirty)
+            {
+                asset.Keywords.Clear();
+                var tagNames = _selectedAssetTags.ToArray();
+                if (tagNames.Length > 0)
+                {
+                    await db.AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
+                }
+            }
+
+            // Clear and reassociate categories (only if the categories collection was dirtied)
+            if (_categoriesDirty)
+            {
+                asset.Categories.Clear();
+                var categoryNames = _selectedAssetCategories.ToArray();
+                if (categoryNames.Length > 0)
+                {
+                    await db.AssociateCategoriesAsync(asset, categoryNames).ConfigureAwait(false);
+                }
             }
 
             await db.SaveChangesAsync().ConfigureAwait(false);
-            _logger.LogInformation("[AutoSaveTags] Saved {Count} tags for asset {Id}", tagNames.Length, _selectedAsset.Id);
+            _logger.LogInformation("[AutoSaveTags] Saved description/categories/tags for asset {Id}",
+                _selectedAsset.Id);
             _tagsDirty = false;
+            _categoriesDirty = false;
+            _descriptionDirty = false;
+            SaveTagsCommand.RaiseCanExecuteChanged();
+
+            // Show the save-toast notification
+            await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = true);
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2500).ConfigureAwait(false);
+                await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = false);
+            });
         }
         catch (Exception ex)
         {
