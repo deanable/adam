@@ -29,9 +29,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isInitialLoading;
     private AssetListItem? _selectedAsset;
     private readonly List<AssetListItem> _selectedAssets = [];
+    private bool _isPropertyInspectorLoading;
     private ObservableCollection<MetadataEntry> _selectedAssetMetadata = [];
     private ObservableCollection<TagOccurrence>? _aggregatedTags;
     private List<string>? _tagAutoCompleteSource;
+    private readonly ObservableCollection<string> _selectedAssetTags = [];
+    private bool _tagsDirty;
 
     public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard)
     {
@@ -107,25 +110,56 @@ public class MainWindowViewModel : INotifyPropertyChanged
             assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo);
         };
 
-        ingestion.IngestionCompleted += async () =>
+        ingestion.IngestionCompleted += () =>
         {
-            await Sidebar.LoadAsync();
-            await AssetGallery.LoadAssetsAsync();
+            _ = Task.Run(async () =>
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+            });
         };
 
-        assetGallery.SelectionChanged += async asset =>
+        // When metadata editor saves changes, refresh the catalog
+        metadataEditor.SaveCompleted += () =>
         {
-            _selectedAsset = asset;
-            await LoadSelectedAssetMetadataAsync();
-            OnPropertyChanged(nameof(HasSelectedAsset));
+            _ = Task.Run(async () =>
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+                // Reload the selected asset's tags in the property inspector
+                if (_selectedAsset != null)
+                    await LoadSelectedAssetMetadataAsync();
+            });
         };
 
-        assetGallery.MultiSelectionChanged += async assets =>
+        // Track tag edits in the property inspector for auto-save
+        _selectedAssetTags.CollectionChanged += (_, _) => _tagsDirty = true;
+
+        assetGallery.SelectionChanged += asset =>
         {
-            _selectedAssets.Clear();
-            _selectedAssets.AddRange(assets);
-            OnPropertyChanged(nameof(HasMultiSelection));
-            await ComputeAggregatedTagsAsync();
+            _ = Task.Run(async () =>
+            {
+                // Save any pending tag edits before switching assets
+                await AutoSaveTagsAsync();
+
+                await Dispatcher.UIThread.InvokeAsync(() => _selectedAsset = asset);
+                await LoadSelectedAssetMetadataAsync();
+                await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasSelectedAsset)));
+            });
+        };
+
+        assetGallery.MultiSelectionChanged += assets =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _selectedAssets.Clear();
+                    _selectedAssets.AddRange(assets);
+                });
+                await Dispatcher.UIThread.InvokeAsync(() => OnPropertyChanged(nameof(HasMultiSelection)));
+                await ComputeAggregatedTagsAsync();
+            });
         };
 
         IsInitialLoading = true;
@@ -204,6 +238,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public bool HasSelectedAsset => _selectedAsset != null;
 
     /// <summary>
+    /// True when exactly one asset is selected (not multi-selection).
+    /// </summary>
+    public bool HasSingleSelection => !HasMultiSelection && HasSelectedAsset;
+
+    /// <summary>
     /// True when multiple assets are selected in the gallery.
     /// </summary>
     public bool HasMultiSelection => _selectedAssets.Count > 1;
@@ -227,6 +266,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
         get => _tagAutoCompleteSource;
         set { _tagAutoCompleteSource = value?.ToList(); OnPropertyChanged(); }
     }
+
+    /// <summary>
+    /// Tags for the currently selected asset, shown in the property
+    /// inspector&#39;s Tags section.  Changes are tracked and auto-saved
+    /// when&#160;a different asset is selected.
+    /// </summary>
+    public ObservableCollection<string> SelectedAssetTags => _selectedAssetTags;
 
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowAdminCommand { get; }
@@ -259,94 +305,122 @@ public class MainWindowViewModel : INotifyPropertyChanged
         set { _isInitialLoading = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// True while the property inspector is loading metadata for the
+    /// currently selected asset.
+    /// </summary>
+    public bool IsPropertyInspectorLoading
+    {
+        get => _isPropertyInspectorLoading;
+        set { _isPropertyInspectorLoading = value; OnPropertyChanged(); }
+    }
+
     private async Task LoadSelectedAssetMetadataAsync()
     {
-        OnPropertyChanged(nameof(SelectedAsset));
-        OnPropertyChanged(nameof(HasSelectedAsset));
-
-        if (_selectedAsset == null)
+        await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = true);
+        try
         {
-            SelectedAssetMetadata = [];
-            return;
-        }
+            OnPropertyChanged(nameof(SelectedAsset));
+            OnPropertyChanged(nameof(HasSelectedAsset));
 
-        var entries = new List<MetadataEntry>();
-
-        // File info
-        entries.Add(new MetadataEntry { Label = "File name:", Value = _selectedAsset.FileName });
-        entries.Add(new MetadataEntry { Label = "Title:", Value = _selectedAsset.Title });
-
-        // Load full asset + profile from DB for remaining fields
-        if (_modeManager.IsStandalone)
-        {
-            try
+            if (_selectedAsset == null)
             {
-                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-                var asset = await db.DigitalAssets
-                    .Include(a => a.Keywords)
-                    .Include(a => a.Categories)
-                    .Include(a => a.MetadataProfile)
-                    .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
+                SelectedAssetMetadata = [];
+                return;
+            }
 
-                if (asset != null)
+            var entries = new List<MetadataEntry>();
+
+            // File info
+            entries.Add(new MetadataEntry { Label = "File name:", Value = _selectedAsset.FileName });
+            entries.Add(new MetadataEntry { Label = "Title:", Value = _selectedAsset.Title });
+
+            // Load full asset + profile from DB for remaining fields
+            if (_modeManager.IsStandalone)
+            {
+                try
                 {
-                    AddIfValue(entries, "Description:", asset.Description);
-                    AddIfValue(entries, "Type:", asset.MimeType);
-                    AddIfValue(entries, "Dimensions:", asset.Width.HasValue && asset.Height.HasValue
-                        ? $"{asset.Width} x {asset.Height}" : null);
-                    AddIfValue(entries, "Size:", FormatFileSize(asset.FileSize));
-                    AddIfValue(entries, "Duration:", asset.Duration.HasValue
-                        ? $"{asset.Duration.Value:F2} s" : null);
-                    AddIfValue(entries, "Date added:", asset.CreatedAt.ToLocalTime().ToString("g"));
-                    AddIfValue(entries, "Date modified:", asset.ModifiedAt.ToLocalTime().ToString("g"));
-                    AddIfValue(entries, "Version:", asset.Version.ToString());
-                    AddIfValue(entries, "Checksum (SHA-256):", asset.ChecksumSha256);
-                    AddIfValue(entries, "Storage path:", asset.StoragePath);
+                    await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                    var asset = await db.DigitalAssets
+                        .Include(a => a.Keywords)
+                        .Include(a => a.Categories)
+                        .Include(a => a.MetadataProfile)
+                        .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
 
-                    if (asset.Keywords.Count > 0)
-                        AddIfValue(entries, "Keywords:", string.Join(", ", asset.Keywords.Select(k => k.Name)));
-
-                    if (asset.Categories.Count > 0)
-                        AddIfValue(entries, "Categories:", string.Join(", ", asset.Categories.Select(c => c.Name)));
-
-                    if (asset.MetadataProfile != null)
+                    if (asset != null)
                     {
-                        var p = asset.MetadataProfile;
-                        AddIfValue(entries, "Camera make:", p.CameraMake);
-                        AddIfValue(entries, "Camera model:", p.CameraModel);
-                        AddIfValue(entries, "Lens model:", p.LensModel);
-                        AddIfValue(entries, "Focal length:", p.FocalLength.HasValue ? $"{p.FocalLength.Value:F1} mm" : null);
-                        AddIfValue(entries, "Aperture:", p.Aperture.HasValue ? $"f/{p.Aperture.Value:F1}" : null);
-                        AddIfValue(entries, "Exposure time:", p.ExposureTime);
-                        AddIfValue(entries, "ISO:", p.Iso?.ToString());
-                        AddIfValue(entries, "Flash:", p.Flash.HasValue ? (p.Flash.Value ? "Yes" : "No") : null);
-                        AddIfValue(entries, "Orientation:", p.Orientation);
-                        AddIfValue(entries, "Date taken:", p.DateTaken?.ToString("g"));
-                        AddIfValue(entries, "GPS latitude:", p.GpsLatitude?.ToString("F6"));
-                        AddIfValue(entries, "GPS longitude:", p.GpsLongitude?.ToString("F6"));
-                        AddIfValue(entries, "GPS altitude:", p.GpsAltitude?.ToString("F1"));
-                        AddIfValue(entries, "Rating:", p.Rating?.ToString());
-                        AddIfValue(entries, "Creator:", p.Creator);
-                        AddIfValue(entries, "Copyright:", p.Copyright);
-                        AddIfValue(entries, "Usage terms:", p.UsageTerms);
-                        AddIfValue(entries, "Contact info:", p.ContactInfo);
-                        AddIfValue(entries, "City:", p.City);
-                        AddIfValue(entries, "State:", p.State);
-                        AddIfValue(entries, "Country:", p.Country);
-                        AddIfValue(entries, "Headline:", p.Headline);
+                        AddIfValue(entries, "Description:", asset.Description);
+                        AddIfValue(entries, "Type:", asset.MimeType);
+                        AddIfValue(entries, "Dimensions:", asset.Width.HasValue && asset.Height.HasValue
+                            ? $"{asset.Width} x {asset.Height}" : null);
+                        AddIfValue(entries, "Size:", FormatFileSize(asset.FileSize));
+                        AddIfValue(entries, "Duration:", asset.Duration.HasValue
+                            ? $"{asset.Duration.Value:F2} s" : null);
+                        AddIfValue(entries, "Date added:", asset.CreatedAt.ToLocalTime().ToString("g"));
+                        AddIfValue(entries, "Date modified:", asset.ModifiedAt.ToLocalTime().ToString("g"));
+                        AddIfValue(entries, "Version:", asset.Version.ToString());
+                        AddIfValue(entries, "Checksum (SHA-256):", asset.ChecksumSha256);
+                        AddIfValue(entries, "Storage path:", asset.StoragePath);
+
+                        // Populate the editable tag collection for the property inspector
+                        var tagNames = asset.Keywords.Select(k => k.Name).ToList();
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            _selectedAssetTags.Clear();
+                            foreach (var name in tagNames)
+                                _selectedAssetTags.Add(name);
+                            _tagsDirty = false;
+                        });
+
+                        if (asset.Keywords.Count > 0)
+                            AddIfValue(entries, "Keywords:", string.Join(", ", asset.Keywords.Select(k => k.Name)));
+
+                        if (asset.Categories.Count > 0)
+                            AddIfValue(entries, "Categories:", string.Join(", ", asset.Categories.Select(c => c.Name)));
+
+                        if (asset.MetadataProfile != null)
+                        {
+                            var p = asset.MetadataProfile;
+                            AddIfValue(entries, "Camera make:", p.CameraMake);
+                            AddIfValue(entries, "Camera model:", p.CameraModel);
+                            AddIfValue(entries, "Lens model:", p.LensModel);
+                            AddIfValue(entries, "Focal length:", p.FocalLength.HasValue ? $"{p.FocalLength.Value:F1} mm" : null);
+                            AddIfValue(entries, "Aperture:", p.Aperture.HasValue ? $"f/{p.Aperture.Value:F1}" : null);
+                            AddIfValue(entries, "Exposure time:", p.ExposureTime);
+                            AddIfValue(entries, "ISO:", p.Iso?.ToString());
+                            AddIfValue(entries, "Flash:", p.Flash.HasValue ? (p.Flash.Value ? "Yes" : "No") : null);
+                            AddIfValue(entries, "Orientation:", p.Orientation);
+                            AddIfValue(entries, "Date taken:", p.DateTaken?.ToString("g"));
+                            AddIfValue(entries, "GPS latitude:", p.GpsLatitude?.ToString("F6"));
+                            AddIfValue(entries, "GPS longitude:", p.GpsLongitude?.ToString("F6"));
+                            AddIfValue(entries, "GPS altitude:", p.GpsAltitude?.ToString("F1"));
+                            AddIfValue(entries, "Rating:", p.Rating?.ToString());
+                            AddIfValue(entries, "Creator:", p.Creator);
+                            AddIfValue(entries, "Copyright:", p.Copyright);
+                            AddIfValue(entries, "Usage terms:", p.UsageTerms);
+                            AddIfValue(entries, "Contact info:", p.ContactInfo);
+                            AddIfValue(entries, "City:", p.City);
+                            AddIfValue(entries, "State:", p.State);
+                            AddIfValue(entries, "Country:", p.Country);
+                            AddIfValue(entries, "Headline:", p.Headline);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load metadata for selected asset");
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to load metadata for selected asset");
-            }
-        }
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
+            });
+        }
+        finally
         {
-            SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
-        });
+            await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = false);
+        }
     }
 
     private static void AddIfValue(List<MetadataEntry> entries, string label, string? value)
@@ -458,6 +532,44 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _logger.LogWarning(ex, "Failed to compute aggregated tags");
             await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
+        }
+    }
+
+    /// <summary>
+    /// Persists any pending tag edits in <see cref="SelectedAssetTags"/> to
+    /// the database for the currently selected asset.  Called automatically
+    /// before switching to a different asset.
+    /// </summary>
+    private async Task AutoSaveTagsAsync()
+    {
+        if (!_tagsDirty || _selectedAsset == null || !_modeManager.IsStandalone)
+            return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var asset = await db.DigitalAssets
+                .Include(a => a.Keywords)
+                .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
+
+            if (asset == null)
+                return;
+
+            // Clear and reassociate keywords
+            asset.Keywords.Clear();
+            var tagNames = _selectedAssetTags.ToArray();
+            if (tagNames.Length > 0)
+            {
+                await db.AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
+            }
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            _logger.LogInformation("[AutoSaveTags] Saved {Count} tags for asset {Id}", tagNames.Length, _selectedAsset.Id);
+            _tagsDirty = false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-save tags for selected asset");
         }
     }
 

@@ -191,6 +191,7 @@
 
       <!-- Right panel -->
       <Border Grid.Column="4" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0" MinWidth="180">
+        <Grid>
         <ScrollViewer>
           <StackPanel Spacing="0">
 
@@ -215,23 +216,42 @@
               </StackPanel>
             </Expander>
 
-            <!-- Tags (multi-asset aggregation) -->
+            <!-- Tags (single-asset editing) -->
             <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="4">
+                <!-- Single-asset mode: editable tag chips -->
+                <controls:TagEditorControl
+                  Tags="{Binding SelectedAssetTags}"
+                  AutoCompleteSource="{Binding TagAutoCompleteSource}"
+                  IsVisible="{Binding HasSingleSelection}" />
+
+                <!-- Multi-asset mode: aggregated tag occurrences -->
                 <controls:TagEditorControl
                   TagOccurrences="{Binding AggregatedTags}"
                   AutoCompleteSource="{Binding TagAutoCompleteSource}"
                   IsMultiAsset="True"
                   IsVisible="{Binding HasMultiSelection}" />
-                <TextBlock Text="Select multiple assets with Ctrl+Click to compare tags"
+
+                <TextBlock Text="Select an asset to edit its tags"
                            FontSize="11" Foreground="#999"
                            HorizontalAlignment="Center"
-                           IsVisible="{Binding HasMultiSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+                           IsVisible="{Binding HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
               </StackPanel>
             </Expander>
 
           </StackPanel>
         </ScrollViewer>
+        <!-- Property inspector loading overlay -->
+        <Border Background="#CCF5F5F5" IsVisible="{Binding IsPropertyInspectorLoading}"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+          <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
+            <controls:LoadingSpinner Grid.Row="0" Width="32" Height="32" Foreground="#1976D2"
+                                      HorizontalAlignment="Center" />
+            <TextBlock Grid.Row="1" Text="Loading..." FontSize="12" Foreground="#888"
+                       HorizontalAlignment="Center" />
+          </Grid>
+        </Border>
+        </Grid>
       </Border>
     </Grid>
 

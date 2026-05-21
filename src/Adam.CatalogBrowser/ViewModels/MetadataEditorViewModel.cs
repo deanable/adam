@@ -118,6 +118,12 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
     public bool IsDirty { get => _isDirty; set { _isDirty = value; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
 
+    /// <summary>
+    /// Raised after a successful save so the host (MainWindowViewModel)
+    /// can refresh the catalog and property inspector tags.
+    /// </summary>
+    public event Action? SaveCompleted;
+
     private void OnTagsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         _isDirty = true;
@@ -145,8 +151,8 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                 return;
             }
 
-        _profile = _asset.MetadataProfile;
-        HasAsset = true;
+            _profile = _asset.MetadataProfile;
+            HasAsset = true;
         FileName = _asset.FileName;
         Title = _asset.Title;
         Description = _asset.Description;
@@ -230,6 +236,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
 
         IsDirty = false;
         StatusText = "Saved.";
+        SaveCompleted?.Invoke();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
