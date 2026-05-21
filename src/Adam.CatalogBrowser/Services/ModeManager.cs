@@ -41,7 +41,7 @@ public sealed class ModeManager
 
         await using var db = CreateDbContext();
         await db.Database.EnsureCreatedAsync();
-        ApplyMigrations(db);
+        await ApplyMigrationsAsync(db);
     }
 
     public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite")
@@ -54,7 +54,7 @@ public sealed class ModeManager
 
         await using var db = CreateDbContext();
         await db.Database.EnsureCreatedAsync();
-        ApplyMigrations(db);
+        await ApplyMigrationsAsync(db);
     }
 
     public AppDbContext CreateDbContext()
@@ -89,17 +89,17 @@ public sealed class ModeManager
         return new AppDbContext(options);
     }
 
-    private static void ApplyMigrations(AppDbContext db)
+    private static async Task ApplyMigrationsAsync(AppDbContext db)
     {
         try
         {
-            db.Database.ExecuteSqlRaw("ALTER TABLE DigitalAssets ADD COLUMN OriginalPath TEXT DEFAULT ''");
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE DigitalAssets ADD COLUMN OriginalPath TEXT DEFAULT ''");
         }
         catch { }
 
         try
         {
-            db.Database.ExecuteSqlRaw("ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT");
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT");
         }
         catch { }
 
@@ -118,7 +118,7 @@ public sealed class ModeManager
         {
             try
             {
-                db.Database.ExecuteSqlRaw(cmd);
+                await db.Database.ExecuteSqlRawAsync(cmd);
             }
             catch { }
         }

@@ -130,7 +130,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         IsInitialLoading = true;
 
-        Dispatcher.UIThread.Post(async () =>
+        // Run the entire startup pipeline on a background thread so the UI
+        // thread stays free to paint the window, handle input, and show the
+        // loading overlay.  Each sub-method already dispatches UI updates
+        // (e.g., collection changes, IsLoading flags) back to the UI thread.
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -156,9 +160,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
             finally
             {
-                IsInitialLoading = false;
+                await Dispatcher.UIThread.InvokeAsync(() => IsInitialLoading = false);
             }
-        }, DispatcherPriority.Background);
+        });
     }
 
     private static List<Guid> GetDescendantKeywordIds(KeywordNode? node)
