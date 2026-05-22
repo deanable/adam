@@ -12,21 +12,24 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Extract and validate version
-        id: version
+        id: get_version
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF#refs/tags/v}"
           fi
@@ -201,6 +204,8 @@ jobs:
 
   release:
     needs: [validate, build-windows, build-macos, build-linux]
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
