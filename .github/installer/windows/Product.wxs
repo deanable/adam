@@ -1,0 +1,40 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Adam CatalogBrowser"
+      Manufacturer="Adam"
+      Version="$(var.Version)"
+      UpgradeCode="e8f3a2b1-5c4d-6e7f-8a9b-0c1d2e3f4a5b"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="MainFeature" Title="Adam CatalogBrowser" Level="1">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="ManufacturerDir" Name="Adam">
+        <Directory Id="INSTALLDIR" Name="CatalogBrowser" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <ComponentGroup Id="PublishedFiles" Directory="INSTALLDIR">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="e8f3a2b1-5c4d-6e7f-8a9b-0c1d2e3f4a5c">
+      <Shortcut
+          Id="DesktopShortcut"
+          Name="Adam CatalogBrowser"
+          Target="[INSTALLDIR]Adam.CatalogBrowser.exe"
+          WorkingDirectory="INSTALLDIR" />
+      <RemoveFolder Id="RemoveDesktopFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Adam\CatalogBrowser" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+  </Package>
+</Wix>
