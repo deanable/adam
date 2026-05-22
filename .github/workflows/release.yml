@@ -113,7 +113,7 @@ jobs:
           echo "Adam BrokerService installed to $INSTALL_DIR"
           EOF
           chmod +x BrokerService-dmg/install.sh
-          hdiutil create -volname "Adam BrokerService" -srcfolder BrokerService-dmg -ov -format UDZO "Adam.BrokerService-v${{ needs.validate.outputs.version }}.dmg"
+          hdiutil create -volname "Adam BrokerService" -srcfolder BrokerService-dmg -ov -format UDZO "Adam.BrokerService-v${{ needs.validate.outputs.version }}-osx.dmg"
       - name: Create TAR.GZ
         run: tar -czf "Adam-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.tar.gz" -C publish .
       - name: Upload macOS artifacts
