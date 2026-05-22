@@ -1,0 +1,224 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        default: '0.0.0-test'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract and validate version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+  build-windows:
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/Adam.slnx
+      - name: Publish CatalogBrowser
+        run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
+      - name: Publish BrokerService
+        run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Install WiX
+        run: dotnet tool install --global wix --version 4.0.5
+      - name: Build CatalogBrowser MSI
+        run: wix build .github/installer/windows/Product.wxs -o "Adam.CatalogBrowser-v${{ needs.validate.outputs.version }}-win-x64.msi" -d PublishDir=publish/CatalogBrowser -d Version=${{ needs.validate.outputs.version }}
+      - name: Build BrokerService MSI
+        run: wix build .github/installer/windows/BrokerService.wxs -o "Adam.BrokerService-v${{ needs.validate.outputs.version }}-win-x64.msi" -d PublishDir=publish/BrokerService -d Version=${{ needs.validate.outputs.version }}
+      - name: Create ZIP
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath "Adam-v${{ needs.validate.outputs.version }}-win-x64.zip"
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            Adam.CatalogBrowser-v*.msi
+            Adam.BrokerService-v*.msi
+            Adam-v*-win-x64.zip
+          retention-days: 5
+
+  build-macos:
+    needs: validate
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        rid: [osx-x64, osx-arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/Adam.slnx
+      - name: Publish CatalogBrowser
+        run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
+      - name: Publish BrokerService
+        run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Create CatalogBrowser DMG
+        run: |
+          bash .github/installer/macos/create-dmg.sh \
+            publish/CatalogBrowser \
+            "Adam.CatalogBrowser-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.dmg" \
+            "${{ needs.validate.outputs.version }}"
+      - name: Create BrokerService DMG
+        run: |
+          mkdir -p BrokerService-dmg
+          cp -r publish/BrokerService/* BrokerService-dmg/
+          cat > BrokerService-dmg/install.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          INSTALL_DIR="/usr/local/bin"
+          mkdir -p "$INSTALL_DIR"
+          cp -r "$(dirname "$0")"/* "$INSTALL_DIR/"
+          echo "Adam BrokerService installed to $INSTALL_DIR"
+          EOF
+          chmod +x BrokerService-dmg/install.sh
+          hdiutil create -volname "Adam BrokerService" -srcfolder BrokerService-dmg -ov -format UDZO "Adam.BrokerService-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.dmg"
+      - name: Create TAR.GZ
+        run: tar -czf "Adam-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.tar.gz" -C publish .
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts-${{ matrix.rid }}
+          path: |
+            Adam-v*.tar.gz
+            Adam.*.dmg
+          retention-days: 5
+
+  build-linux:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/Adam.slnx
+      - name: Publish CatalogBrowser
+        run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
+      - name: Publish BrokerService
+        run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Build CatalogBrowser DEB
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          mkdir -p deb-catalogbrowser/DEBIAN
+          mkdir -p deb-catalogbrowser/usr/bin
+          mkdir -p deb-catalogbrowser/usr/share/applications
+          cp -r publish/CatalogBrowser/* deb-catalogbrowser/usr/bin/
+          cp .github/installer/linux/catalogbrowser.desktop deb-catalogbrowser/usr/share/applications/
+          sed "s/\\${VERSION}/$VERSION/g" .github/installer/linux/control > deb-catalogbrowser/DEBIAN/control
+          dpkg-deb --build deb-catalogbrowser "adam-catalogbrowser-v${VERSION}-linux-x64.deb"
+      - name: Build BrokerService DEB
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          mkdir -p deb-brokerservice/DEBIAN
+          mkdir -p deb-brokerservice/usr/bin
+          mkdir -p deb-brokerservice/lib/systemd/system
+          mkdir -p deb-brokerservice/var/lib/adam/brokerservice
+          cp -r publish/BrokerService/* deb-brokerservice/usr/bin/
+          cat > deb-brokerservice/DEBIAN/control << EOF
+          Package: adam-brokerservice
+          Version: $VERSION
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Adam Team <team@adam.dev>
+          Description: Adam BrokerService
+           Cross-platform digital asset management broker service.
+          EOF
+          cat > deb-brokerservice/lib/systemd/system/adam-brokerservice.service << EOF
+          [Unit]
+          Description=Adam BrokerService
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=adam
+          ExecStart=/usr/bin/adam-brokerservice
+          Restart=on-failure
+          WorkingDirectory=/var/lib/adam/brokerservice
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          cp .github/installer/linux/postinst deb-brokerservice/DEBIAN/postinst
+          chmod 755 deb-brokerservice/DEBIAN/postinst
+          dpkg-deb --build deb-brokerservice "adam-brokerservice-v${VERSION}-linux-x64.deb"
+      - name: Create TAR.GZ
+        run: tar -czf "Adam-v${{ needs.validate.outputs.version }}-linux-x64.tar.gz" -C publish .
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            Adam-v*-linux-x64.tar.gz
+            adam-*.deb
+          retention-days: 5
+
+  release:
+    needs: [validate, build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Adam v${{ needs.validate.outputs.version }}
+          generate_release_notes: true
+          files: |
+            artifacts/Adam.CatalogBrowser-v*.msi
+            artifacts/Adam.BrokerService-v*.msi
+            artifacts/Adam-v*-win-x64.zip
+            artifacts/Adam-v*-osx-*.tar.gz
+            artifacts/Adam-v*-linux-*.tar.gz
+            artifacts/Adam.*.dmg
+            artifacts/adam-*.deb
