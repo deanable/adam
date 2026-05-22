@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Adam CatalogBrowser
+Comment=Digital Asset Management Catalog Browser
+Exec=/usr/bin/adam-catalogbrowser
+Type=Application
+Terminal=false
+Icon=adam-catalogbrowser
+Categories=Office;Database;
+StartupNotify=true
