@@ -36,12 +36,12 @@ mkdir -p "${RESOURCES}"
 cp "${PUBLISH_DIR}/Adam.CatalogBrowser" "${MACOS}/"
 
 # 3. Copy all other published files into Contents/MacOS/
-for file in "${PUBLISH_DIR}"/*; do
+while IFS= read -r -d '' file; do
     basename_file=$(basename "${file}")
     if [ "${basename_file}" != "Adam.CatalogBrowser" ]; then
         cp -R "${file}" "${MACOS}/"
     fi
-done
+done < <(find "${PUBLISH_DIR}" -mindepth 1 -maxdepth 1 ! -name 'Adam.CatalogBrowser' -print0)
 
 # 4. Generate Info.plist dynamically with the provided version
 cat > "${CONTENTS}/Info.plist" <<EOF
