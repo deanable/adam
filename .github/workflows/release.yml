@@ -100,6 +100,7 @@ jobs:
             "Adam.CatalogBrowser-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.dmg" \
             "${{ needs.validate.outputs.version }}"
       - name: Create BrokerService DMG
+        if: matrix.rid == 'osx-x64'
         run: |
           mkdir -p BrokerService-dmg
           cp -r publish/BrokerService/* BrokerService-dmg/
@@ -112,7 +113,7 @@ jobs:
           echo "Adam BrokerService installed to $INSTALL_DIR"
           EOF
           chmod +x BrokerService-dmg/install.sh
-          hdiutil create -volname "Adam BrokerService" -srcfolder BrokerService-dmg -ov -format UDZO "Adam.BrokerService-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.dmg"
+          hdiutil create -volname "Adam BrokerService" -srcfolder BrokerService-dmg -ov -format UDZO "Adam.BrokerService-v${{ needs.validate.outputs.version }}.dmg"
       - name: Create TAR.GZ
         run: tar -czf "Adam-v${{ needs.validate.outputs.version }}-${{ matrix.rid }}.tar.gz" -C publish .
       - name: Upload macOS artifacts
@@ -150,7 +151,7 @@ jobs:
           cp -r publish/CatalogBrowser/* deb-catalogbrowser/usr/bin/
           cp .github/installer/linux/catalogbrowser.desktop deb-catalogbrowser/usr/share/applications/
           sed "s/\\${VERSION}/$VERSION/g" .github/installer/linux/control > deb-catalogbrowser/DEBIAN/control
-          dpkg-deb --build deb-catalogbrowser "adam-catalogbrowser-v${VERSION}-linux-x64.deb"
+          dpkg-deb --build deb-catalogbrowser "adam-catalogbrowser_${VERSION}_amd64.deb"
       - name: Build BrokerService DEB
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
@@ -186,7 +187,7 @@ jobs:
           EOF
           cp .github/installer/linux/postinst deb-brokerservice/DEBIAN/postinst
           chmod 755 deb-brokerservice/DEBIAN/postinst
-          dpkg-deb --build deb-brokerservice "adam-brokerservice-v${VERSION}-linux-x64.deb"
+          dpkg-deb --build deb-brokerservice "adam-brokerservice_${VERSION}_amd64.deb"
       - name: Create TAR.GZ
         run: tar -czf "Adam-v${{ needs.validate.outputs.version }}-linux-x64.tar.gz" -C publish .
       - name: Upload Linux artifacts
