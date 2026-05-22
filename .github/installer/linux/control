@@ -1,0 +1,9 @@
+Package: adam-catalogbrowser
+Version: ${VERSION}
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libx11-6, libxcb1, libxkbcommon0, libgl1-mesa-glx
+Maintainer: Adam Team <team@adam.dev>
+Description: Adam CatalogBrowser
+ Cross-platform digital asset management catalog browser.
