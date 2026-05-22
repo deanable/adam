@@ -3,7 +3,7 @@
   <Package Name="Adam BrokerService"
            Manufacturer="Adam"
            Version="$(var.Version)"
-           UpgradeCode="b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e"
+           UpgradeCode="50c8ec15-1d03-4a5f-ac11-690f50a61b53"
            Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />

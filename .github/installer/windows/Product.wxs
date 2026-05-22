@@ -3,7 +3,7 @@
       Name="Adam CatalogBrowser"
       Manufacturer="Adam"
       Version="$(var.Version)"
-      UpgradeCode="e8f3a2b1-5c4d-6e7f-8a9b-0c1d2e3f4a5b"
+      UpgradeCode="32d7a684-0585-49fd-981a-86adca1e9e8a"
       Scope="perMachine">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
