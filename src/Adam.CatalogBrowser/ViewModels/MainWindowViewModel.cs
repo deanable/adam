@@ -43,7 +43,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private ObservableCollection<string> _selectedAssetCategories = [];
     private bool _categoriesDirty;
     private IEnumerable<string>? _categoryAutoCompleteSource;
-    private DateTime? _selectedAssetDateTaken;
+    private DateTimeOffset? _selectedAssetDateTaken;
     private bool _dateTakenDirty;
     private bool _showSaveToast;
     private string _saveToastText = "Changes saved";
@@ -375,7 +375,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Bound to a DatePicker in the property inspector. Changes are tracked
     /// and auto-saved when a different asset is selected.
     /// </summary>
-    public DateTime? SelectedAssetDateTaken
+    public DateTimeOffset? SelectedAssetDateTaken
     {
         get => _selectedAssetDateTaken;
         set
@@ -606,7 +606,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
                             SelectedAssetDescription = asset.Description;
                             _descriptionDirty = false;
 
-                            SelectedAssetDateTaken = asset.MetadataProfile?.DateTaken;
+                            SelectedAssetDateTaken = asset.MetadataProfile?.DateTaken.HasValue == true
+                                ? new DateTimeOffset(asset.MetadataProfile.DateTaken.Value)
+                                : null;
                             _dateTakenDirty = false;
 
                             SaveTagsCommand.RaiseCanExecuteChanged();
@@ -986,7 +988,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                         DigitalAssetId = asset.Id
                     };
                 }
-                asset.MetadataProfile.DateTaken = SelectedAssetDateTaken;
+                asset.MetadataProfile.DateTaken = SelectedAssetDateTaken?.DateTime;
             }
 
             await db.SaveChangesAsync().ConfigureAwait(false);
