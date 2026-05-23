@@ -13,15 +13,17 @@ namespace Adam.BrokerService.Handlers;
 public sealed class AuthorizationMiddleware
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly AuthHandler _authHandler;
 
-    public AuthorizationMiddleware(IServiceProvider serviceProvider)
+    public AuthorizationMiddleware(IServiceProvider serviceProvider, AuthHandler authHandler)
     {
         _serviceProvider = serviceProvider;
+        _authHandler = authHandler;
     }
 
     public async Task<bool> HasPermissionAsync(Envelope request, string requiredPermission, CancellationToken ct = default)
     {
-        var roleName = AuthHandler.GetUserRole(request);
+        var roleName = _authHandler.GetUserRole(request);
         if (string.IsNullOrEmpty(roleName))
             return false;
 

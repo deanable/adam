@@ -6,7 +6,7 @@ public sealed class GetServiceStatusRequest : IProtoSerializable
 {
     public int CalculateSize() => 0;
     public void WriteTo(CodedOutputStream output) { }
-    public void MergeFrom(CodedInputStream input) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
 }
 
 public sealed class GetServiceStatusResponse : IProtoSerializable
@@ -42,13 +42,13 @@ public sealed class GetServiceStatusResponse : IProtoSerializable
         uint tag;
         while ((tag = input.ReadTag()) != 0)
         {
-            switch (tag)
+            switch (WireFormat.GetTagFieldNumber(tag))
             {
-                case 8: ActiveConnections = input.ReadInt32(); break;
-                case 16: RejectedConnections = input.ReadInt64(); break;
-                case 24: Port = input.ReadInt32(); break;
-                case 32: UptimeSeconds = input.ReadInt64(); break;
-                case 42: ServiceState = input.ReadString(); break;
+                case 1: ActiveConnections = input.ReadInt32(); break;
+                case 2: RejectedConnections = input.ReadInt64(); break;
+                case 3: Port = input.ReadInt32(); break;
+                case 4: UptimeSeconds = input.ReadInt64(); break;
+                case 5: ServiceState = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }

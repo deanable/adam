@@ -1,2 +1,8 @@
 <Solution>
+  <Project Path="Adam.Shared/Adam.Shared.csproj" />
+  <Project Path="Adam.BrokerService/Adam.BrokerService.csproj" />
+  <Project Path="Adam.CatalogBrowser/Adam.CatalogBrowser.csproj" />
+  <Project Path="../tests/Adam.Shared.Tests/Adam.Shared.Tests.csproj" />
+  <Project Path="../tests/Adam.BrokerService.Tests/Adam.BrokerService.Tests.csproj" />
+  <Project Path="../tests/Adam.CatalogBrowser.Tests/Adam.CatalogBrowser.Tests.csproj" />
 </Solution>

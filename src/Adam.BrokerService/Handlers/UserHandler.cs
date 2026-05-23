@@ -15,13 +15,15 @@ public sealed class UserHandler
     private readonly ILogger<UserHandler> _logger;
     private readonly AuditLogger _auditLogger;
     private readonly AuthorizationMiddleware _authz;
+    private readonly AuthHandler _authHandler;
 
-    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz)
+    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz, AuthHandler authHandler)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _auditLogger = auditLogger;
         _authz = authz;
+        _authHandler = authHandler;
     }
 
     public async Task<Envelope> ListUsersAsync(Envelope request, CancellationToken ct)
@@ -124,7 +126,7 @@ public sealed class UserHandler
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
 
-        var userId = AuthHandler.GetUserId(request);
+        var userId = _authHandler.GetUserId(request);
         await _auditLogger.LogAsync(db, userId, "Create", "User", user.Id.ToString(), $"Created user {user.Username}");
 
         var response = new CreateUserResponse
@@ -196,7 +198,7 @@ public sealed class UserHandler
         db.Users.Update(user);
         await db.SaveChangesAsync(ct);
 
-        var callerId = AuthHandler.GetUserId(request);
+        var callerId = _authHandler.GetUserId(request);
         await _auditLogger.LogAsync(db, callerId, "Update", "User", user.Id.ToString(),
             $"Updated user {user.Username}: {string.Join(", ", changes)}");
 
@@ -228,7 +230,7 @@ public sealed class UserHandler
         db.Users.Update(user);
         await db.SaveChangesAsync(ct);
 
-        var callerId = AuthHandler.GetUserId(request);
+        var callerId = _authHandler.GetUserId(request);
         await _auditLogger.LogAsync(db, callerId, "Delete", "User", user.Id.ToString(),
             $"Deactivated user {user.Username}");
 

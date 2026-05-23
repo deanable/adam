@@ -16,8 +16,8 @@ namespace Adam.BrokerService.Handlers;
 
 public sealed class AuthHandler
 {
-    private static SymmetricSecurityKey _signingKey = null!;
-    private static readonly TimeSpan TokenExpiry = TimeSpan.FromHours(24);
+    private readonly SymmetricSecurityKey _signingKey;
+    private readonly TimeSpan _tokenExpiry;
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuthHandler> _logger;
@@ -27,35 +27,31 @@ public sealed class AuthHandler
         _serviceProvider = serviceProvider;
         _logger = logger;
 
-        if (_signingKey != null) return;
+        var keyBase64 = configuration["Jwt:SigningKey"] ?? Environment.GetEnvironmentVariable("ADAM_JWT_KEY");
+        if (string.IsNullOrEmpty(keyBase64) || keyBase64 == "${ADAM_JWT_KEY}")
+        {
+            throw new InvalidOperationException(
+                "JWT signing key is not configured. Set the ADAM_JWT_KEY environment variable " +
+                "or the Jwt:SigningKey configuration value to a Base64-encoded key of at least 32 bytes.");
+        }
 
-        var keyBase64 = configuration["Jwt:SigningKey"];
-        if (!string.IsNullOrEmpty(keyBase64))
+        try
         {
-            try
+            var keyBytes = Convert.FromBase64String(keyBase64);
+            if (keyBytes.Length < 32)
             {
-                var keyBytes = Convert.FromBase64String(keyBase64);
-                if (keyBytes.Length < 32)
-                {
-                    logger.LogWarning("JWT signing key is less than 32 bytes; token security may be reduced.");
-                }
-                _signingKey = new SymmetricSecurityKey(keyBytes);
-                logger.LogInformation("JWT signing key loaded from configuration.");
+                logger.LogWarning("JWT signing key is less than 32 bytes; token security may be reduced.");
             }
-            catch (FormatException)
-            {
-                logger.LogError("Jwt:SigningKey in configuration is not valid Base64. Falling back to ephemeral key.");
-                _signingKey = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
-            }
+            _signingKey = new SymmetricSecurityKey(keyBytes);
+            logger.LogInformation("JWT signing key loaded from configuration.");
         }
-        else
+        catch (FormatException)
         {
-            _signingKey = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
-            logger.LogWarning(
-                "No JWT signing key configured in Jwt:SigningKey (appsettings.json). " +
-                "Generated ephemeral key. All existing tokens will be invalidated on restart. " +
-                "Set a persistent key in appsettings.json to avoid this.");
+            throw new InvalidOperationException(
+                "Jwt:SigningKey is not valid Base64. Provide a Base64-encoded key of at least 32 bytes.");
         }
+
+        _tokenExpiry = TimeSpan.FromHours(configuration.GetValue<int>("Jwt:TokenExpiryHours", 24));
     }
 
     public async Task<Envelope> LoginAsync(Envelope request, CancellationToken ct)
@@ -82,7 +78,7 @@ public sealed class AuthHandler
         var response = new LoginResponse
         {
             Token = token,
-            ExpiresAt = DateTimeOffset.UtcNow.Add(TokenExpiry).ToUnixTimeSeconds(),
+            ExpiresAt = DateTimeOffset.UtcNow.Add(_tokenExpiry).ToUnixTimeSeconds(),
             User = new UserProfile
             {
                 Id = user.Id.ToString(),
@@ -140,7 +136,7 @@ public sealed class AuthHandler
         }
     }
 
-    public static string GetUserId(Envelope request)
+    public string GetUserId(Envelope request)
     {
         var handler = new JwtSecurityTokenHandler();
         try
@@ -154,7 +150,7 @@ public sealed class AuthHandler
         }
     }
 
-    public static string GetUserRole(Envelope request)
+    public string GetUserRole(Envelope request)
     {
         var handler = new JwtSecurityTokenHandler();
         try
@@ -168,7 +164,7 @@ public sealed class AuthHandler
         }
     }
 
-    private static string GenerateJwt(User user)
+    private string GenerateJwt(User user)
     {
         var claims = new[]
         {
@@ -181,14 +177,14 @@ public sealed class AuthHandler
             issuer: "adam-broker",
             audience: "adam-catalog",
             claims: claims,
-            expires: DateTime.UtcNow.Add(TokenExpiry),
+            expires: DateTime.UtcNow.Add(_tokenExpiry),
             signingCredentials: new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256)
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static TokenValidationParameters GetTokenValidationParameters()
+    private TokenValidationParameters GetTokenValidationParameters()
     {
         return new TokenValidationParameters
         {
