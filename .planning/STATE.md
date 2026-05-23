@@ -16,7 +16,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
-| 1 | ○ | 0/0 | 0% |
+| 1 | ◆ | 1/1 | 25% |
 | 2 | ○ | 0/0 | 0% |
 | 3 | ○ | 0/0 | 0% |
 | 4 | ○ | 0/0 | 0% |
@@ -28,10 +28,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Dual-mode architecture | — Pending | Standalone first, then multi-user |
+| Dual-mode architecture | ✓ Confirmed | Standalone first, then multi-user |
 | Avalonia 12 (not 11 as spec'd) | ✓ Confirmed | Project already uses 12.0.3 |
 | EF Core 10 preview | ⚠️ Risk | Monitor for stable release |
-| Manual protobuf | — Pending | No protoc generator in use |
+| Manual protobuf | ✓ Confirmed | No protoc generator in use |
 
 ## Blockers
 
@@ -41,12 +41,15 @@ None.
 
 - Brownfield codebase exists with domain models, EF Core config, TCP transport, and Avalonia shell
 - See `.planning/codebase/` for architecture, conventions, and concerns
-- Critical issues identified: client/server port mismatch (5000 vs 9100), static mutable JWT key
+- **FIXED:** Client/server port mismatch (5000 vs 9100) — BrokerClient now uses 9100
+- **FIXED:** All failing tests — BulkOperationQueue disposal, progress tracking, checksum uniqueness, filter expectations
+- **REMAINING:** Static mutable JWT key in AuthHandler (race condition risk)
+- All 49 tests pass (2 Docker-dependent skipped)
 
 ## Next Actions
 
-1. `/gsd-discuss-phase 1` — gather context and plan standalone mode implementation
-2. `/gsd-plan-phase 1` — create detailed plan for Phase 1
+1. Continue Phase 1 implementation — verify standalone mode end-to-end functionality
+2. `/gsd-plan-phase 1` — create detailed execution plan for remaining Phase 1 work
 
 ---
 *State updated: 2026-05-23 after initialization*
