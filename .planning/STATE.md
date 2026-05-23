@@ -17,7 +17,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
 | 1 | ✓ | 1/1 | 100% |
-| 2 | ◆ | 1/1 | 0% |
+| 2 | ◆ | 1/1 | 92% |
 | 3 | ○ | 0/0 | 0% |
 | 4 | ○ | 0/0 | 0% |
 | 5 | ○ | 0/0 | 0% |
@@ -45,13 +45,13 @@ None.
 5 domains analyzed, 47 findings identified, 30 recommendations made.
 
 ### Critical Issues Found (Must Fix in Phase 2)
-- **CRITICAL-4:** No TLS — JWT and passwords in plaintext over TCP
-- **CRITICAL-5:** Hardcoded JWT secret committed to source control
-- **CRITICAL-6:** No authorization on Asset/Collection/Change handlers
-- **CRITICAL-8:** StatusMessages.cs compares raw protobuf tag values (bug)
-- **CRITICAL-9:** String-based MessageType routing tied to C# `nameof`
-- **CRITICAL-10:** BrokerClient has zero reconnection logic
-- **HIGH-13:** Multi-user sidebar is non-functional (empty trees)
+- **✅ CRITICAL-4:** No TLS — JWT and passwords in plaintext over TCP → **FIXED** (T2.1)
+- **✅ CRITICAL-5:** Hardcoded JWT secret committed to source control → **FIXED** (T2.2 — env var required, documented)
+- **✅ CRITICAL-6:** No authorization on Asset/Collection/Change handlers → **FIXED** (T2.3)
+- **✅ CRITICAL-8:** StatusMessages.cs compares raw protobuf tag values (bug) → **FIXED** (T2.4)
+- **✅ CRITICAL-9:** String-based MessageType routing tied to C# `nameof` → **FIXED** (T2.5 — stable opcode enum)
+- **✅ CRITICAL-10:** BrokerClient has zero reconnection logic → **FIXED** (T2.6)
+- **⏳ HIGH-13:** Multi-user sidebar is non-functional (empty trees) → **IN PROGRESS** (T2.7 remaining)
 
 ### Overall Grade: C (Adequate for prototype, not production)
 
@@ -62,8 +62,13 @@ None.
 - **FIXED:** Client/server port mismatch (5000 vs 9100) — BrokerClient now uses 9100
 - **FIXED:** All failing tests — BulkOperationQueue disposal, progress tracking, checksum uniqueness, filter expectations
 - **FIXED:** DatePicker binding — SelectedAssetDateTaken changed from DateTime? to DateTimeOffset? with model conversion
-- **REMAINING:** Static mutable JWT key in AuthHandler (planned for T2.12 in Phase 2)
+- **FIXED:** Static mutable JWT key in AuthHandler (T2.12) — instance field, no longer static
+- **FIXED:** TLS transport (T2.1), brute-force protection (T2.13), JWT claims (T2.14), security logging (T2.15)
+- **FIXED:** Auto-reconnect (T2.6), timeout/retry (T2.20), ChangePoller retry (T2.21), token expiry (T2.23), connection status UI (T2.22)
+- **FIXED:** FolderWatcher service (T2.24) with debounced auto-indexing
 - All 104 tests pass (2 Docker-dependent skipped)
+- **23 of 25 Phase 2 tasks complete**
+- **Remaining:** T2.7 (Multi-User Sidebar), T2.25 (Folder Watcher Configuration UI)
 
 ## Phase 2 Plan
 
