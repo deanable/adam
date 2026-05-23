@@ -240,6 +240,7 @@ public sealed class AssetDetail : IProtoSerializable
     public double GpsLatitude { get; set; }
     public double GpsLongitude { get; set; }
     public string Copyright { get; set; } = string.Empty;
+    public int Orientation { get; set; }
 
     public int CalculateSize()
     {
@@ -260,6 +261,7 @@ public sealed class AssetDetail : IProtoSerializable
         if (GpsLatitude != 0) size += ProtoHelper.FieldSize(23, GpsLatitude);
         if (GpsLongitude != 0) size += ProtoHelper.FieldSize(24, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(25, Copyright);
+        if (Orientation != 0) size += ProtoHelper.FieldSize(26, Orientation);
         return size;
     }
 
@@ -281,6 +283,7 @@ public sealed class AssetDetail : IProtoSerializable
         if (GpsLatitude != 0) ProtoHelper.WriteField(output, 23, GpsLatitude);
         if (GpsLongitude != 0) ProtoHelper.WriteField(output, 24, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 25, Copyright);
+        if (Orientation != 0) ProtoHelper.WriteField(output, 26, Orientation);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -315,6 +318,7 @@ public sealed class AssetDetail : IProtoSerializable
                 case 23: GpsLatitude = input.ReadDouble(); break;
                 case 24: GpsLongitude = input.ReadDouble(); break;
                 case 25: Copyright = input.ReadString(); break;
+                case 26: Orientation = input.ReadInt32(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -335,6 +339,7 @@ public sealed class CreateAssetRequest : IProtoSerializable
     public double GpsLatitude { get; set; }
     public double GpsLongitude { get; set; }
     public string Copyright { get; set; } = string.Empty;
+    public int Orientation { get; set; }
 
     public int CalculateSize()
     {
@@ -348,6 +353,7 @@ public sealed class CreateAssetRequest : IProtoSerializable
         if (GpsLatitude != 0) size += ProtoHelper.FieldSize(10, GpsLatitude);
         if (GpsLongitude != 0) size += ProtoHelper.FieldSize(11, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(12, Copyright);
+        if (Orientation != 0) size += ProtoHelper.FieldSize(13, Orientation);
         return size;
     }
 
@@ -362,6 +368,7 @@ public sealed class CreateAssetRequest : IProtoSerializable
         if (GpsLatitude != 0) ProtoHelper.WriteField(output, 10, GpsLatitude);
         if (GpsLongitude != 0) ProtoHelper.WriteField(output, 11, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 12, Copyright);
+        if (Orientation != 0) ProtoHelper.WriteField(output, 13, Orientation);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -383,6 +390,7 @@ public sealed class CreateAssetRequest : IProtoSerializable
                 case 10: GpsLatitude = input.ReadDouble(); break;
                 case 11: GpsLongitude = input.ReadDouble(); break;
                 case 12: Copyright = input.ReadString(); break;
+                case 13: Orientation = input.ReadInt32(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -441,6 +449,7 @@ public sealed class UpdateAssetRequest : IProtoSerializable
     public double GpsLatitude { get; set; }
     public double GpsLongitude { get; set; }
     public string Copyright { get; set; } = string.Empty;
+    public int Orientation { get; set; }
 
     public int CalculateSize()
     {
@@ -454,6 +463,7 @@ public sealed class UpdateAssetRequest : IProtoSerializable
         if (GpsLatitude != 0) size += ProtoHelper.FieldSize(10, GpsLatitude);
         if (GpsLongitude != 0) size += ProtoHelper.FieldSize(11, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(12, Copyright);
+        if (Orientation != 0) size += ProtoHelper.FieldSize(13, Orientation);
         return size;
     }
 
@@ -468,6 +478,7 @@ public sealed class UpdateAssetRequest : IProtoSerializable
         if (GpsLatitude != 0) ProtoHelper.WriteField(output, 10, GpsLatitude);
         if (GpsLongitude != 0) ProtoHelper.WriteField(output, 11, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 12, Copyright);
+        if (Orientation != 0) ProtoHelper.WriteField(output, 13, Orientation);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -489,6 +500,7 @@ public sealed class UpdateAssetRequest : IProtoSerializable
                 case 10: GpsLatitude = input.ReadDouble(); break;
                 case 11: GpsLongitude = input.ReadDouble(); break;
                 case 12: Copyright = input.ReadString(); break;
+                case 13: Orientation = input.ReadInt32(); break;
                 default: input.SkipLastField(); break;
             }
         }

@@ -56,7 +56,7 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var migrationWizard = new MigrationWizardViewModel(_modeManager);
 
         _vm = new MainWindowViewModel(
-            _vmLogger, _modeManager, sidebar, gallery,
+            _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
             adminPanel, ingestion, metadataEditor,
             userManagement, auditLog, migrationWizard, _bulkQueue);
 

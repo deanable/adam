@@ -57,7 +57,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         // the constructor itself returns immediately (fire-and-forget).
         // We set the field directly via reflection afterward.
         _vm = new MainWindowViewModel(
-            _logger, _modeManager, _sidebar, _gallery,
+            _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
             adminPanel, ingestion, metadataEditor,
             userManagement, auditLog, migrationWizard, bulkQueue);
         SetField("_isInitialLoading", false);

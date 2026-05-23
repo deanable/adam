@@ -28,6 +28,7 @@ public class DigitalAsset
     public double? GpsLatitude { get; set; }
     public double? GpsLongitude { get; set; }
     public string? Copyright { get; set; }
+    public ImageOrientation Orientation { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ModifiedAt { get; set; }
 

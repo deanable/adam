@@ -1,6 +1,7 @@
 using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,14 +16,16 @@ public sealed class AssetHandler
     private readonly AuthorizationMiddleware _authz;
     private readonly ChangeNotificationService _notificationService;
     private readonly AuthHandler _authHandler;
+    private readonly MetadataWritebackService _writeback;
 
-    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
+    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler, MetadataWritebackService writeback)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _authz = authz;
         _notificationService = notificationService;
         _authHandler = authHandler;
+        _writeback = writeback;
     }
 
     public async Task<Envelope> ListAssetsAsync(Envelope request, CancellationToken ct)
@@ -186,7 +189,8 @@ public sealed class AssetHandler
             Flag = (int)asset.Flag,
             GpsLatitude = asset.GpsLatitude ?? 0,
             GpsLongitude = asset.GpsLongitude ?? 0,
-            Copyright = asset.Copyright ?? ""
+            Copyright = asset.Copyright ?? "",
+            Orientation = (int)asset.Orientation
         };
 
         foreach (var kw in asset.Keywords)
@@ -255,6 +259,7 @@ public sealed class AssetHandler
         if (req.GpsLongitude != 0) asset.GpsLongitude = req.GpsLongitude;
         else asset.GpsLongitude = null;
         asset.Copyright = req.Copyright;
+        asset.Orientation = (Adam.Shared.Models.ImageOrientation)req.Orientation;
         asset.Keywords.Clear();
         if (req.Tags.Count > 0)
         {
@@ -266,6 +271,24 @@ public sealed class AssetHandler
             asset.CollectionId = null;
 
         await db.SaveChangesAsync(ct);
+
+        // Write metadata back to source file (best-effort; failures are logged but don't fail the request)
+        try
+        {
+            var filePath = asset.StoragePath;
+            if (_writeback.IsRawFile(filePath))
+                _ = _writeback.WriteSidecarXmpAsync(filePath, asset, ct);
+            else if (_writeback.SupportsEmbeddedMetadata(filePath))
+                _ = _writeback.WriteMetadataAsync(filePath, asset, ct);
+        }
+        catch (MetadataWritebackService.ReadOnlyFileException ex)
+        {
+            _logger.LogWarning(ex, "Read-only file prevented metadata write-back for asset {AssetId}", asset.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
+        }
 
         // Broadcast change to all other connected clients
         var userId = _authHandler.GetUserId(request);
@@ -313,7 +336,8 @@ public sealed class AssetHandler
             Flag = (Adam.Shared.Models.AssetFlag)req.Flag,
             GpsLatitude = req.GpsLatitude != 0 ? req.GpsLatitude : null,
             GpsLongitude = req.GpsLongitude != 0 ? req.GpsLongitude : null,
-            Copyright = req.Copyright
+            Copyright = req.Copyright,
+            Orientation = (Adam.Shared.Models.ImageOrientation)req.Orientation
         };
 
         if (req.Tags.Count > 0)
@@ -321,6 +345,20 @@ public sealed class AssetHandler
 
         db.DigitalAssets.Add(asset);
         await db.SaveChangesAsync(ct);
+
+        // Write metadata back to source file (best-effort)
+        try
+        {
+            var filePath = asset.StoragePath;
+            if (_writeback.IsRawFile(filePath))
+                _ = _writeback.WriteSidecarXmpAsync(filePath, asset, ct);
+            else if (_writeback.SupportsEmbeddedMetadata(filePath))
+                _ = _writeback.WriteMetadataAsync(filePath, asset, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Metadata write-back failed for newly created asset {AssetId}", asset.Id);
+        }
 
         var userId = _authHandler.GetUserId(request);
         _ = _notificationService.NotifyCreatedAsync(asset.Id.ToString(), userId, request.ConnectionId);

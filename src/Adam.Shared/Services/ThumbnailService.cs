@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Adam.Shared.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -8,22 +9,28 @@ namespace Adam.Shared.Services;
 
 public class ThumbnailService
 {
-    public async Task<string> GenerateThumbnailAsync(string sourcePath, string thumbnailDirectory, CancellationToken ct = default)
+    private readonly ImageAdjustmentService _adjustment = new();
+
+    public Task<string> GenerateThumbnailAsync(string sourcePath, string thumbnailDirectory, CancellationToken ct = default)
+        => GenerateThumbnailAsync(sourcePath, thumbnailDirectory, ImageOrientation.Normal, ct);
+
+    public async Task<string> GenerateThumbnailAsync(string sourcePath, string thumbnailDirectory, ImageOrientation orientation, CancellationToken ct = default)
     {
         var thumbnailPath = GetThumbnailPath(sourcePath, thumbnailDirectory);
 
-        if (File.Exists(thumbnailPath))
+        if (File.Exists(thumbnailPath) && orientation == ImageOrientation.Normal)
             return thumbnailPath;
 
         Directory.CreateDirectory(thumbnailDirectory);
 
         var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
-        var isImage = ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".tiff" or ".tif" 
+        var isImage = ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".tiff" or ".tif"
             or ".cr2" or ".nef" or ".arw" or ".dng" or ".gif" or ".bmp";
 
         if (isImage)
         {
             using var image = await Image.LoadAsync(sourcePath, ct);
+            _adjustment.ApplyOrientation(image, orientation);
             var (w, h) = (image.Width, image.Height);
 
             if (w > h)

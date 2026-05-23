@@ -7,6 +7,7 @@ using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly ModeManager _modeManager;
+    private readonly MetadataWritebackService _writeback;
     private object? _currentView;
     private string _statusText = "Ready";
     private bool _isBusy;
@@ -67,10 +69,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBulkOperationActive;
     private double _bulkProgressPercentage;
 
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue)
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue)
     {
         _logger = logger;
         _modeManager = modeManager;
+        _writeback = writeback;
         _bulkQueue = bulkQueue;
         ModeManager = modeManager;
         Sidebar = sidebar;
@@ -190,6 +193,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
         });
         ShowUserManagementCommand = new RelayCommand(_ => CurrentView = userManagement);
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
+
+        RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
+        RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw));
+        FlipHorizontalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipHorizontal));
+        FlipVerticalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipVertical));
 
         adminPanel.NavigateToMigrationWizard += () => CurrentView = migrationWizard;
 
@@ -608,6 +616,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+    public ICommand RotateClockwiseCommand { get; }
+    public ICommand RotateCounterClockwiseCommand { get; }
+    public ICommand FlipHorizontalCommand { get; }
+    public ICommand FlipVerticalCommand { get; }
 
     /// <summary>
     /// Command fired when assets are dropped on a keyword node in the sidebar.
@@ -1203,6 +1215,34 @@ public class MainWindowViewModel : INotifyPropertyChanged
             _gpsDirty = false;
             SaveTagsCommand.RaiseCanExecuteChanged();
 
+            // Write metadata back to source file (best-effort; failures don't fail the save)
+            try
+            {
+                var filePath = asset.StoragePath;
+                if (_writeback.IsRawFile(filePath))
+                    await _writeback.WriteSidecarXmpAsync(filePath, asset).ConfigureAwait(false);
+                else if (_writeback.SupportsEmbeddedMetadata(filePath))
+                    await _writeback.WriteMetadataAsync(filePath, asset).ConfigureAwait(false);
+            }
+            catch (MetadataWritebackService.ReadOnlyFileException)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    SaveToastText = "Saved to catalog, but file is read-only";
+                    ShowSaveToast = true;
+                });
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2500).ConfigureAwait(false);
+                    await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = false);
+                });
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
+            }
+
             // Show the save-toast notification
             await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = true);
             _ = Task.Run(async () =>
@@ -1214,6 +1254,52 @@ public class MainWindowViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to auto-save tags for selected asset");
+        }
+    }
+
+    private async Task RotateAsync(Func<ImageOrientation, ImageOrientation> transform)
+    {
+        if (_selectedAsset == null || !_modeManager.IsStandalone)
+            return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
+            if (asset == null)
+                return;
+
+            var newOrientation = transform(asset.Orientation);
+            asset.Orientation = newOrientation;
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            // Delete cached thumbnail and regenerate with new orientation
+            var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+            var thumbnailDir = Path.Combine(dbDir, "thumbnails");
+            var thumbnailService = new ThumbnailService();
+            var thumbnailPath = thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
+
+            if (File.Exists(thumbnailPath))
+                File.Delete(thumbnailPath);
+
+            await thumbnailService.GenerateThumbnailAsync(asset.StoragePath, thumbnailDir, newOrientation).ConfigureAwait(false);
+
+            // Refresh the gallery item thumbnail
+            var item = AssetGallery.Assets.FirstOrDefault(a => a.Id == _selectedAsset.Id);
+            if (item != null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    item.ThumbnailPath = thumbnailPath;
+                });
+                await item.LoadThumbnailAsync().ConfigureAwait(false);
+            }
+
+            _logger.LogInformation("Applied orientation {Orientation} to asset {AssetId}", newOrientation, asset.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to rotate/flip asset {AssetId}", _selectedAsset.Id);
         }
     }
 

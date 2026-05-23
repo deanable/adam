@@ -334,6 +334,14 @@
                   </Grid>
                 </StackPanel>
 
+                <!-- Rotate / Flip controls (single-asset mode) -->
+                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Button Content="↻ 90°" Command="{Binding RotateClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
+                  <Button Content="↺ 90°" Command="{Binding RotateCounterClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
+                  <Button Content="⇄" Command="{Binding FlipHorizontalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
+                  <Button Content="⇅" Command="{Binding FlipVerticalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
+                </StackPanel>
+
                 <!-- Save button (single-asset mode) -->
                 <Button Content="Save Changes"
                         Command="{Binding SaveTagsCommand}"

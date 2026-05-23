@@ -33,6 +33,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();
+        services.AddSingleton<MetadataWritebackService>();
         services.AddHostedService<TcpListenerHostedService>();
         services.AddTransient<MigrationRunner>();
 

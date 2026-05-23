@@ -40,6 +40,7 @@ public partial class App : Application
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();
             services.AddSingleton<BulkOperationQueue>();
+            services.AddSingleton<MetadataWritebackService>();
 
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();

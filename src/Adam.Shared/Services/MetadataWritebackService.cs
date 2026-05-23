@@ -47,7 +47,60 @@ public class MetadataWritebackService
     public bool IsRawFile(string filePath)
     {
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
-        return ext is ".cr2" or ".nef" or ".arw" or ".dng";
+        return ext is ".cr2" or ".nef" or ".arw" or ".dng" or ".raf" or ".orf" or ".pef" or ".rw2";
+    }
+
+    /// <summary>
+    /// Write metadata from a DigitalAsset (including new Phase 4 fields: Rating, Label, Flag, GPS, Copyright).
+    /// </summary>
+    /// <summary>
+    /// Thrown when the target file is read-only.
+    /// </summary>
+    public class ReadOnlyFileException : IOException
+    {
+        public ReadOnlyFileException(string path)
+            : base($"File is read-only: {path}") { }
+    }
+
+    public async Task WriteMetadataAsync(string filePath, DigitalAsset asset, CancellationToken ct = default)
+    {
+        if (File.Exists(filePath) && File.GetAttributes(filePath).HasFlag(FileAttributes.ReadOnly))
+            throw new ReadOnlyFileException(filePath);
+
+        var xmp = BuildXmpPacket(asset);
+        var xmpBytes = Encoding.UTF8.GetBytes(xmp);
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+
+        switch (ext)
+        {
+            case ".jpg":
+            case ".jpeg":
+                await EmbedInJpegAsync(filePath, xmpBytes, ct);
+                break;
+            case ".png":
+                await EmbedInPngAsync(filePath, xmpBytes, ct);
+                break;
+            case ".webp":
+                await EmbedInWebPAsync(filePath, xmpBytes, ct);
+                break;
+            case ".tiff":
+            case ".tif":
+                await EmbedInTiffAsync(filePath, xmpBytes, ct);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Write XMP sidecar for RAW files from a DigitalAsset.
+    /// </summary>
+    public async Task WriteSidecarXmpAsync(string rawFilePath, DigitalAsset asset, CancellationToken ct = default)
+    {
+        var sidecarPath = Path.ChangeExtension(rawFilePath, ".xmp");
+        if (File.Exists(sidecarPath) && File.GetAttributes(sidecarPath).HasFlag(FileAttributes.ReadOnly))
+            throw new ReadOnlyFileException(sidecarPath);
+
+        var xmp = BuildXmpPacket(asset);
+        await File.WriteAllTextAsync(sidecarPath, xmp, Encoding.UTF8, ct);
     }
 
     private static string BuildXmpPacket(MetadataProfile profile)
@@ -134,6 +187,99 @@ public class MetadataWritebackService
         var location = BuildLocationString(profile.City, profile.State, profile.Country);
         if (location != null)
             description.Add(new XElement(iptc + "Location", location));
+
+        var xmpMeta = new XElement(xNs + "xmpmeta",
+            new XAttribute(XNamespace.Xmlns + "x", xNs.NamespaceName),
+            new XElement(rdf + "RDF",
+                new XAttribute(XNamespace.Xmlns + "rdf", rdf.NamespaceName),
+                description
+            )
+        );
+
+        var innerXml = xmpMeta.ToString(SaveOptions.DisableFormatting);
+        return $"<?xpacket begin=\"\ufeff\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n{innerXml}\n<?xpacket end=\"w\"?>";
+    }
+
+    /// <summary>
+    /// Build XMP packet from DigitalAsset (Phase 4 fields: Rating, Label, Flag, GPS, Copyright).
+    /// </summary>
+    private static string BuildXmpPacket(DigitalAsset asset)
+    {
+        var rdf = XNamespace.Get("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+        var dc = XNamespace.Get("http://purl.org/dc/elements/1.1/");
+        var xmp = XNamespace.Get("http://ns.adobe.com/xap/1.0/");
+        var photoshop = XNamespace.Get("http://ns.adobe.com/photoshop/1.0/");
+        var rights = XNamespace.Get("http://ns.adobe.com/xap/1.0/rights/");
+        var iptc = XNamespace.Get("http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/");
+        var xNs = XNamespace.Get("adobe:ns:meta/");
+
+        var description = new XElement(rdf + "Description",
+            new XAttribute(XNamespace.Xmlns + "dc", dc.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "xmp", xmp.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "photoshop", photoshop.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "rights", rights.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "Iptc4xmpCore", iptc.NamespaceName)
+        );
+
+        if (!string.IsNullOrEmpty(asset.Title))
+        {
+            description.Add(new XElement(dc + "title",
+                new XElement(rdf + "Alt",
+                    new XElement(rdf + "li",
+                        new XAttribute(XNamespace.Xml + "lang", "x-default"),
+                        asset.Title
+                    )
+                )
+            ));
+        }
+
+        if (!string.IsNullOrEmpty(asset.Description))
+        {
+            description.Add(new XElement(dc + "description",
+                new XElement(rdf + "Alt",
+                    new XElement(rdf + "li",
+                        new XAttribute(XNamespace.Xml + "lang", "x-default"),
+                        asset.Description
+                    )
+                )
+            ));
+        }
+
+        if (!string.IsNullOrEmpty(asset.Copyright))
+        {
+            description.Add(new XElement(dc + "rights",
+                new XElement(rdf + "Alt",
+                    new XElement(rdf + "li",
+                        new XAttribute(XNamespace.Xml + "lang", "x-default"),
+                        asset.Copyright
+                    )
+                )
+            ));
+        }
+
+        // Keywords as dc:subject
+        if (asset.Keywords.Count > 0)
+        {
+            var keywordBag = new XElement(rdf + "Bag");
+            foreach (var kw in asset.Keywords)
+                keywordBag.Add(new XElement(rdf + "li", kw.Name));
+            description.Add(new XElement(dc + "subject", keywordBag));
+        }
+
+        if (asset.Rating > 0)
+            description.Add(new XAttribute(xmp + "Rating", asset.Rating));
+
+        if (asset.Label != AssetLabel.None)
+            description.Add(new XAttribute(photoshop + "Label", asset.Label.ToString()));
+
+        // GPS coordinates
+        if (asset.GpsLatitude.HasValue && asset.GpsLongitude.HasValue)
+        {
+            var exifNs = XNamespace.Get("http://ns.adobe.com/exif/1.0/");
+            description.Add(new XAttribute(XNamespace.Xmlns + "exif", exifNs.NamespaceName));
+            description.Add(new XElement(exifNs + "GPSLatitude", asset.GpsLatitude.Value.ToString("F6")));
+            description.Add(new XElement(exifNs + "GPSLongitude", asset.GpsLongitude.Value.ToString("F6")));
+        }
 
         var xmpMeta = new XElement(xNs + "xmpmeta",
             new XAttribute(XNamespace.Xmlns + "x", xNs.NamespaceName),

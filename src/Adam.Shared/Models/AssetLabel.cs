@@ -16,3 +16,13 @@ public enum AssetFlag
     Pick = 1,
     Reject = 2
 }
+
+public enum ImageOrientation
+{
+    Normal = 0,
+    Rotate90 = 1,
+    Rotate180 = 2,
+    Rotate270 = 3,
+    FlipHorizontal = 4,
+    FlipVertical = 5
+}

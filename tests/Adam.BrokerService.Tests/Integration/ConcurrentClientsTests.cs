@@ -45,6 +45,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
 
         services.AddSingleton<IConnectionHandler, ConnectionHandler>();
         services.AddSingleton<AuthHandler>();
+        services.AddSingleton<MetadataWritebackService>();
         services.AddSingleton<AssetHandler>();
         services.AddSingleton<CollectionHandler>();
         services.AddSingleton<ChangeHandler>();
