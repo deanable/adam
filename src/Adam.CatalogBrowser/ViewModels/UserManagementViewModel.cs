@@ -128,7 +128,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = corrId,
-                    MessageType = nameof(ListUsersRequest),
+                    MessageType = MessageTypeCode.ListUsersRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListUsersRequest()))
                 };
 
@@ -157,7 +157,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = Guid.NewGuid().ToString(),
-                    MessageType = nameof(ListRolesRequest),
+                    MessageType = MessageTypeCode.ListRolesRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListRolesRequest()))
                 };
                 var roleResp = await broker.SendAsync(roleReq).ConfigureAwait(false);
@@ -256,7 +256,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     {
                         AuthToken = auth.Token ?? "",
                         CorrelationId = Guid.NewGuid().ToString(),
-                        MessageType = nameof(CreateUserRequest),
+                        MessageType = MessageTypeCode.CreateUserRequest,
                         Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new CreateUserRequest
                         {
                             Username = EditUsername,
@@ -273,7 +273,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     {
                         AuthToken = auth.Token ?? "",
                         CorrelationId = Guid.NewGuid().ToString(),
-                        MessageType = nameof(UpdateUserRequest),
+                        MessageType = MessageTypeCode.UpdateUserRequest,
                         Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new UpdateUserRequest
                         {
                             UserId = _editUserId.ToString(),
@@ -323,7 +323,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = Guid.NewGuid().ToString(),
-                    MessageType = nameof(DeleteUserRequest),
+                    MessageType = MessageTypeCode.DeleteUserRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new DeleteUserRequest
                     {
                         UserId = SelectedUser.Id.ToString()

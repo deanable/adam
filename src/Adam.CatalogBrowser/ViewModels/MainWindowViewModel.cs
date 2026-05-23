@@ -47,6 +47,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _dateTakenDirty;
     private bool _showSaveToast;
     private string _saveToastText = "Changes saved";
+    private string _connectionStatusText = "Disconnected";
+    private bool _showConnectionStatus;
 
     // Bulk operation queue
     private readonly BulkOperationQueue _bulkQueue;
@@ -92,9 +94,45 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
         AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
 
+        // Wire up broker connection status for multi-user mode
+        if (modeManager.BrokerClient != null)
+        {
+            modeManager.BrokerClient.StatusChanged += (_, status) =>
+            {
+                var (text, show) = status switch
+                {
+                    ConnectionStatus.Connected => ("Connected", true),
+                    ConnectionStatus.Reconnecting => ("Reconnecting...", true),
+                    ConnectionStatus.Connecting => ("Connecting...", true),
+                    _ => ("Disconnected", true)
+                };
+                Dispatcher.UIThread.Post(() =>
+                {
+                    ConnectionStatusText = text;
+                    ShowConnectionStatus = show;
+                });
+            };
+        }
+
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
             _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty));
+
+        ReconnectCommand = new RelayCommand(async _ =>
+        {
+            try
+            {
+                if (modeManager.BrokerClient != null)
+                {
+                    await modeManager.BrokerClient.ConnectAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to reconnect to broker");
+                StatusText = $"Reconnection failed: {ex.Message}";
+            }
+        });
 
         ShowGalleryCommand = new RelayCommand(async _ =>
         {
@@ -431,6 +469,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     public RelayCommand SaveTagsCommand { get; }
 
+    public string ConnectionStatusText
+    {
+        get => _connectionStatusText;
+        set { _connectionStatusText = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowConnectionStatus
+    {
+        get => _showConnectionStatus;
+        set { _showConnectionStatus = value; OnPropertyChanged(); }
+    }
+
+    public ICommand ReconnectCommand { get; }
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowAdminCommand { get; }
     public ICommand ShowIngestionCommand { get; }

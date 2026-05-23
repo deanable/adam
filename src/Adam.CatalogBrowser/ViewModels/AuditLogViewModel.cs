@@ -98,7 +98,7 @@ public class AuditLogViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = Guid.NewGuid().ToString(),
-                    MessageType = nameof(ListAuditLogsRequest),
+                    MessageType = MessageTypeCode.ListAuditLogsRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(reqMsg))
                 };
 

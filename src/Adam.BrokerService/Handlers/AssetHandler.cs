@@ -33,6 +33,8 @@ public sealed class AssetHandler
         var query = db.DigitalAssets
             .Include(a => a.Collection)
             .Include(a => a.Keywords)
+            .AsNoTracking()
+            .AsSplitQuery()
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(req.Search))
@@ -117,7 +119,7 @@ public sealed class AssetHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(ListAssetsResponse),
+            MessageType = MessageTypeCode.ListAssetsResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
@@ -137,6 +139,7 @@ public sealed class AssetHandler
             .Include(a => a.Collection)
             .Include(a => a.MetadataProfile)
             .Include(a => a.Keywords)
+            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
 
         if (asset == null)
@@ -144,7 +147,7 @@ public sealed class AssetHandler
             return new Envelope
             {
                 CorrelationId = request.CorrelationId,
-                MessageType = nameof(AssetDetail),
+                MessageType = MessageTypeCode.AssetDetail,
                 StatusCode = 5,
                 ErrorMessage = "Asset not found"
             };
@@ -178,7 +181,7 @@ public sealed class AssetHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(AssetDetail),
+            MessageType = MessageTypeCode.AssetDetail,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(detail)),
             StatusCode = 0
         };
@@ -203,7 +206,7 @@ public sealed class AssetHandler
             return new Envelope
             {
                 CorrelationId = request.CorrelationId,
-                MessageType = nameof(UpdateAssetResponse),
+                MessageType = MessageTypeCode.UpdateAssetResponse,
                 StatusCode = 5,
                 ErrorMessage = "Asset not found"
             };
@@ -222,7 +225,7 @@ public sealed class AssetHandler
             return new Envelope
             {
                 CorrelationId = request.CorrelationId,
-                MessageType = nameof(UpdateAssetResponse),
+                MessageType = MessageTypeCode.UpdateAssetResponse,
                 Payload = ByteString.CopyFrom(ProtoHelper.Serialize(conflict)),
                 StatusCode = 0
             };
@@ -253,7 +256,7 @@ public sealed class AssetHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(UpdateAssetResponse),
+            MessageType = MessageTypeCode.UpdateAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };

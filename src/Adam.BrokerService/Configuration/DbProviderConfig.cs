@@ -27,11 +27,13 @@ public sealed class DbProviderConfig
                 break;
             case "postgresql":
             case "postgres":
-                builder.UseNpgsql(ConnectionString);
+                builder.UseNpgsql(ConnectionString, npgsql =>
+                    npgsql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(30), null));
                 break;
             case "sqlserver":
             case "mssql":
-                builder.UseSqlServer(ConnectionString);
+                builder.UseSqlServer(ConnectionString, sql =>
+                    sql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(30), null));
                 break;
             default:
                 throw new ArgumentException($"Unsupported database provider: {Provider}");

@@ -25,7 +25,7 @@ public sealed class AuthSession
         var request = new Envelope
         {
             CorrelationId = correlationId,
-            MessageType = nameof(LoginRequest),
+            MessageType = MessageTypeCode.LoginRequest,
             Payload = Google.Protobuf.ByteString.CopyFrom(
                 ProtoHelper.Serialize(new LoginRequest { Username = username, Password = password }))
         };

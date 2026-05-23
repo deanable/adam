@@ -18,7 +18,7 @@ public static class TcpFrame
     /// </summary>
     private const int SendTimeoutMs = 30_000;
 
-    public static async Task SendAsync(NetworkStream stream, Envelope envelope, CancellationToken ct = default)
+    public static async Task SendAsync(Stream stream, Envelope envelope, CancellationToken ct = default)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(SendTimeoutMs);
@@ -32,7 +32,7 @@ public static class TcpFrame
         await stream.FlushAsync(linkedCt).ConfigureAwait(false);
     }
 
-    public static async Task<Envelope?> ReceiveAsync(NetworkStream stream, CancellationToken ct = default)
+    public static async Task<Envelope?> ReceiveAsync(Stream stream, CancellationToken ct = default)
     {
         // Apply a read timeout so we don't hang forever if a peer disconnects mid-frame
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

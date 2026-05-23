@@ -34,7 +34,7 @@ public sealed class StatusHandler
         return Task.FromResult(new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(GetServiceStatusResponse),
+            MessageType = MessageTypeCode.GetServiceStatusResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         });

@@ -30,7 +30,10 @@ public sealed class AuditLogHandler
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var query = db.AccessLogs.Include(l => l.User).AsQueryable();
+        var query = db.AccessLogs
+            .Include(l => l.User)
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrEmpty(filterReq.UserId))
             query = query.Where(l => l.UserId == Guid.Parse(filterReq.UserId));
@@ -64,7 +67,7 @@ public sealed class AuditLogHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(ListAuditLogsResponse),
+            MessageType = MessageTypeCode.ListAuditLogsResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };

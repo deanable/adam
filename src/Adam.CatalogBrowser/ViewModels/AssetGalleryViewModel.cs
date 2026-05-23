@@ -374,7 +374,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth.Token ?? "",
                     CorrelationId = correlationId,
-                    MessageType = nameof(ListAssetsRequest),
+                    MessageType = MessageTypeCode.ListAssetsRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(listReq))
                 };
 
@@ -501,7 +501,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             {
                 AuthToken = auth.Token ?? "",
                 CorrelationId = correlationId,
-                MessageType = nameof(ListCollectionsRequest),
+                MessageType = MessageTypeCode.ListCollectionsRequest,
                 Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListCollectionsRequest()))
             };
 

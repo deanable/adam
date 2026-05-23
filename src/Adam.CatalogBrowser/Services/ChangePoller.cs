@@ -11,6 +11,14 @@ public sealed class ChangePoller : IDisposable
     private readonly ILogger<ChangePoller>? _logger;
     private Timer? _timer;
     private long _lastPollTimestamp;
+    private int _consecutiveErrors;
+    private const int MaxRetries = 3;
+    private readonly TimeSpan[] RetryDelays =
+    {
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4)
+    };
 
     public event Action<List<ChangeEvent>>? ChangesDetected;
     public event Action<string>? ErrorOccurred;
@@ -54,36 +62,78 @@ public sealed class ChangePoller : IDisposable
             return;
         }
 
-        try
+        // Token expiration check
+        if (_auth.IsTokenExpired())
         {
-            var correlationId = Guid.NewGuid().ToString();
-            var request = new Envelope
-            {
-                AuthToken = _auth.Token ?? "",
-                CorrelationId = correlationId,
-                MessageType = nameof(GetChangesRequest),
-                Payload = ByteString.CopyFrom(
-                    ProtoHelper.Serialize(new GetChangesRequest { SinceTimestamp = _lastPollTimestamp }))
-            };
+            Stop();
+            ErrorOccurred?.Invoke("Session expired — please log in again");
+            return;
+        }
 
-            var response = await _broker.SendAsync(request);
-
-            if (response.StatusCode == 0)
+        for (int attempt = 0; attempt <= MaxRetries; attempt++)
+        {
+            try
             {
-                var changes = ProtoHelper.Deserialize<GetChangesResponse>(response.Payload.ToByteArray());
-                if (changes.Changes.Count > 0)
+                var correlationId = Guid.NewGuid().ToString();
+                var request = new Envelope
                 {
-                    _lastPollTimestamp = changes.Changes.Max(c => c.Timestamp);
-                    ChangesDetected?.Invoke(changes.Changes);
-                    _logger?.LogDebug("Detected {Count} change(s)", changes.Changes.Count);
+                    AuthToken = _auth.Token ?? "",
+                    CorrelationId = correlationId,
+                    MessageType = MessageTypeCode.GetChangesRequest,
+                    Payload = ByteString.CopyFrom(
+                        ProtoHelper.Serialize(new GetChangesRequest { SinceTimestamp = _lastPollTimestamp }))
+                };
+
+                var response = await _broker.SendAsync(request);
+
+                if (response.StatusCode == 0)
+                {
+                    var changes = ProtoHelper.Deserialize<GetChangesResponse>(response.Payload.ToByteArray());
+                    if (changes.Changes.Count > 0)
+                    {
+                        _lastPollTimestamp = changes.Changes.Max(c => c.Timestamp);
+                        ChangesDetected?.Invoke(changes.Changes);
+                        _logger?.LogDebug("Detected {Count} change(s)", changes.Changes.Count);
+                    }
+                    _consecutiveErrors = 0; // Reset on success
+                    return;
+                }
+                else if (response.StatusCode == 16)
+                {
+                    // Auth failure — stop poller, don't retry
+                    Stop();
+                    ErrorOccurred?.Invoke("Authentication failed — please log in again");
+                    return;
                 }
             }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Not connected"))
+            {
+                // Non-retryable
+                Stop();
+                ErrorOccurred?.Invoke(ex.Message);
+                return;
+            }
+            catch (Exception ex) when (IsRetryable(ex) && attempt < MaxRetries)
+            {
+                _logger?.LogWarning(ex, "Change poll error (attempt {Attempt}/{Max}), retrying...", attempt + 1, MaxRetries);
+                await Task.Delay(RetryDelays[attempt]);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Change poll error (attempt {Attempt}/{Max}), giving up.", attempt + 1, MaxRetries);
+                _consecutiveErrors++;
+                ErrorOccurred?.Invoke(ex.Message);
+                return;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Change poll error");
-            ErrorOccurred?.Invoke(ex.Message);
-        }
+    }
+
+    private static bool IsRetryable(Exception ex)
+    {
+        return ex is System.IO.IOException
+            or System.Net.Sockets.SocketException
+            or TimeoutException
+            or TaskCanceledException;
     }
 
     public void Dispose()

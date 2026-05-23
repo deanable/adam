@@ -141,7 +141,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
                 {
                     CorrelationId = correlationId,
                     AuthToken = _authToken,
-                    MessageType = nameof(ListAssetsRequest),
+                    MessageType = MessageTypeCode.ListAssetsRequest,
                     Payload = ByteString.CopyFrom(
                         ProtoHelper.Serialize(new ListAssetsRequest { Page = 1, PageSize = 50 }))
                 };
@@ -151,7 +151,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
 
                 response.Should().NotBeNull();
                 response!.StatusCode.Should().Be(0);
-                response.MessageType.Should().Be(nameof(ListAssetsResponse));
+                response.MessageType.Should().Be(MessageTypeCode.ListAssetsResponse);
 
                 var listResp = ProtoHelper.Deserialize<ListAssetsResponse>(response.Payload.ToByteArray());
                 return listResp.TotalCount;
@@ -180,7 +180,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
                 {
                     CorrelationId = Guid.NewGuid().ToString(),
                     AuthToken = _authToken,
-                    MessageType = nameof(ListAssetsRequest),
+                    MessageType = MessageTypeCode.ListAssetsRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListAssetsRequest()))
                 };
 
@@ -215,7 +215,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         {
             CorrelationId = correlationId,
             AuthToken = _authToken,
-            MessageType = nameof(ListAssetsRequest),
+            MessageType = MessageTypeCode.ListAssetsRequest,
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new ListAssetsRequest()))
         };
@@ -232,7 +232,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         {
             CorrelationId = Guid.NewGuid().ToString(),
             AuthToken = _authToken,
-            MessageType = nameof(UpdateAssetRequest),
+            MessageType = MessageTypeCode.UpdateAssetRequest,
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new UpdateAssetRequest
                 {
@@ -246,7 +246,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         {
             CorrelationId = Guid.NewGuid().ToString(),
             AuthToken = _authToken,
-            MessageType = nameof(UpdateAssetRequest),
+            MessageType = MessageTypeCode.UpdateAssetRequest,
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new UpdateAssetRequest
                 {

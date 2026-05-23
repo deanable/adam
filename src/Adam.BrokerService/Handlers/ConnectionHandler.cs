@@ -41,20 +41,20 @@ public sealed class ConnectionHandler : IConnectionHandler
         {
             return request.MessageType switch
             {
-                nameof(LoginRequest) => await _authHandler.LoginAsync(request, ct),
-                nameof(ValidateTokenRequest) => _authHandler.ValidateToken(request),
-                nameof(ListAssetsRequest) => await _assetHandler.ListAssetsAsync(request, ct),
-                nameof(GetAssetRequest) => await _assetHandler.GetAssetAsync(request, ct),
-                nameof(ListCollectionsRequest) => await _collectionHandler.ListCollectionsAsync(request, ct),
-                nameof(UpdateAssetRequest) => await _assetHandler.UpdateAssetAsync(request, ct),
-                nameof(GetChangesRequest) => await _changeHandler.GetChangesAsync(request, ct),
-                nameof(ListUsersRequest) => await _userHandler.ListUsersAsync(request, ct),
-                nameof(ListRolesRequest) => await _userHandler.ListRolesAsync(request, ct),
-                nameof(CreateUserRequest) => await _userHandler.CreateUserAsync(request, ct),
-                nameof(UpdateUserRequest) => await _userHandler.UpdateUserAsync(request, ct),
-                nameof(DeleteUserRequest) => await _userHandler.DeleteUserAsync(request, ct),
-                nameof(ListAuditLogsRequest) => await _auditLogHandler.ListAuditLogsAsync(request, ct),
-                nameof(GetServiceStatusRequest) => await _statusHandler.GetStatusAsync(request, ct),
+                MessageTypeCode.LoginRequest => await _authHandler.LoginAsync(request, ct),
+                MessageTypeCode.ValidateTokenRequest => _authHandler.ValidateToken(request),
+                MessageTypeCode.ListAssetsRequest => await _assetHandler.ListAssetsAsync(request, ct),
+                MessageTypeCode.GetAssetRequest => await _assetHandler.GetAssetAsync(request, ct),
+                MessageTypeCode.ListCollectionsRequest => await _collectionHandler.ListCollectionsAsync(request, ct),
+                MessageTypeCode.UpdateAssetRequest => await _assetHandler.UpdateAssetAsync(request, ct),
+                MessageTypeCode.GetChangesRequest => await _changeHandler.GetChangesAsync(request, ct),
+                MessageTypeCode.ListUsersRequest => await _userHandler.ListUsersAsync(request, ct),
+                MessageTypeCode.ListRolesRequest => await _userHandler.ListRolesAsync(request, ct),
+                MessageTypeCode.CreateUserRequest => await _userHandler.CreateUserAsync(request, ct),
+                MessageTypeCode.UpdateUserRequest => await _userHandler.UpdateUserAsync(request, ct),
+                MessageTypeCode.DeleteUserRequest => await _userHandler.DeleteUserAsync(request, ct),
+                MessageTypeCode.ListAuditLogsRequest => await _auditLogHandler.ListAuditLogsAsync(request, ct),
+                MessageTypeCode.GetServiceStatusRequest => await _statusHandler.GetStatusAsync(request, ct),
                 _ => CreateErrorResponse(request, 3, $"Unknown message type: {request.MessageType}")
             };
         }

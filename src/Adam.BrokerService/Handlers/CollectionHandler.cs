@@ -31,6 +31,8 @@ public sealed class CollectionHandler
 
         var collections = await db.Collections
             .Include(c => c.Children)
+            .AsNoTracking()
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         var rootNodes = collections
@@ -45,7 +47,7 @@ public sealed class CollectionHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(ListCollectionsResponse),
+            MessageType = MessageTypeCode.ListCollectionsResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };

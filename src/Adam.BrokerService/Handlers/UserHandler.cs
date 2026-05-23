@@ -57,7 +57,7 @@ public sealed class UserHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(ListUsersResponse),
+            MessageType = MessageTypeCode.ListUsersResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
@@ -86,7 +86,7 @@ public sealed class UserHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(ListRolesResponse),
+            MessageType = MessageTypeCode.ListRolesResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
@@ -145,7 +145,7 @@ public sealed class UserHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(CreateUserResponse),
+            MessageType = MessageTypeCode.CreateUserResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
@@ -205,7 +205,7 @@ public sealed class UserHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(UpdateUserRequest),
+            MessageType = MessageTypeCode.UpdateUserRequest,
             StatusCode = 0
         };
     }
@@ -237,7 +237,7 @@ public sealed class UserHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(DeleteUserRequest),
+            MessageType = MessageTypeCode.DeleteUserRequest,
             StatusCode = 0
         };
     }

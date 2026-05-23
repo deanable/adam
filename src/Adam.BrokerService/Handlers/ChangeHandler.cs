@@ -33,6 +33,7 @@ public sealed class ChangeHandler
 
         var changedAssets = await db.DigitalAssets
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(a => a.ModifiedAt > since)
             .OrderBy(a => a.ModifiedAt)
             .ToListAsync(ct);
@@ -51,7 +52,7 @@ public sealed class ChangeHandler
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
-            MessageType = nameof(GetChangesResponse),
+            MessageType = MessageTypeCode.GetChangesResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };

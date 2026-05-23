@@ -113,7 +113,7 @@ public class AdminPanelViewModel : INotifyPropertyChanged
                 {
                     AuthToken = auth?.Token ?? "",
                     CorrelationId = Guid.NewGuid().ToString(),
-                    MessageType = nameof(GetServiceStatusRequest),
+                    MessageType = MessageTypeCode.GetServiceStatusRequest,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new GetServiceStatusRequest()))
                 };
                 var resp = await _modeManager.BrokerClient.SendAsync(req);

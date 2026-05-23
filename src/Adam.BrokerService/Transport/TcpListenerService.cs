@@ -1,8 +1,13 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Adam.Shared.Contracts;
 using Adam.Shared.Transport;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Transport;
@@ -19,26 +24,32 @@ public sealed class TcpListenerService
     private readonly ConcurrentDictionary<string, Task> _connectionTasks = new();
     private readonly ILogger<TcpListenerService> _logger;
     private readonly IConnectionHandler _handler;
+    private readonly IConfiguration _configuration;
     private long _rejectedCount;
+    private X509Certificate2? _serverCertificate;
 
     public int Port { get; private set; } = 9100;
     public int ActiveConnectionCount => _connections.Count;
     public long RejectedConnectionCount => Interlocked.Read(ref _rejectedCount);
+    public bool TlsEnabled { get; private set; }
 
-    public TcpListenerService(ILogger<TcpListenerService> logger, IConnectionHandler handler)
+    public TcpListenerService(ILogger<TcpListenerService> logger, IConnectionHandler handler, IConfiguration configuration)
     {
         _logger = logger;
         _handler = handler;
+        _configuration = configuration;
     }
 
     public async Task StartAsync(int port, CancellationToken ct = default)
     {
         Port = port;
+        LoadTlsCertificate();
+
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _listener = new TcpListener(IPAddress.Any, port);
         _listener.Start(50);
 
-        _logger.LogInformation("Broker service listening on port {Port}", port);
+        _logger.LogInformation("Broker service listening on port {Port} (TLS: {Tls})", port, TlsEnabled);
 
         _ = IdleMonitorLoopAsync(_cts.Token);
 
@@ -105,11 +116,85 @@ public sealed class TcpListenerService
         _logger.LogInformation("Broker service stopped");
     }
 
-    private async Task HandleConnectionAsync(ConnectionState state, CancellationToken ct)
+    private void LoadTlsCertificate()
     {
+        var tlsSection = _configuration.GetSection("Broker:Tls");
+        TlsEnabled = tlsSection.GetValue<bool>("Enabled", false);
+        if (!TlsEnabled) return;
+
+        var certPath = tlsSection.GetValue<string>("CertificatePath", "");
+        var certPassword = tlsSection.GetValue<string>("CertificatePassword", "");
+        var thumbprint = tlsSection.GetValue<string>("CertificateThumbprint", "");
+
         try
         {
-            using var stream = state.Client.GetStream();
+            if (!string.IsNullOrEmpty(certPath) && File.Exists(certPath))
+            {
+                _serverCertificate = new X509Certificate2(certPath, certPassword);
+                _logger.LogInformation("TLS certificate loaded from path: {Path}", certPath);
+            }
+            else if (!string.IsNullOrEmpty(thumbprint))
+            {
+                using var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+                store.Open(OpenFlags.ReadOnly);
+                var cert = store.Certificates.Find(X509FindType.FindByThumbprint, thumbprint, validOnly: false)
+                    .OfType<X509Certificate2>().FirstOrDefault();
+                store.Close();
+                if (cert != null)
+                {
+                    _serverCertificate = cert;
+                    _logger.LogInformation("TLS certificate loaded from store by thumbprint");
+                }
+                else
+                {
+                    _logger.LogError("TLS certificate with thumbprint {Thumbprint} not found in LocalMachine\\My", thumbprint);
+                    TlsEnabled = false;
+                }
+            }
+            else
+            {
+                _logger.LogWarning("TLS enabled but no certificate configured. Generating self-signed dev certificate...");
+                _serverCertificate = GenerateSelfSignedCertificate();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load TLS certificate. Falling back to plaintext.");
+            TlsEnabled = false;
+        }
+    }
+
+    private static X509Certificate2 GenerateSelfSignedCertificate()
+    {
+        var subjectName = new X500DistinguishedName("CN=adam-broker-dev");
+        using var rsa = RSA.Create(2048);
+        var request = new CertificateRequest(subjectName, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
+        var san = new SubjectAlternativeNameBuilder();
+        san.AddDnsName("localhost");
+        san.AddIpAddress(IPAddress.Loopback);
+        request.CertificateExtensions.Add(san.Build());
+
+        var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(1));
+        // Export and re-import to get a certificate with a private key that works across platforms
+        return new X509Certificate2(cert.Export(X509ContentType.Pfx), (string?)null);
+    }
+
+    private async Task HandleConnectionAsync(ConnectionState state, CancellationToken ct)
+    {
+        Stream stream = state.Client.GetStream();
+        try
+        {
+            if (TlsEnabled && _serverCertificate != null)
+            {
+                var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
+                await sslStream.AuthenticateAsServerAsync(_serverCertificate, clientCertificateRequired: false, enabledSslProtocols: System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13, checkCertificateRevocation: false);
+                stream = sslStream;
+                _logger.LogDebug("Connection {ConnectionId}: TLS handshake complete", state.Id);
+            }
+
             while (!ct.IsCancellationRequested)
             {
                 if (state.RequestCount >= MaxRequestsPerConnection)
@@ -124,9 +209,18 @@ public sealed class TcpListenerService
 
                 state.LastActivity = DateTimeOffset.UtcNow;
                 Interlocked.Increment(ref state._requestCount);
+
+                // Populate client IP for audit/rate-limiting
+                if (string.IsNullOrEmpty(envelope.ClientIp) && state.Client.Client.RemoteEndPoint is IPEndPoint remoteEp)
+                    envelope.ClientIp = remoteEp.Address.ToString();
+
                 var response = await _handler.HandleAsync(envelope, ct);
                 await TcpFrame.SendAsync(stream, response, ct);
             }
+        }
+        catch (AuthenticationException ex)
+        {
+            _logger.LogWarning("Connection {ConnectionId} TLS authentication failed: {Message}", state.Id, ex.Message);
         }
         catch (IOException ex)
         {
@@ -138,7 +232,8 @@ public sealed class TcpListenerService
         }
         finally
         {
-            state.Client.Close();
+            try { stream.Dispose(); } catch { /* ignore */ }
+            try { state.Client.Close(); } catch { /* ignore */ }
             _connections.TryRemove(state.Id, out _);
             _logger.LogInformation("Client disconnected: {ConnectionId} (active: {Count})", state.Id, _connections.Count);
         }

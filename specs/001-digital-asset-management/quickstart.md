@@ -39,10 +39,22 @@ dotnet run --project src/Adam.BrokerService -- --provider postgresql --connectio
 dotnet run --project src/Adam.BrokerService -- --provider sqlserver --connection "Server=localhost;Database=adam;Trusted_Connection=True;TrustServerCertificate=True"
 ```
 
-### 2. Launch the catalog browser
+### 2. Configure JWT signing key (required)
 
 ```bash
-dotnet run --project src/Adam.CatalogBrowser -- --mode multiuser --endpoint "tcp://localhost:5000"
+# Generate a secure Base64-encoded key (32+ bytes)
+$env:ADAM_JWT_KEY = [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 } | ForEach-Object { [byte]$_ }))
+
+# Linux/macOS
+export ADAM_JWT_KEY=$(openssl rand -base64 48)
+```
+
+The broker service **will not start** without `ADAM_JWT_KEY` set. Alternatively, set `Jwt:SigningKey` in `appsettings.json`.
+
+### 3. Launch the catalog browser
+
+```bash
+dotnet run --project src/Adam.CatalogBrowser -- --mode multiuser --endpoint "tcp://localhost:9100"
 ```
 
 ## Deploy as Native Service (Multi-User)
@@ -71,6 +83,29 @@ dotnet test
 # Provider-specific integration tests (requires Docker)
 dotnet test --filter "Category=Integration"
 ```
+
+## TLS Configuration (Optional but Recommended)
+
+Edit `src/Adam.BrokerService/appsettings.json`:
+
+```json
+{
+  "Broker": {
+    "Tls": {
+      "Enabled": true,
+      "CertificatePath": "",
+      "CertificatePassword": "",
+      "CertificateThumbprint": "",
+      "AllowSelfSigned": true
+    }
+  }
+}
+```
+
+- **Development**: Leave `Enabled: false` or set `AllowSelfSigned: true` to auto-generate a self-signed certificate.
+- **Production**: Provide a valid certificate via `CertificatePath` or `CertificateThumbprint` (Windows LocalMachine\My store).
+
+When TLS is enabled, the catalog browser automatically negotiates TLS on connection.
 
 ## Default Credentials (Multi-User)
 

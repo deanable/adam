@@ -54,7 +54,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Description).HasMaxLength(2000);
             e.Property(x => x.Type).IsRequired();
             e.Property(x => x.IsDeleted).HasDefaultValue(false);
-            e.Property(x => x.Version).HasDefaultValue(1);
+            e.Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
             e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter("NOT IsDeleted");
             e.HasIndex(x => x.Type);
             e.HasIndex(x => x.StoragePath);

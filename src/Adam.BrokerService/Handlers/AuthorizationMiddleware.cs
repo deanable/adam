@@ -2,6 +2,7 @@ using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
@@ -14,11 +15,13 @@ public sealed class AuthorizationMiddleware
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly AuthHandler _authHandler;
+    private readonly ILogger<AuthorizationMiddleware> _logger;
 
-    public AuthorizationMiddleware(IServiceProvider serviceProvider, AuthHandler authHandler)
+    public AuthorizationMiddleware(IServiceProvider serviceProvider, AuthHandler authHandler, ILogger<AuthorizationMiddleware> logger)
     {
         _serviceProvider = serviceProvider;
         _authHandler = authHandler;
+        _logger = logger;
     }
 
     public async Task<bool> HasPermissionAsync(Envelope request, string requiredPermission, CancellationToken ct = default)
@@ -38,9 +41,19 @@ public sealed class AuthorizationMiddleware
             .FirstOrDefaultAsync(r => r.Name == roleName, ct);
 
         if (role == null)
+        {
+            _logger.LogWarning("SECURITY: Permission denied — role '{RoleName}' not found for user '{UserId}'. Required: {Permission}. CorrelationId: {CorrelationId}",
+                roleName, _authHandler.GetUserId(request), requiredPermission, request.CorrelationId);
             return false;
+        }
 
-        return role.Permissions.Any(p => MatchesPermission(p, requiredPermission));
+        var allowed = role.Permissions.Any(p => MatchesPermission(p, requiredPermission));
+        if (!allowed)
+        {
+            _logger.LogWarning("SECURITY: Permission denied — user '{UserId}' with role '{RoleName}' lacks permission '{Permission}'. CorrelationId: {CorrelationId}",
+                _authHandler.GetUserId(request), roleName, requiredPermission, request.CorrelationId);
+        }
+        return allowed;
     }
 
     /// <summary>

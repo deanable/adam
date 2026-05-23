@@ -18,6 +18,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddDbContext<AppDbContext>(opts => dbConfig.Configure(opts));
 
         services.AddSingleton<IConnectionHandler, ConnectionHandler>();
+        services.AddSingleton<LoginRateLimiter>();
         services.AddSingleton<AuthHandler>();
         services.AddSingleton<AssetHandler>();
         services.AddSingleton<CollectionHandler>();
@@ -35,6 +36,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IServiceInstaller, WindowsServiceInstaller>();
         services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
         services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();
+        services.AddHostedService<FolderWatcherHostedService>();
     })
     .ConfigureLogging(logging =>
     {
