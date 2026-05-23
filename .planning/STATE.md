@@ -19,8 +19,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 1 | ✅ | 1/1 | 100% | Archived |
 | 2 | ✅ | 1/1 | 100% | Archived |
 | 3 | ✅ | 1/1 | 100% | Archived |
-| 4 | 🚧 | 0/1 | 0% | Current |
-| 5 | ○ | 0/0 | 0% |
+| 4 | ✅ | 1/1 | 100% | Archived |
+| 5 | 🚧 | 0/0 | 0% | Current |
 | 6 | ○ | 0/0 | 0% |
 | 7 | ○ | 0/0 | 0% |
 
@@ -106,7 +106,7 @@ None.
 **Location:** `.planning/plans/phase-4/PLAN.md`
 **Tasks:** 10
 **Estimated Effort:** ~6.5 days
-**Status:** In Progress
+**Status:** Complete — all tasks T4.1–T4.10 implemented and committed
 
 ### Work Streams
 1. **Metadata Round-Trip** — Ratings, labels, flags, GPS, copyright + XMP write-back
@@ -114,11 +114,21 @@ None.
 3. **Image Adjustments** — Rotate 90/180/270, flip horizontal/vertical
 4. **Export** — JPEG with quality/resolution, TIFF with color space
 
+## Phase 4 Completion Summary
+
+- **T4.1:** Added Rating, Label, Flag, GpsLatitude, GpsLongitude, Copyright, Orientation to DigitalAsset
+- **T4.2:** Client UI with ComboBoxes for Rating/Label/Flag, TextBoxes for Copyright/GPS, dirty tracking + auto-save
+- **T4.3-T4.4:** XMP write-back service with embedded (JPEG/PNG/TIFF/WebP) and RAW sidecar (.xmp) support
+- **T4.5:** Read-only file guard with ReadOnlyFileException and client toast notification
+- **T4.6-T4.7:** Image rotation (90/180/270) and flip (horizontal/vertical) with thumbnail regeneration via ImageSharp
+- **T4.8-T4.9:** Export dialog for JPEG (quality) and TIFF (LZW/None compression) with optional max dimension resize
+- **T4.10:** 5 integration tests passing for metadata round-trip, sidecar creation, read-only guard, JPEG/TIFF export
+- All 117 tests pass (2 Docker-dependent skipped)
+
 ## Next Actions
 
-1. Execute T4.1: Expand metadata model (ratings, labels, flags, GPS, copyright)
-2. Execute T4.6: Image rotation (can run in parallel with metadata stream)
-3. Review `Adam.Shared/Models/DigitalAsset.cs` for current field set
+1. Plan Phase 5: Advanced Search & Filtering
+2. Review `.planning/REQUIREMENTS.md` for Phase 5 scope
 
 ---
 *State updated: 2026-05-23 after initialization*

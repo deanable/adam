@@ -12,8 +12,8 @@
 | 1 | Standalone Mode | Deliver a fully functional self-contained catalog browser with SQLite, browse/search/view, and metadata extraction | CATA-01 to CATA-11, META-05, DB-01 | 5 | ✅ Complete |
 | 2 | Multi-User Foundation | Connect catalog browser to broker service over TCP with auth, asset browsing, and folder watching | AUTH-01 to AUTH-03, AUTH-06, BROK-01, BROK-05 | 5 | ✅ Complete |
 | 3 | Multi-User Concurrency | Ensure real-time change propagation, concurrent access stability, and conflict resolution | BROK-02 to BROK-04 | 3 | ✅ Complete |
-| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 | 🚧 Current |
-| 5 | Admin Panel & Mode Management | Mode toggle, native service deployment, database migration wizard, service monitoring | ADMIN-01 to ADMIN-04 | 4 | 📋 Planned |
+| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 | ✅ Complete |
+| 5 | Admin Panel & Mode Management | Mode toggle, native service deployment, database migration wizard, service monitoring | ADMIN-01 to ADMIN-04 | 4 | 🚧 Current |
 | 6 | Database Provider Matrix | Full support and testing for SQLite, PostgreSQL, and SQL Server with swappable configuration | DB-02 to DB-04 | 3 | 📋 Planned |
 | 7 | User & Role Administration | Full user lifecycle, RBAC enforcement, audit log viewer | AUTH-04, AUTH-05 | 3 | 📋 Planned |
 
