@@ -1,0 +1,19 @@
+{
+  "mode": "yolo",
+  "granularity": "standard",
+  "parallelization": true,
+  "commit_docs": true,
+  "model_profile": "inherit",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true,
+    "auto_advance": false,
+    "code_review": true,
+    "code_review_depth": "standard"
+  },
+  "planning": {
+    "sub_repos": []
+  }
+}
