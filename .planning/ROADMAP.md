@@ -11,8 +11,8 @@
 |---|-------|------|--------------|------------------|--------|
 | 1 | Standalone Mode | Deliver a fully functional self-contained catalog browser with SQLite, browse/search/view, and metadata extraction | CATA-01 to CATA-11, META-05, DB-01 | 5 | ✅ Complete |
 | 2 | Multi-User Foundation | Connect catalog browser to broker service over TCP with auth, asset browsing, and folder watching | AUTH-01 to AUTH-03, AUTH-06, BROK-01, BROK-05 | 5 | ✅ Complete |
-| 3 | Multi-User Concurrency | Ensure real-time change propagation, concurrent access stability, and conflict resolution | BROK-02 to BROK-04 | 3 | 🚧 Not started |
-| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 | 📋 Planned |
+| 3 | Multi-User Concurrency | Ensure real-time change propagation, concurrent access stability, and conflict resolution | BROK-02 to BROK-04 | 3 | ✅ Complete |
+| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 | 🚧 Current |
 | 5 | Admin Panel & Mode Management | Mode toggle, native service deployment, database migration wizard, service monitoring | ADMIN-01 to ADMIN-04 | 4 | 📋 Planned |
 | 6 | Database Provider Matrix | Full support and testing for SQLite, PostgreSQL, and SQL Server with swappable configuration | DB-02 to DB-04 | 3 | 📋 Planned |
 | 7 | User & Role Administration | Full user lifecycle, RBAC enforcement, audit log viewer | AUTH-04, AUTH-05 | 3 | 📋 Planned |
@@ -53,7 +53,7 @@
 
 **Archive:** `.planning/milestones/v1.0-in-progress.md`
 
-### Phase 3: Multi-User Concurrency 🚧
+### Phase 3: Multi-User Concurrency ✅
 
 **Goal:** Multiple users access the broker simultaneously with consistent state and real-time change propagation.
 
@@ -61,10 +61,12 @@
 
 **Plan:** `.planning/plans/phase-3/PLAN.md`
 
+**Status:** Completed 2026-05-23
+
 **Success Criteria:**
-1. 10 concurrent users browse and search with all responses under 3 seconds
-2. Metadata change by User A appears for User B within 5 seconds
-3. Simultaneous edits to same asset resolve with last-write-wins; both see final state
+1. ✅ 10 concurrent users browse and search with all responses under 3 seconds
+2. ✅ Metadata change by User A appears for User B within 5 seconds (push notifications)
+3. ✅ Simultaneous edits to same asset resolve with last-write-wins; both see final state
 
 **UI Hint:** no — primarily transport and data layer work
 
@@ -128,12 +130,12 @@
 
 ## Milestones
 
-### v1.0 — Core DAM (Phases 1-3) 🚧 In Progress
+### v1.0 — Core DAM (Phases 1-3) ✅ Complete
 
 **Goal:** A working digital asset catalog in both standalone and multi-user modes.
 **Requirements:** 19 of 34 v1 requirements
 **Completion Criteria:** All Phase 1-3 success criteria pass
-**Progress:** Phases 1-2 complete, Phase 3 pending
+**Progress:** All three phases complete
 **Archive:** `.planning/milestones/v1.0-in-progress.md`
 
 ### v1.1 — Management & Deployment (Phases 4-6)
@@ -154,8 +156,9 @@
 |-------|-----------|----------------|--------|-----------|
 | 1. Standalone Mode | v1.0 | 1/1 | Complete | 2026-05-23 |
 | 2. Multi-User Foundation | v1.0 | 1/1 | Complete | 2026-05-23 |
-| 3. Multi-User Concurrency | v1.0 | 0/1 | Not started | — |
-| 4. Asset Ingestion & Management | v1.1 | 0/1 | Planned | — |
+| 3. Multi-User Concurrency | v1.0 | 1/1 | Complete | 2026-05-23 |
+| 4. Asset Ingestion & Management | v1.1 | 0/1 | Current | — |
+
 | 5. Admin Panel & Mode Management | v1.1 | 0/1 | Planned | — |
 | 6. Database Provider Matrix | v1.1 | 0/1 | Planned | — |
 | 7. User & Role Administration | v1.2 | 0/1 | Planned | — |

@@ -18,8 +18,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 |-------|--------|-------|----------|
 | 1 | ✅ | 1/1 | 100% | Archived |
 | 2 | ✅ | 1/1 | 100% | Archived |
-| 3 | ✅ | 1/1 | 100% | Complete |
-| 4 | ○ | 0/0 | 0% | Next |
+| 3 | ✅ | 1/1 | 100% | Archived |
+| 4 | 🚧 | 0/1 | 0% | Current |
 | 5 | ○ | 0/0 | 0% |
 | 6 | ○ | 0/0 | 0% |
 | 7 | ○ | 0/0 | 0% |
@@ -88,11 +88,37 @@ None.
 5. **Client Resilience & UX** — Auto-reconnect, retry logic, token expiration, connection status UI
 6. **Folder Watcher** — FileSystemWatcher-based auto-indexing
 
+## Phase 3 Plan
+
+**Location:** `.planning/plans/phase-3/PLAN.md`
+**Tasks:** 9
+**Estimated Effort:** ~5.5 days
+**Status:** Complete
+
+### Work Streams
+1. **Connection Registry** — Per-connection tracking, thread-safe broadcast
+2. **Change Notifications** — Push-based real-time updates, fire-and-forget broadcast
+3. **Conflict Resolution** — ExpectedVersion optimistic concurrency
+4. **Client Refresh** — Gallery auto-refresh on remote change notification
+
+## Phase 4 Plan
+
+**Location:** `.planning/plans/phase-4/PLAN.md`
+**Tasks:** 10
+**Estimated Effort:** ~6.5 days
+**Status:** In Progress
+
+### Work Streams
+1. **Metadata Round-Trip** — Ratings, labels, flags, GPS, copyright + XMP write-back
+2. **RAW Sidecar** — XMP sidecar for CR2/NEF/ARW/DNG
+3. **Image Adjustments** — Rotate 90/180/270, flip horizontal/vertical
+4. **Export** — JPEG with quality/resolution, TIFF with color space
+
 ## Next Actions
 
-1. `/gsd-discuss-phase 4` — Gather context for next phase
-2. Review `.planning/plans/phase-3/PLAN.md` for completion status
-3. Consider archiving Phase 3 or moving to Phase 4 planning
+1. Execute T4.1: Expand metadata model (ratings, labels, flags, GPS, copyright)
+2. Execute T4.6: Image rotation (can run in parallel with metadata stream)
+3. Review `Adam.Shared/Models/DigitalAsset.cs` for current field set
 
 ---
 *State updated: 2026-05-23 after initialization*
