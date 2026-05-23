@@ -274,6 +274,104 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         (result1.Conflict || result2.Conflict).Should().BeTrue("one update should detect a version conflict");
     }
 
+    [Fact]
+    public async Task ChangeNotificationService_broadcasts_to_authenticated_connections()
+    {
+        var registry = new ConnectionRegistry(NullLogger<ConnectionRegistry>.Instance);
+        var service = new ChangeNotificationService(registry, NullLogger<ChangeNotificationService>.Instance);
+
+        using var ms = new MemoryStream();
+        var connectionId = Guid.NewGuid().ToString();
+        registry.Register(connectionId, ms);
+        registry.SetUserId(connectionId, "user-1");
+
+        await service.BroadcastAsync("asset-1", "updated", "user-1", connectionId);
+        // Since we excluded the only connection, nothing should be sent
+        ms.Position = 0;
+        ms.Length.Should().Be(0, "excluded connection should not receive notification");
+    }
+
+    [Fact]
+    public async Task AssetHandler_returns_conflict_with_current_version_on_version_mismatch()
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, _port);
+        using var stream = client.GetStream();
+
+        // Create an asset
+        var createReq = new Envelope
+        {
+            CorrelationId = Guid.NewGuid().ToString(),
+            AuthToken = _authToken,
+            MessageType = MessageTypeCode.CreateAssetRequest,
+            Payload = ByteString.CopyFrom(
+                ProtoHelper.Serialize(new CreateAssetRequest
+                {
+                    FileName = "test.jpg",
+                    Title = "Original Title"
+                }))
+        };
+
+        await TcpFrame.SendAsync(stream, createReq);
+        var createResp = await TcpFrame.ReceiveAsync(stream);
+        createResp.Should().NotBeNull();
+        var createResult = ProtoHelper.Deserialize<CreateAssetResponse>(createResp!.Payload.ToByteArray());
+
+        // Update with wrong version
+        var updateReq = new Envelope
+        {
+            CorrelationId = Guid.NewGuid().ToString(),
+            AuthToken = _authToken,
+            MessageType = MessageTypeCode.UpdateAssetRequest,
+            Payload = ByteString.CopyFrom(
+                ProtoHelper.Serialize(new UpdateAssetRequest
+                {
+                    Id = createResult.Id,
+                    Title = "Updated Title",
+                    ExpectedVersion = 99 // wrong version
+                }))
+        };
+
+        await TcpFrame.SendAsync(stream, updateReq);
+        var updateResp = await TcpFrame.ReceiveAsync(stream);
+        updateResp.Should().NotBeNull();
+        var updateResult = ProtoHelper.Deserialize<UpdateAssetResponse>(updateResp!.Payload.ToByteArray());
+
+        updateResult.Conflict.Should().BeTrue("update with wrong version should return conflict");
+        updateResult.NewVersion.Should().BeGreaterThan(0, "conflict response should include current version");
+    }
+
+    [Fact]
+    public async Task ConnectionRegistry_excludes_sender_from_broadcast()
+    {
+        var registry = new ConnectionRegistry(NullLogger<ConnectionRegistry>.Instance);
+
+        using var ms1 = new MemoryStream();
+        using var ms2 = new MemoryStream();
+
+        var conn1 = Guid.NewGuid().ToString();
+        var conn2 = Guid.NewGuid().ToString();
+        registry.Register(conn1, ms1);
+        registry.Register(conn2, ms2);
+        registry.SetUserId(conn1, "user-a");
+        registry.SetUserId(conn2, "user-b");
+
+        var envelope = new Envelope
+        {
+            CorrelationId = Guid.NewGuid().ToString(),
+            MessageType = MessageTypeCode.ChangeNotification,
+            Payload = ByteString.CopyFrom([0x01])
+        };
+
+        await registry.BroadcastAsync(envelope, conn1);
+
+        ms1.Position = 0;
+        ms2.Position = 0;
+
+        ms1.Length.Should().Be(0, "sender should be excluded from broadcast");
+        ms2.Length.Should().BeGreaterThan(0, "other connection should receive broadcast");
+    }
+
     private static int GetFreePort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);
