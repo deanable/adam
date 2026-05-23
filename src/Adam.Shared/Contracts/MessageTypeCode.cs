@@ -67,6 +67,11 @@ public enum MessageTypeCode : ushort
     DeleteWatchedFolderRequest = 75,
     DeleteWatchedFolderResponse = 76,
 
+    // Change Notifications (110-112)
+    ChangeNotification = 110,
+    SubscribeChangesRequest = 111,
+    SubscribeChangesResponse = 112,
+
     // Status / Misc (90-99)
     GetServiceStatusRequest = 90,
     GetServiceStatusResponse = 91,

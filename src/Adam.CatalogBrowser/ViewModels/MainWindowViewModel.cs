@@ -94,7 +94,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
         AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
 
-        // Wire up broker connection status for multi-user mode
+        // Wire up broker connection status and change notifications for multi-user mode
         if (modeManager.BrokerClient != null)
         {
             modeManager.BrokerClient.StatusChanged += (_, status) =>
@@ -110,6 +110,25 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 {
                     ConnectionStatusText = text;
                     ShowConnectionStatus = show;
+                });
+            };
+
+            modeManager.BrokerClient.NotificationReceived += (_, notification) =>
+            {
+                _logger.LogInformation("Change notification received: {Action} for asset {EntityId}", notification.Action, notification.EntityId);
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    StatusText = $"Asset {notification.Action}d by another user";
+                    // Refresh gallery to reflect remote changes
+                    try
+                    {
+                        if (CurrentView == AssetGallery)
+                            await AssetGallery.LoadAssetsAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to refresh gallery after notification");
+                    }
                 });
             };
         }

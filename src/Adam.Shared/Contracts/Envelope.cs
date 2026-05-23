@@ -20,6 +20,11 @@ public sealed class Envelope : IProtoSerializable
     public string ErrorMessage { get; set; } = string.Empty;
     public string ClientIp { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Server-side connection ID. Not serialized on the wire.
+    /// </summary>
+    public string ConnectionId { get; set; } = string.Empty;
+
     public int CalculateSize()
     {
         int size = 0;

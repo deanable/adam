@@ -55,6 +55,8 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         services.AddSingleton<StatusHandler>();
         services.AddSingleton<SidebarHandler>();
         services.AddSingleton<WatchedFolderHandler>();
+        services.AddSingleton<ConnectionRegistry>();
+        services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();
 
         _serviceProvider = services.BuildServiceProvider();

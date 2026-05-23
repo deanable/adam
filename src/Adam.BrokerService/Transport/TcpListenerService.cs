@@ -25,6 +25,7 @@ public sealed class TcpListenerService
     private readonly ILogger<TcpListenerService> _logger;
     private readonly IConnectionHandler _handler;
     private readonly IConfiguration _configuration;
+    private readonly ConnectionRegistry _connectionRegistry;
     private long _rejectedCount;
     private X509Certificate2? _serverCertificate;
 
@@ -33,11 +34,12 @@ public sealed class TcpListenerService
     public long RejectedConnectionCount => Interlocked.Read(ref _rejectedCount);
     public bool TlsEnabled { get; private set; }
 
-    public TcpListenerService(ILogger<TcpListenerService> logger, IConnectionHandler handler, IConfiguration configuration)
+    public TcpListenerService(ILogger<TcpListenerService> logger, IConnectionHandler handler, IConfiguration configuration, ConnectionRegistry connectionRegistry)
     {
         _logger = logger;
         _handler = handler;
         _configuration = configuration;
+        _connectionRegistry = connectionRegistry;
     }
 
     public async Task StartAsync(int port, CancellationToken ct = default)
@@ -195,6 +197,9 @@ public sealed class TcpListenerService
                 _logger.LogDebug("Connection {ConnectionId}: TLS handshake complete", state.Id);
             }
 
+            // Register for change notification broadcasts
+            _connectionRegistry.Register(state.Id, stream);
+
             while (!ct.IsCancellationRequested)
             {
                 if (state.RequestCount >= MaxRequestsPerConnection)
@@ -214,6 +219,9 @@ public sealed class TcpListenerService
                 if (string.IsNullOrEmpty(envelope.ClientIp) && state.Client.Client.RemoteEndPoint is IPEndPoint remoteEp)
                     envelope.ClientIp = remoteEp.Address.ToString();
 
+                // Tag envelope with connection ID so handlers know who sent it
+                envelope.ConnectionId = state.Id;
+
                 var response = await _handler.HandleAsync(envelope, ct);
                 await TcpFrame.SendAsync(stream, response, ct);
             }
@@ -232,6 +240,7 @@ public sealed class TcpListenerService
         }
         finally
         {
+            _connectionRegistry.Unregister(state.Id);
             try { stream.Dispose(); } catch { /* ignore */ }
             try { state.Client.Close(); } catch { /* ignore */ }
             _connections.TryRemove(state.Id, out _);

@@ -1,3 +1,4 @@
+using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Google.Protobuf;
@@ -12,12 +13,16 @@ public sealed class AssetHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AssetHandler> _logger;
     private readonly AuthorizationMiddleware _authz;
+    private readonly ChangeNotificationService _notificationService;
+    private readonly AuthHandler _authHandler;
 
-    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz)
+    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _authz = authz;
+        _notificationService = notificationService;
+        _authHandler = authHandler;
     }
 
     public async Task<Envelope> ListAssetsAsync(Envelope request, CancellationToken ct)
@@ -245,6 +250,10 @@ public sealed class AssetHandler
 
         await db.SaveChangesAsync(ct);
 
+        // Broadcast change to all other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
         var response = new UpdateAssetResponse
         {
             Id = asset.Id.ToString(),
@@ -258,6 +267,81 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.UpdateAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> CreateAssetAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:create", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<CreateAssetRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = new Adam.Shared.Models.DigitalAsset
+        {
+            Id = Guid.NewGuid(),
+            FileName = req.FileName,
+            Title = req.Title,
+            Description = req.Description,
+            CollectionId = string.IsNullOrEmpty(req.CollectionId) ? null : Guid.Parse(req.CollectionId),
+            Version = 1,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ModifiedAt = DateTimeOffset.UtcNow
+        };
+
+        if (req.Tags.Count > 0)
+            await db.AssociateKeywordsAsync(asset, req.Tags, ct);
+
+        db.DigitalAssets.Add(asset);
+        await db.SaveChangesAsync(ct);
+
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyCreatedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
+        var response = new CreateAssetResponse
+        {
+            Id = asset.Id.ToString(),
+            Checksum = asset.ChecksumSha256
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.CreateAssetResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> DeleteAssetAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<DeleteAssetRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
+        if (asset == null)
+            return ErrorResponse(request, 5, "Asset not found");
+
+        asset.IsDeleted = true;
+        asset.ModifiedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyDeletedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.DeleteAssetResponse,
             StatusCode = 0
         };
     }

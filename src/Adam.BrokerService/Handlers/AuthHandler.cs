@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
@@ -19,15 +20,17 @@ public sealed class AuthHandler
     private readonly SymmetricSecurityKey _signingKey;
     private readonly TimeSpan _tokenExpiry;
     private readonly LoginRateLimiter _rateLimiter;
+    private readonly ConnectionRegistry? _connectionRegistry;
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuthHandler> _logger;
 
-    public AuthHandler(IServiceProvider serviceProvider, ILogger<AuthHandler> logger, IConfiguration configuration, LoginRateLimiter? rateLimiter = null)
+    public AuthHandler(IServiceProvider serviceProvider, ILogger<AuthHandler> logger, IConfiguration configuration, LoginRateLimiter? rateLimiter = null, ConnectionRegistry? connectionRegistry = null)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _rateLimiter = rateLimiter ?? new LoginRateLimiter();
+        _connectionRegistry = connectionRegistry;
 
         var keyBase64 = configuration["Jwt:SigningKey"] ?? Environment.GetEnvironmentVariable("ADAM_JWT_KEY");
         if (string.IsNullOrEmpty(keyBase64) || keyBase64 == "${ADAM_JWT_KEY}")
@@ -107,6 +110,12 @@ public sealed class AuthHandler
 
         user.LastLoginAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        // Associate connection with authenticated user for broadcast targeting
+        if (_connectionRegistry != null && !string.IsNullOrEmpty(request.ConnectionId))
+        {
+            _connectionRegistry.SetUserId(request.ConnectionId, user.Id.ToString());
+        }
 
         return new Envelope
         {

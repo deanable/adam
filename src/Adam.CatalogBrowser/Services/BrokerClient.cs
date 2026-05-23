@@ -45,6 +45,7 @@ public sealed class BrokerClient : IAsyncDisposable
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.Disconnected;
 
     public event EventHandler<ConnectionStatus>? StatusChanged;
+    public event EventHandler<ChangeNotification>? NotificationReceived;
 
     public BrokerClient(string host, int port, bool useTls = false, bool allowSelfSigned = false)
     {
@@ -230,7 +231,15 @@ public sealed class BrokerClient : IAsyncDisposable
                 if (envelope == null) break;
 
                 if (_pending.TryRemove(envelope.CorrelationId, out var tcs))
+                {
                     tcs.TrySetResult(envelope);
+                }
+                else if (envelope.MessageType == MessageTypeCode.ChangeNotification)
+                {
+                    // Server-initiated push notification (no pending request)
+                    var notification = ProtoHelper.Deserialize<ChangeNotification>(envelope.Payload.ToByteArray());
+                    NotificationReceived?.Invoke(this, notification);
+                }
             }
             catch (OperationCanceledException)
             {

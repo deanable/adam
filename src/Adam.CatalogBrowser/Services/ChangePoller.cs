@@ -36,7 +36,7 @@ public sealed class ChangePoller : IDisposable
     {
         if (IsRunning) return;
         IsRunning = true;
-        _timer = new Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        _timer = new Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         _logger?.LogInformation("Change poller started (5s interval)");
     }
 

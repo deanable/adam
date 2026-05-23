@@ -30,6 +30,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<StatusHandler>();
         services.AddSingleton<SidebarHandler>();
         services.AddSingleton<WatchedFolderHandler>();
+        services.AddSingleton<ConnectionRegistry>();
+        services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();
         services.AddHostedService<TcpListenerHostedService>();
         services.AddTransient<MigrationRunner>();
