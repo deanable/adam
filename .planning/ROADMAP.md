@@ -53,11 +53,13 @@
 
 **Archive:** `.planning/milestones/v1.0-in-progress.md`
 
-### Phase 3: Multi-User Concurrency
+### Phase 3: Multi-User Concurrency 🚧
 
 **Goal:** Multiple users access the broker simultaneously with consistent state and real-time change propagation.
 
 **Requirements:** BROK-02, BROK-03, BROK-04
+
+**Plan:** `.planning/plans/phase-3/PLAN.md`
 
 **Success Criteria:**
 1. 10 concurrent users browse and search with all responses under 3 seconds

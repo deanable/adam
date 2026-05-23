@@ -2,7 +2,7 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 2 — Multi-User Foundation
+**Current Phase:** 3 — Multi-User Concurrency (planning)
 **Current Milestone:** v1.0 — Core DAM
 
 ## Project Reference
@@ -70,6 +70,7 @@ None.
 - All 104 tests pass (2 Docker-dependent skipped)
 - **25 of 25 Phase 2 tasks complete**
 - **Phase 2 archived to:** `.planning/milestones/v1.0-in-progress.md`
+- **Phase 3 plan created:** `.planning/plans/phase-3/PLAN.md` (9 tasks, ~5.5 days)
 
 ## Phase 2 Plan
 
