@@ -145,8 +145,8 @@ public class SearchableTreeViewFilterTests
 
         var results = InvokeFlattenAndFilter(root, "o");
 
-        results.Should().HaveCount(2); // "Mountain" (has 'o'), "Forest" (has 'o')
-        results.Select(r => r.Name).Should().BeEquivalentTo(["Mountain", "Forest"]);
+        results.Should().HaveCount(3); // "Locations", "Mountain", and "Forest" all contain 'o'
+        results.Select(r => r.Name).Should().BeEquivalentTo(["Locations", "Mountain", "Forest"]);
     }
 
     [Fact]

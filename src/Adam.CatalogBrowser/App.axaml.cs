@@ -28,7 +28,7 @@ public partial class App : Application
             services.AddLogging(builder => builder.AddFile(logPath).SetMinimumLevel(LogLevel.Information));
 
 
-            var broker = new BrokerClient("localhost", 5000);
+            var broker = new BrokerClient("localhost", 9100);
             var auth = new AuthSession(broker);
 
             services.AddSingleton(broker);

@@ -364,9 +364,12 @@ public sealed class BulkOperationQueueTests : IAsyncLifetime
     //  Helpers
     // ──────────────────────────────────────────────
 
+    private int _seedCounter;
+
     private async Task<Guid> SeedAssetAsync()
     {
         var assetId = Guid.NewGuid();
+        var uniqueSuffix = Interlocked.Increment(ref _seedCounter).ToString();
         await using var db = await _modeManager.CreateDbContextAsync();
         db.DigitalAssets.Add(new DigitalAsset
         {
@@ -375,7 +378,7 @@ public sealed class BulkOperationQueueTests : IAsyncLifetime
             FileExtension = ".jpg",
             MimeType = "image/jpeg",
             FileSize = 1024,
-            ChecksumSha256 = new string('a', 64),
+            ChecksumSha256 = new string('a', 64 - uniqueSuffix.Length) + uniqueSuffix,
             StoragePath = "test.jpg",
             Title = "Test Asset",
             Type = AssetType.Image,

@@ -88,6 +88,7 @@ public sealed class BulkOperationQueue : IAsyncDisposable
     private int _totalQueued;
     private int _completedCount;
     private int _failedCount;
+    private bool _disposed;
 
     /// <summary>
     /// Fires after each operation is processed so the UI can update progress.
@@ -119,6 +120,17 @@ public sealed class BulkOperationQueue : IAsyncDisposable
     /// </summary>
     public void Enqueue(BulkOperation operation)
     {
+        // If starting a new batch after a completed one, reset counters
+        var completed = Volatile.Read(ref _completedCount);
+        var failed = Volatile.Read(ref _failedCount);
+        var total = Volatile.Read(ref _totalQueued);
+        if (total > 0 && completed + failed >= total)
+        {
+            Interlocked.Exchange(ref _totalQueued, 0);
+            Interlocked.Exchange(ref _completedCount, 0);
+            Interlocked.Exchange(ref _failedCount, 0);
+        }
+
         Interlocked.Increment(ref _totalQueued);
         _channel.Writer.TryWrite(operation);
         _logger.LogInformation("[BulkQueue] Enqueued: {Type} '{Name}' for {Count} asset(s)",
@@ -186,10 +198,6 @@ public sealed class BulkOperationQueue : IAsyncDisposable
             if (Volatile.Read(ref _totalQueued) == Interlocked.Add(ref _completedCount, 0) + Interlocked.Add(ref _failedCount, 0))
             {
                 AllCompleted?.Invoke(this, EventArgs.Empty);
-                // Reset counters for next batch
-                Interlocked.Exchange(ref _totalQueued, 0);
-                Interlocked.Exchange(ref _completedCount, 0);
-                Interlocked.Exchange(ref _failedCount, 0);
                 NotifyProgress("Idle");
                 CurrentProgress.IsActive = false;
             }
@@ -214,11 +222,15 @@ public sealed class BulkOperationQueue : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         await _cts.CancelAsync();
-        _cts.Dispose();
         _channel.Writer.TryComplete();
 
         try { await _processorTask.ConfigureAwait(false); }
         catch (OperationCanceledException) { }
+
+        _cts.Dispose();
     }
 }
