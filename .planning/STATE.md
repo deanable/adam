@@ -17,7 +17,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
 | 1 | ✓ | 1/1 | 100% |
-| 2 | ◆ | 1/1 | 92% |
+| 2 | ✓ | 1/1 | 100% |
 | 3 | ○ | 0/0 | 0% |
 | 4 | ○ | 0/0 | 0% |
 | 5 | ○ | 0/0 | 0% |
@@ -51,7 +51,7 @@ None.
 - **✅ CRITICAL-8:** StatusMessages.cs compares raw protobuf tag values (bug) → **FIXED** (T2.4)
 - **✅ CRITICAL-9:** String-based MessageType routing tied to C# `nameof` → **FIXED** (T2.5 — stable opcode enum)
 - **✅ CRITICAL-10:** BrokerClient has zero reconnection logic → **FIXED** (T2.6)
-- **⏳ HIGH-13:** Multi-user sidebar is non-functional (empty trees) → **IN PROGRESS** (T2.7 remaining)
+- **✅ HIGH-13:** Multi-user sidebar is non-functional (empty trees) → **FIXED** (T2.7)
 
 ### Overall Grade: C (Adequate for prototype, not production)
 
@@ -67,8 +67,8 @@ None.
 - **FIXED:** Auto-reconnect (T2.6), timeout/retry (T2.20), ChangePoller retry (T2.21), token expiry (T2.23), connection status UI (T2.22)
 - **FIXED:** FolderWatcher service (T2.24) with debounced auto-indexing
 - All 104 tests pass (2 Docker-dependent skipped)
-- **23 of 25 Phase 2 tasks complete**
-- **Remaining:** T2.7 (Multi-User Sidebar), T2.25 (Folder Watcher Configuration UI)
+- **25 of 25 Phase 2 tasks complete**
+- **Remaining:** None
 
 ## Phase 2 Plan
 
@@ -86,8 +86,8 @@ None.
 
 ## Next Actions
 
-1. Begin executing Phase 2 tasks (security stream first)
-2. `/gsd-execute-phase 2` — run all plans with wave-based parallelization
+1. Mark Phase 2 as complete and archive milestone
+2. Begin Phase 3 planning
 3. Create integration tests for TLS, reconnection, and rate limiting
 
 ---
