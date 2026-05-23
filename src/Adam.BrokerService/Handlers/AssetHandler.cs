@@ -11,15 +11,20 @@ public sealed class AssetHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AssetHandler> _logger;
+    private readonly AuthorizationMiddleware _authz;
 
-    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger)
+    public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _authz = authz;
     }
 
     public async Task<Envelope> ListAssetsAsync(Envelope request, CancellationToken ct)
     {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
         var req = ProtoHelper.Deserialize<ListAssetsRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -120,6 +125,9 @@ public sealed class AssetHandler
 
     public async Task<Envelope> GetAssetAsync(Envelope request, CancellationToken ct)
     {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
         var req = ProtoHelper.Deserialize<GetAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -178,6 +186,9 @@ public sealed class AssetHandler
 
     public async Task<Envelope> UpdateAssetAsync(Envelope request, CancellationToken ct)
     {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
         var req = ProtoHelper.Deserialize<UpdateAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -245,6 +256,17 @@ public sealed class AssetHandler
             MessageType = nameof(UpdateAssetResponse),
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
+        };
+    }
+
+    private static Envelope ErrorResponse(Envelope request, int code, string message)
+    {
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = request.MessageType,
+            StatusCode = code,
+            ErrorMessage = message
         };
     }
 }

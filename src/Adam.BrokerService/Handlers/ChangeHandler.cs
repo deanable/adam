@@ -11,15 +11,20 @@ public sealed class ChangeHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ChangeHandler> _logger;
+    private readonly AuthorizationMiddleware _authz;
 
-    public ChangeHandler(IServiceProvider serviceProvider, ILogger<ChangeHandler> logger)
+    public ChangeHandler(IServiceProvider serviceProvider, ILogger<ChangeHandler> logger, AuthorizationMiddleware authz)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _authz = authz;
     }
 
     public async Task<Envelope> GetChangesAsync(Envelope request, CancellationToken ct = default)
     {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
         var req = ProtoHelper.Deserialize<GetChangesRequest>(request.Payload.ToByteArray());
         var since = DateTimeOffset.FromUnixTimeSeconds(req.SinceTimestamp);
 
@@ -49,6 +54,17 @@ public sealed class ChangeHandler
             MessageType = nameof(GetChangesResponse),
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
+        };
+    }
+
+    private static Envelope ErrorResponse(Envelope request, int code, string message)
+    {
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = request.MessageType,
+            StatusCode = code,
+            ErrorMessage = message
         };
     }
 }

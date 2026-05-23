@@ -5,6 +5,7 @@ using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using Adam.Shared.Transport;
 using FluentAssertions;
 using Google.Protobuf;
@@ -20,6 +21,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
     private ServiceProvider _serviceProvider = null!;
     private TcpListenerService _listener = null!;
     private int _port;
+    private string _authToken = null!;
 
     public async Task InitializeAsync()
     {
@@ -60,6 +62,29 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Database.EnsureCreated();
 
+            var adminRole = db.Roles.FirstOrDefault(r => r.Name == "Administrator");
+            if (adminRole == null)
+            {
+                adminRole = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Administrator",
+                    Permissions = new[] { "asset:*", "collection:*", "user:*", "audit:read" }
+                };
+                db.Roles.Add(adminRole);
+            }
+
+            var testUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "testuser",
+                Email = "test@test.com",
+                PasswordHash = PasswordHelper.HashPassword("testpass123"),
+                RoleId = adminRole.Id,
+                IsActive = true
+            };
+            db.Users.Add(testUser);
+
             var collectionId = Guid.NewGuid();
             db.Collections.Add(new Collection
             {
@@ -81,6 +106,10 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
                 CollectionId = collectionId
             });
             db.SaveChanges();
+
+            // Generate a valid auth token for test requests
+            var authHandler = scope.ServiceProvider.GetRequiredService<AuthHandler>();
+            _authToken = authHandler.GenerateTokenForUser(testUser);
         }
 
         _listener = _serviceProvider.GetRequiredService<TcpListenerService>();
@@ -111,6 +140,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
                 var request = new Envelope
                 {
                     CorrelationId = correlationId,
+                    AuthToken = _authToken,
                     MessageType = nameof(ListAssetsRequest),
                     Payload = ByteString.CopyFrom(
                         ProtoHelper.Serialize(new ListAssetsRequest { Page = 1, PageSize = 50 }))
@@ -149,6 +179,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
                 var envelope = new Envelope
                 {
                     CorrelationId = Guid.NewGuid().ToString(),
+                    AuthToken = _authToken,
                     MessageType = nameof(ListAssetsRequest),
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListAssetsRequest()))
                 };
@@ -183,6 +214,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         var listReq = new Envelope
         {
             CorrelationId = correlationId,
+            AuthToken = _authToken,
             MessageType = nameof(ListAssetsRequest),
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new ListAssetsRequest()))
@@ -199,6 +231,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         var updateReq1 = new Envelope
         {
             CorrelationId = Guid.NewGuid().ToString(),
+            AuthToken = _authToken,
             MessageType = nameof(UpdateAssetRequest),
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new UpdateAssetRequest
@@ -212,6 +245,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
         var updateReq2 = new Envelope
         {
             CorrelationId = Guid.NewGuid().ToString(),
+            AuthToken = _authToken,
             MessageType = nameof(UpdateAssetRequest),
             Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new UpdateAssetRequest

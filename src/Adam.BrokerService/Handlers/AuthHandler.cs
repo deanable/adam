@@ -164,6 +164,11 @@ public sealed class AuthHandler
         }
     }
 
+    /// <summary>
+    /// Generates a JWT token for the specified user. Primarily intended for testing.
+    /// </summary>
+    public string GenerateTokenForUser(User user) => GenerateJwt(user);
+
     private string GenerateJwt(User user)
     {
         var claims = new[]

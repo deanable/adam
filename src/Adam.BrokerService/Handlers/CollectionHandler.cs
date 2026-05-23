@@ -12,15 +12,20 @@ public sealed class CollectionHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CollectionHandler> _logger;
+    private readonly AuthorizationMiddleware _authz;
 
-    public CollectionHandler(IServiceProvider serviceProvider, ILogger<CollectionHandler> logger)
+    public CollectionHandler(IServiceProvider serviceProvider, ILogger<CollectionHandler> logger, AuthorizationMiddleware authz)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _authz = authz;
     }
 
     public async Task<Envelope> ListCollectionsAsync(Envelope request, CancellationToken ct)
     {
+        if (!await _authz.HasPermissionAsync(request, "collection:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -62,5 +67,16 @@ public sealed class CollectionHandler
             node.Children.Add(BuildNode(child, allCollections));
 
         return node;
+    }
+
+    private static Envelope ErrorResponse(Envelope request, int code, string message)
+    {
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = request.MessageType,
+            StatusCode = code,
+            ErrorMessage = message
+        };
     }
 }
