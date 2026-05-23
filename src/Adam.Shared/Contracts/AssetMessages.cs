@@ -142,6 +142,9 @@ public sealed class AssetSummary : IProtoSerializable
     public string CollectionId { get; set; } = string.Empty;
     public string UploadedBy { get; set; } = string.Empty;
     public long CreatedAt { get; set; }
+    public int Rating { get; set; }
+    public int Label { get; set; }
+    public int Flag { get; set; }
 
     public int CalculateSize()
     {
@@ -155,6 +158,9 @@ public sealed class AssetSummary : IProtoSerializable
         size += ProtoHelper.FieldSize(7, CollectionId);
         size += ProtoHelper.FieldSize(8, UploadedBy);
         size += ProtoHelper.FieldSize(9, CreatedAt);
+        if (Rating != 0) size += ProtoHelper.FieldSize(10, Rating);
+        if (Label != 0) size += ProtoHelper.FieldSize(11, Label);
+        if (Flag != 0) size += ProtoHelper.FieldSize(12, Flag);
         return size;
     }
 
@@ -169,6 +175,9 @@ public sealed class AssetSummary : IProtoSerializable
         ProtoHelper.WriteField(output, 7, CollectionId);
         ProtoHelper.WriteField(output, 8, UploadedBy);
         ProtoHelper.WriteField(output, 9, CreatedAt);
+        if (Rating != 0) ProtoHelper.WriteField(output, 10, Rating);
+        if (Label != 0) ProtoHelper.WriteField(output, 11, Label);
+        if (Flag != 0) ProtoHelper.WriteField(output, 12, Flag);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -187,6 +196,9 @@ public sealed class AssetSummary : IProtoSerializable
                 case 7: CollectionId = input.ReadString(); break;
                 case 8: UploadedBy = input.ReadString(); break;
                 case 9: CreatedAt = input.ReadInt64(); break;
+                case 10: Rating = input.ReadInt32(); break;
+                case 11: Label = input.ReadInt32(); break;
+                case 12: Flag = input.ReadInt32(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -222,6 +234,12 @@ public sealed class AssetDetail : IProtoSerializable
     public int Version { get; set; } = 1;
     public long CreatedAt { get; set; }
     public long ModifiedAt { get; set; }
+    public int Rating { get; set; }
+    public int Label { get; set; }
+    public int Flag { get; set; }
+    public double GpsLatitude { get; set; }
+    public double GpsLongitude { get; set; }
+    public string Copyright { get; set; } = string.Empty;
 
     public int CalculateSize()
     {
@@ -236,6 +254,12 @@ public sealed class AssetDetail : IProtoSerializable
         size += ProtoHelper.FieldSize(15, CollectionName); size += ProtoHelper.FieldSize(16, UploadedBy);
         if (Version != 1) size += ProtoHelper.FieldSize(17, Version);
         size += ProtoHelper.FieldSize(18, CreatedAt); size += ProtoHelper.FieldSize(19, ModifiedAt);
+        if (Rating != 0) size += ProtoHelper.FieldSize(20, Rating);
+        if (Label != 0) size += ProtoHelper.FieldSize(21, Label);
+        if (Flag != 0) size += ProtoHelper.FieldSize(22, Flag);
+        if (GpsLatitude != 0) size += ProtoHelper.FieldSize(23, GpsLatitude);
+        if (GpsLongitude != 0) size += ProtoHelper.FieldSize(24, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(25, Copyright);
         return size;
     }
 
@@ -251,6 +275,12 @@ public sealed class AssetDetail : IProtoSerializable
         ProtoHelper.WriteField(output, 15, CollectionName); ProtoHelper.WriteField(output, 16, UploadedBy);
         if (Version != 1) ProtoHelper.WriteField(output, 17, Version);
         ProtoHelper.WriteField(output, 18, CreatedAt); ProtoHelper.WriteField(output, 19, ModifiedAt);
+        if (Rating != 0) ProtoHelper.WriteField(output, 20, Rating);
+        if (Label != 0) ProtoHelper.WriteField(output, 21, Label);
+        if (Flag != 0) ProtoHelper.WriteField(output, 22, Flag);
+        if (GpsLatitude != 0) ProtoHelper.WriteField(output, 23, GpsLatitude);
+        if (GpsLongitude != 0) ProtoHelper.WriteField(output, 24, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 25, Copyright);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -279,6 +309,12 @@ public sealed class AssetDetail : IProtoSerializable
                 case 17: Version = input.ReadInt32(); break;
                 case 18: CreatedAt = input.ReadInt64(); break;
                 case 19: ModifiedAt = input.ReadInt64(); break;
+                case 20: Rating = input.ReadInt32(); break;
+                case 21: Label = input.ReadInt32(); break;
+                case 22: Flag = input.ReadInt32(); break;
+                case 23: GpsLatitude = input.ReadDouble(); break;
+                case 24: GpsLongitude = input.ReadDouble(); break;
+                case 25: Copyright = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -293,6 +329,12 @@ public sealed class CreateAssetRequest : IProtoSerializable
     public string Description { get; set; } = string.Empty;
     public List<string> Tags { get; } = [];
     public string CollectionId { get; set; } = string.Empty;
+    public int Rating { get; set; }
+    public int Label { get; set; }
+    public int Flag { get; set; }
+    public double GpsLatitude { get; set; }
+    public double GpsLongitude { get; set; }
+    public string Copyright { get; set; } = string.Empty;
 
     public int CalculateSize()
     {
@@ -300,6 +342,12 @@ public sealed class CreateAssetRequest : IProtoSerializable
         size += ProtoHelper.FieldSize(1, FileName); size += ProtoHelper.FieldSize(2, Content);
         size += ProtoHelper.FieldSize(3, Title); size += ProtoHelper.FieldSize(4, Description);
         size += ProtoHelper.RepeatedFieldSize(5, Tags); size += ProtoHelper.FieldSize(6, CollectionId);
+        if (Rating != 0) size += ProtoHelper.FieldSize(7, Rating);
+        if (Label != 0) size += ProtoHelper.FieldSize(8, Label);
+        if (Flag != 0) size += ProtoHelper.FieldSize(9, Flag);
+        if (GpsLatitude != 0) size += ProtoHelper.FieldSize(10, GpsLatitude);
+        if (GpsLongitude != 0) size += ProtoHelper.FieldSize(11, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(12, Copyright);
         return size;
     }
 
@@ -308,6 +356,12 @@ public sealed class CreateAssetRequest : IProtoSerializable
         ProtoHelper.WriteField(output, 1, FileName); ProtoHelper.WriteField(output, 2, Content);
         ProtoHelper.WriteField(output, 3, Title); ProtoHelper.WriteField(output, 4, Description);
         ProtoHelper.WriteRepeatedField(output, 5, Tags); ProtoHelper.WriteField(output, 6, CollectionId);
+        if (Rating != 0) ProtoHelper.WriteField(output, 7, Rating);
+        if (Label != 0) ProtoHelper.WriteField(output, 8, Label);
+        if (Flag != 0) ProtoHelper.WriteField(output, 9, Flag);
+        if (GpsLatitude != 0) ProtoHelper.WriteField(output, 10, GpsLatitude);
+        if (GpsLongitude != 0) ProtoHelper.WriteField(output, 11, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 12, Copyright);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -323,6 +377,12 @@ public sealed class CreateAssetRequest : IProtoSerializable
                 case 4: Description = input.ReadString(); break;
                 case 5: Tags.Add(input.ReadString()); break;
                 case 6: CollectionId = input.ReadString(); break;
+                case 7: Rating = input.ReadInt32(); break;
+                case 8: Label = input.ReadInt32(); break;
+                case 9: Flag = input.ReadInt32(); break;
+                case 10: GpsLatitude = input.ReadDouble(); break;
+                case 11: GpsLongitude = input.ReadDouble(); break;
+                case 12: Copyright = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -375,6 +435,12 @@ public sealed class UpdateAssetRequest : IProtoSerializable
     public List<string> Tags { get; } = [];
     public string CollectionId { get; set; } = string.Empty;
     public int ExpectedVersion { get; set; }
+    public int Rating { get; set; }
+    public int Label { get; set; }
+    public int Flag { get; set; }
+    public double GpsLatitude { get; set; }
+    public double GpsLongitude { get; set; }
+    public string Copyright { get; set; } = string.Empty;
 
     public int CalculateSize()
     {
@@ -382,6 +448,12 @@ public sealed class UpdateAssetRequest : IProtoSerializable
         size += ProtoHelper.FieldSize(1, Id); size += ProtoHelper.FieldSize(2, Title);
         size += ProtoHelper.FieldSize(3, Description); size += ProtoHelper.RepeatedFieldSize(4, Tags);
         size += ProtoHelper.FieldSize(5, CollectionId); size += ProtoHelper.FieldSize(6, ExpectedVersion);
+        if (Rating != 0) size += ProtoHelper.FieldSize(7, Rating);
+        if (Label != 0) size += ProtoHelper.FieldSize(8, Label);
+        if (Flag != 0) size += ProtoHelper.FieldSize(9, Flag);
+        if (GpsLatitude != 0) size += ProtoHelper.FieldSize(10, GpsLatitude);
+        if (GpsLongitude != 0) size += ProtoHelper.FieldSize(11, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(12, Copyright);
         return size;
     }
 
@@ -390,6 +462,12 @@ public sealed class UpdateAssetRequest : IProtoSerializable
         ProtoHelper.WriteField(output, 1, Id); ProtoHelper.WriteField(output, 2, Title);
         ProtoHelper.WriteField(output, 3, Description); ProtoHelper.WriteRepeatedField(output, 4, Tags);
         ProtoHelper.WriteField(output, 5, CollectionId); ProtoHelper.WriteField(output, 6, ExpectedVersion);
+        if (Rating != 0) ProtoHelper.WriteField(output, 7, Rating);
+        if (Label != 0) ProtoHelper.WriteField(output, 8, Label);
+        if (Flag != 0) ProtoHelper.WriteField(output, 9, Flag);
+        if (GpsLatitude != 0) ProtoHelper.WriteField(output, 10, GpsLatitude);
+        if (GpsLongitude != 0) ProtoHelper.WriteField(output, 11, GpsLongitude);
+        if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 12, Copyright);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -405,6 +483,12 @@ public sealed class UpdateAssetRequest : IProtoSerializable
                 case 4: Tags.Add(input.ReadString()); break;
                 case 5: CollectionId = input.ReadString(); break;
                 case 6: ExpectedVersion = input.ReadInt32(); break;
+                case 7: Rating = input.ReadInt32(); break;
+                case 8: Label = input.ReadInt32(); break;
+                case 9: Flag = input.ReadInt32(); break;
+                case 10: GpsLatitude = input.ReadDouble(); break;
+                case 11: GpsLongitude = input.ReadDouble(); break;
+                case 12: Copyright = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }

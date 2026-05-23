@@ -20,6 +20,14 @@ public class DigitalAsset
     public Guid? UploadedByUserId { get; set; }
     public bool IsDeleted { get; set; }
     public int Version { get; set; } = 1;
+
+    // Metadata round-trip fields (Phase 4)
+    public int Rating { get; set; }
+    public AssetLabel Label { get; set; }
+    public AssetFlag Flag { get; set; }
+    public double? GpsLatitude { get; set; }
+    public double? GpsLongitude { get; set; }
+    public string? Copyright { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ModifiedAt { get; set; }
 

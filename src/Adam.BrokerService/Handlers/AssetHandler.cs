@@ -117,7 +117,10 @@ public sealed class AssetHandler
                 Type = asset.Type.ToString(),
                 CollectionId = asset.CollectionId?.ToString() ?? "",
                 UploadedBy = asset.UploadedByUserId?.ToString() ?? "",
-                CreatedAt = asset.CreatedAt.ToUnixTimeSeconds()
+                CreatedAt = asset.CreatedAt.ToUnixTimeSeconds(),
+                Rating = asset.Rating,
+                Label = (int)asset.Label,
+                Flag = (int)asset.Flag
             });
         }
 
@@ -177,7 +180,13 @@ public sealed class AssetHandler
             UploadedBy = asset.UploadedByUserId?.ToString() ?? "",
             Version = asset.Version,
             CreatedAt = asset.CreatedAt.ToUnixTimeSeconds(),
-            ModifiedAt = asset.ModifiedAt.ToUnixTimeSeconds()
+            ModifiedAt = asset.ModifiedAt.ToUnixTimeSeconds(),
+            Rating = asset.Rating,
+            Label = (int)asset.Label,
+            Flag = (int)asset.Flag,
+            GpsLatitude = asset.GpsLatitude ?? 0,
+            GpsLongitude = asset.GpsLongitude ?? 0,
+            Copyright = asset.Copyright ?? ""
         };
 
         foreach (var kw in asset.Keywords)
@@ -238,6 +247,14 @@ public sealed class AssetHandler
 
         asset.Title = req.Title;
         asset.Description = req.Description;
+        asset.Rating = req.Rating;
+        asset.Label = (Adam.Shared.Models.AssetLabel)req.Label;
+        asset.Flag = (Adam.Shared.Models.AssetFlag)req.Flag;
+        if (req.GpsLatitude != 0) asset.GpsLatitude = req.GpsLatitude;
+        else asset.GpsLatitude = null;
+        if (req.GpsLongitude != 0) asset.GpsLongitude = req.GpsLongitude;
+        else asset.GpsLongitude = null;
+        asset.Copyright = req.Copyright;
         asset.Keywords.Clear();
         if (req.Tags.Count > 0)
         {
@@ -290,7 +307,13 @@ public sealed class AssetHandler
             CollectionId = string.IsNullOrEmpty(req.CollectionId) ? null : Guid.Parse(req.CollectionId),
             Version = 1,
             CreatedAt = DateTimeOffset.UtcNow,
-            ModifiedAt = DateTimeOffset.UtcNow
+            ModifiedAt = DateTimeOffset.UtcNow,
+            Rating = req.Rating,
+            Label = (Adam.Shared.Models.AssetLabel)req.Label,
+            Flag = (Adam.Shared.Models.AssetFlag)req.Flag,
+            GpsLatitude = req.GpsLatitude != 0 ? req.GpsLatitude : null,
+            GpsLongitude = req.GpsLongitude != 0 ? req.GpsLongitude : null,
+            Copyright = req.Copyright
         };
 
         if (req.Tags.Count > 0)
