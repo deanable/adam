@@ -163,6 +163,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         _logger.LogInformation("[LoadFoldersAsync] Starting folder load. IsStandalone={IsStandalone}", _modeManager.IsStandalone);
 
         var paths = new HashSet<string>();
+        var folderCounts = new Dictionary<string, int>();
 
         if (_modeManager.IsStandalone)
         {
@@ -179,9 +180,36 @@ public class SidebarViewModel : INotifyPropertyChanged
                 .Where(d => d.Length > 0)
                 .ToHashSet();
 
+            var allPaths = await db.DigitalAssets
+                .Select(a => a.StoragePath)
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            folderCounts = allPaths
+                .GroupBy(p => GetDirectoryName(p))
+                .ToDictionary(g => g.Key, g => g.Count());
+
             _logger.LogInformation("[LoadFoldersAsync] Retrieved {Count} distinct directories", paths.Count);
             foreach (var p in paths.Take(10))
                 _logger.LogDebug("[LoadFoldersAsync] Dir sample: {Path}", p);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListFoldersRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListFoldersRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListFoldersResponse>(resp.Payload.ToByteArray());
+                foreach (var f in data.Folders)
+                {
+                    paths.Add(f.Path);
+                    folderCounts[f.Path] = f.AssetCount;
+                }
+                _logger.LogInformation("[LoadFoldersAsync] Retrieved {Count} folders from broker", data.Folders.Count);
+            }
         }
 
         // Build tree on background thread
@@ -215,30 +243,17 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
 
         // Populate asset counts
-        if (_modeManager.IsStandalone)
+        foreach (var (dir, count) in folderCounts)
         {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var allPaths = await db.DigitalAssets
-                .Select(a => a.StoragePath)
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            var folderCounts = allPaths
-                .GroupBy(p => GetDirectoryName(p))
-                .Select(g => new { Dir = g.Key, Count = g.Count() })
-                .ToList();
-
-            foreach (var dir in folderCounts)
-            {
-                var node = FindFolderNode(root, dir.Dir);
-                if (node != null)
-                    node.AssetCount = dir.Count;
-            }
-
-            _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
-
-            // Propagate counts upward so parents show totals
-            PropagateFolderCounts(root);
+            var node = FindFolderNode(root, dir);
+            if (node != null)
+                node.AssetCount = count;
         }
+
+        _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
+
+        // Propagate counts upward so parents show totals
+        PropagateFolderCounts(root);
 
         _logger.LogInformation("[LoadFoldersAsync] Assigning Folders collection on UI thread");
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -284,6 +299,31 @@ public class SidebarViewModel : INotifyPropertyChanged
 
             foreach (var col in allCols.Where(c => c.ParentId == null))
                 newCollections.Add(BuildTree(col, allCols));
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListCollectionsRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListCollectionsRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListCollectionsResponse>(resp.Payload.ToByteArray());
+                var allCols = data.Items.Select(c => new CollectionNode
+                {
+                    Id = Guid.Parse(c.Id),
+                    Name = c.Name,
+                    ParentId = string.IsNullOrEmpty(c.ParentId) ? null : Guid.Parse(c.ParentId),
+                    AssetCount = c.AssetCount
+                }).ToList();
+
+                foreach (var col in allCols.Where(c => c.ParentId == null))
+                    newCollections.Add(BuildTree(col, allCols));
+
+                _logger.LogInformation("[LoadCollectionsAsync] Loaded {Count} collections from broker", allCols.Count);
+            }
         }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -355,6 +395,54 @@ public class SidebarViewModel : INotifyPropertyChanged
 
             // Propagate counts upward (leaf counts already set, add children to parents)
             PropagateKeywordCounts(root);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListKeywordsRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListKeywordsRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListKeywordsResponse>(resp.Payload.ToByteArray());
+                var nodeDict = new Dictionary<Guid, KeywordNode>();
+
+                foreach (var kw in data.Keywords)
+                {
+                    var node = new KeywordNode
+                    {
+                        Name = kw.Name,
+                        Path = kw.Name,
+                        KeywordId = kw.Id,
+                        AssetCount = kw.AssetCount
+                    };
+                    nodeDict[kw.Id] = node;
+                }
+
+                foreach (var kw in data.Keywords.Where(k => k.ParentId.HasValue))
+                {
+                    if (nodeDict.TryGetValue(kw.Id, out var childNode) &&
+                        nodeDict.TryGetValue(kw.ParentId!.Value, out var parentNode))
+                    {
+                        childNode.Path = $"{parentNode.Path}|{childNode.Name}";
+                        parentNode.Children.Add(childNode);
+                    }
+                }
+
+                foreach (var kw in data.Keywords.Where(k => !k.ParentId.HasValue))
+                {
+                    if (nodeDict.TryGetValue(kw.Id, out var node))
+                    {
+                        root.Children.Add(node);
+                    }
+                }
+
+                PropagateKeywordCounts(root);
+                _logger.LogInformation("[LoadKeywordsAsync] Loaded {Count} keywords from broker", data.Keywords.Count);
+            }
         }
         else
         {
@@ -435,6 +523,46 @@ public class SidebarViewModel : INotifyPropertyChanged
             // Total count on root
             root.AssetCount = byYear.Sum(g => g.Sum(x => x.Count));
         }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListDateTakenTreeRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListDateTakenTreeRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListDateTakenTreeResponse>(resp.Payload.ToByteArray());
+                foreach (var yearInfo in data.Years)
+                {
+                    var yearNode = new DateTakenNode
+                    {
+                        Name = yearInfo.Year.ToString(),
+                        Year = yearInfo.Year,
+                        AssetCount = yearInfo.AssetCount,
+                        IsExpanded = false
+                    };
+
+                    foreach (var monthInfo in yearInfo.Months)
+                    {
+                        var monthNode = new DateTakenNode
+                        {
+                            Name = monthInfo.MonthName,
+                            Year = yearInfo.Year,
+                            Month = monthInfo.Month,
+                            AssetCount = monthInfo.AssetCount
+                        };
+                        yearNode.Children.Add(monthNode);
+                    }
+
+                    root.Children.Add(yearNode);
+                }
+
+                root.AssetCount = data.Years.Sum(y => y.AssetCount);
+                _logger.LogInformation("[LoadDateTakenTreeAsync] Loaded {Count} years from broker", data.Years.Count);
+            }
+        }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -466,6 +594,28 @@ public class SidebarViewModel : INotifyPropertyChanged
                 MediaFormats[3].Count = docs;
                 MediaFormats[4].Count = audio;
             });
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListMediaFormatCountsRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListMediaFormatCountsRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListMediaFormatCountsResponse>(resp.Payload.ToByteArray());
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    MediaFormats[0].Count = data.TotalCount;
+                    MediaFormats[1].Count = data.ImageCount;
+                    MediaFormats[2].Count = data.VideoCount;
+                    MediaFormats[3].Count = data.DocumentCount;
+                    MediaFormats[4].Count = data.AudioCount;
+                });
+                _logger.LogInformation("[LoadMediaFormatCountsAsync] Loaded format counts from broker: Total={Total}", data.TotalCount);
+            }
         }
     }
 
@@ -525,6 +675,58 @@ public class SidebarViewModel : INotifyPropertyChanged
             // Propagate counts upward
             PropagateCategoryCounts(root);
             newCats.Add(root);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var req = new Envelope
+            {
+                MessageType = MessageTypeCode.ListMetadataCategoriesRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListMetadataCategoriesRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListMetadataCategoriesResponse>(resp.Payload.ToByteArray());
+                var total = data.Categories.Sum(c => c.AssetCount);
+                var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
+                var nodeDict = new Dictionary<Guid, CategoryNode>();
+
+                foreach (var cat in data.Categories)
+                {
+                    var node = new CategoryNode
+                    {
+                        Name = cat.Name,
+                        CategoryId = cat.Id,
+                        Count = cat.AssetCount
+                    };
+                    nodeDict[cat.Id] = node;
+                }
+
+                foreach (var cat in data.Categories.Where(c => c.ParentId.HasValue))
+                {
+                    if (nodeDict.TryGetValue(cat.Id, out var childNode) &&
+                        nodeDict.TryGetValue(cat.ParentId!.Value, out var parentNode))
+                    {
+                        parentNode.Children.Add(childNode);
+                    }
+                }
+
+                foreach (var cat in data.Categories.Where(c => !c.ParentId.HasValue))
+                {
+                    if (nodeDict.TryGetValue(cat.Id, out var node))
+                    {
+                        root.Children.Add(node);
+                    }
+                }
+
+                PropagateCategoryCounts(root);
+                newCats.Add(root);
+                _logger.LogInformation("[LoadMetadataCategoriesAsync] Loaded {Count} categories from broker", data.Categories.Count);
+            }
+            else
+            {
+                newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
+            }
         }
         else
         {

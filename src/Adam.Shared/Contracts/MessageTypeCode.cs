@@ -46,6 +46,27 @@ public enum MessageTypeCode : ushort
     ListAuditLogsRequest = 49,
     ListAuditLogsResponse = 50,
 
+    // Sidebar / Browse (60-69)
+    ListFoldersRequest = 60,
+    ListFoldersResponse = 61,
+    ListKeywordsRequest = 62,
+    ListKeywordsResponse = 63,
+    ListMediaFormatCountsRequest = 64,
+    ListMediaFormatCountsResponse = 65,
+    ListMetadataCategoriesRequest = 66,
+    ListMetadataCategoriesResponse = 67,
+    ListDateTakenTreeRequest = 68,
+    ListDateTakenTreeResponse = 69,
+
+    // Watched Folders (70-79)
+    ListWatchedFoldersRequest = 70,
+    ListWatchedFoldersResponse = 71,
+    CreateWatchedFolderRequest = 72,
+    CreateWatchedFolderResponse = 73,
+    UpdateWatchedFolderRequest = 74,
+    DeleteWatchedFolderRequest = 75,
+    DeleteWatchedFolderResponse = 76,
+
     // Status / Misc (90-99)
     GetServiceStatusRequest = 90,
     GetServiceStatusResponse = 91,

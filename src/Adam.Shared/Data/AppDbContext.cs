@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
     public DbSet<ModeConfiguration> ModeConfigurations => Set<ModeConfiguration>();
+    public DbSet<WatchedFolder> WatchedFolders => Set<WatchedFolder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -176,6 +177,14 @@ public class AppDbContext : DbContext
             e.Property(x => x.Mode).IsRequired().HasMaxLength(20);
             e.Property(x => x.DbProvider).IsRequired().HasMaxLength(20);
             e.Property(x => x.ServiceEndpoint).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<WatchedFolder>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Path).IsRequired().HasMaxLength(2000);
+            e.HasIndex(x => x.Path).IsUnique();
+            e.Property(x => x.IsEnabled).IsRequired();
         });
 
         SeedData(modelBuilder);

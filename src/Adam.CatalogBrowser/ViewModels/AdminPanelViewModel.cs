@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -19,6 +20,8 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     private int _activeConnections;
     private string _uptimeText = "";
     private bool _isServiceInstalled;
+    private string _newWatchedFolderPath = string.Empty;
+    private ObservableCollection<WatchedFolderItem> _watchedFolders = new();
 
     public AdminPanelViewModel(ModeManager modeManager, IEnumerable<IServiceInstaller> serviceInstallers)
     {
@@ -31,6 +34,14 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         InstallServiceCommand = new RelayCommand(async _ => await InstallServiceAsync(), _ => !_isServiceInstalled);
         UninstallServiceCommand = new RelayCommand(async _ => await UninstallServiceAsync(), _ => _isServiceInstalled);
         OpenMigrationWizardCommand = new RelayCommand(_ => OpenMigrationWizard());
+        AddWatchedFolderCommand = new RelayCommand(async _ => await AddWatchedFolderAsync(), _ => !string.IsNullOrWhiteSpace(NewWatchedFolderPath));
+        RemoveWatchedFolderCommand = new RelayCommand(async param => await RemoveWatchedFolderAsync(param), _ => true);
+        RefreshWatchedFoldersCommand = new RelayCommand(async _ => await LoadWatchedFoldersAsync());
+
+        if (_modeManager.IsMultiUser)
+        {
+            _ = LoadWatchedFoldersAsync();
+        }
     }
 
     public string SelectedMode
@@ -88,6 +99,21 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     public ICommand InstallServiceCommand { get; }
     public ICommand UninstallServiceCommand { get; }
     public ICommand OpenMigrationWizardCommand { get; }
+    public ICommand AddWatchedFolderCommand { get; }
+    public ICommand RemoveWatchedFolderCommand { get; }
+    public ICommand RefreshWatchedFoldersCommand { get; }
+
+    public ObservableCollection<WatchedFolderItem> WatchedFolders
+    {
+        get => _watchedFolders;
+        set { _watchedFolders = value; OnPropertyChanged(); }
+    }
+
+    public string NewWatchedFolderPath
+    {
+        get => _newWatchedFolderPath;
+        set { _newWatchedFolderPath = value; OnPropertyChanged(); ((RelayCommand)AddWatchedFolderCommand).RaiseCanExecuteChanged(); }
+    }
 
     public event Action? NavigateToMigrationWizard;
 
@@ -186,12 +212,142 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         NavigateToMigrationWizard?.Invoke();
     }
 
+    private async Task LoadWatchedFoldersAsync()
+    {
+        if (_modeManager.BrokerClient?.IsConnected != true) return;
+
+        IsBusy = true;
+        try
+        {
+            var auth = _modeManager.AuthSession;
+            var req = new Envelope
+            {
+                AuthToken = auth?.Token ?? "",
+                CorrelationId = Guid.NewGuid().ToString(),
+                MessageType = MessageTypeCode.ListWatchedFoldersRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListWatchedFoldersRequest()))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req);
+            if (resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListWatchedFoldersResponse>(resp.Payload.ToByteArray());
+                WatchedFolders = new ObservableCollection<WatchedFolderItem>(
+                    data.Folders.Select(f => new WatchedFolderItem
+                    {
+                        Id = f.Id,
+                        Path = f.Path,
+                        IsEnabled = f.IsEnabled
+                    }));
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to load watched folders: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task AddWatchedFolderAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewWatchedFolderPath) || _modeManager.BrokerClient?.IsConnected != true) return;
+
+        IsBusy = true;
+        try
+        {
+            var auth = _modeManager.AuthSession;
+            var req = new Envelope
+            {
+                AuthToken = auth?.Token ?? "",
+                CorrelationId = Guid.NewGuid().ToString(),
+                MessageType = MessageTypeCode.CreateWatchedFolderRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new CreateWatchedFolderRequest { Path = NewWatchedFolderPath.Trim() }))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req);
+            if (resp.StatusCode == 0)
+            {
+                NewWatchedFolderPath = string.Empty;
+                await LoadWatchedFoldersAsync();
+                StatusMessage = "Watched folder added successfully.";
+            }
+            else
+            {
+                StatusMessage = $"Failed to add watched folder: {resp.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to add watched folder: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RemoveWatchedFolderAsync(object? param)
+    {
+        if (param is not WatchedFolderItem item || _modeManager.BrokerClient?.IsConnected != true) return;
+
+        IsBusy = true;
+        try
+        {
+            var auth = _modeManager.AuthSession;
+            var req = new Envelope
+            {
+                AuthToken = auth?.Token ?? "",
+                CorrelationId = Guid.NewGuid().ToString(),
+                MessageType = MessageTypeCode.DeleteWatchedFolderRequest,
+                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new DeleteWatchedFolderRequest { Id = item.Id }))
+            };
+            var resp = await _modeManager.BrokerClient.SendAsync(req);
+            if (resp.StatusCode == 0)
+            {
+                await LoadWatchedFoldersAsync();
+                StatusMessage = "Watched folder removed successfully.";
+            }
+            else
+            {
+                StatusMessage = $"Failed to remove watched folder: {resp.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to remove watched folder: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private static string FormatUptime(long seconds)
     {
         var ts = TimeSpan.FromSeconds(seconds);
         return ts.TotalDays >= 1
             ? $"{ts.Days}d {ts.Hours}h {ts.Minutes}m"
             : $"{ts.Hours}h {ts.Minutes}m {ts.Seconds}s";
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
+
+public class WatchedFolderItem : INotifyPropertyChanged
+{
+    private bool _isEnabled;
+
+    public string Id { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set { _isEnabled = value; OnPropertyChanged(); }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

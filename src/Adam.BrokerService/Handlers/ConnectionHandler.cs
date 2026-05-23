@@ -13,6 +13,8 @@ public sealed class ConnectionHandler : IConnectionHandler
     private readonly UserHandler _userHandler;
     private readonly AuditLogHandler _auditLogHandler;
     private readonly StatusHandler _statusHandler;
+    private readonly SidebarHandler _sidebarHandler;
+    private readonly WatchedFolderHandler _watchedFolderHandler;
     private readonly ILogger<ConnectionHandler> _logger;
 
     public ConnectionHandler(
@@ -23,6 +25,8 @@ public sealed class ConnectionHandler : IConnectionHandler
         UserHandler userHandler,
         AuditLogHandler auditLogHandler,
         StatusHandler statusHandler,
+        SidebarHandler sidebarHandler,
+        WatchedFolderHandler watchedFolderHandler,
         ILogger<ConnectionHandler> logger)
     {
         _authHandler = authHandler;
@@ -32,6 +36,8 @@ public sealed class ConnectionHandler : IConnectionHandler
         _userHandler = userHandler;
         _auditLogHandler = auditLogHandler;
         _statusHandler = statusHandler;
+        _sidebarHandler = sidebarHandler;
+        _watchedFolderHandler = watchedFolderHandler;
         _logger = logger;
     }
 
@@ -55,6 +61,15 @@ public sealed class ConnectionHandler : IConnectionHandler
                 MessageTypeCode.DeleteUserRequest => await _userHandler.DeleteUserAsync(request, ct),
                 MessageTypeCode.ListAuditLogsRequest => await _auditLogHandler.ListAuditLogsAsync(request, ct),
                 MessageTypeCode.GetServiceStatusRequest => await _statusHandler.GetStatusAsync(request, ct),
+                MessageTypeCode.ListFoldersRequest => await _sidebarHandler.ListFoldersAsync(request, ct),
+                MessageTypeCode.ListKeywordsRequest => await _sidebarHandler.ListKeywordsAsync(request, ct),
+                MessageTypeCode.ListMediaFormatCountsRequest => await _sidebarHandler.ListMediaFormatCountsAsync(request, ct),
+                MessageTypeCode.ListMetadataCategoriesRequest => await _sidebarHandler.ListMetadataCategoriesAsync(request, ct),
+                MessageTypeCode.ListDateTakenTreeRequest => await _sidebarHandler.ListDateTakenTreeAsync(request, ct),
+                MessageTypeCode.ListWatchedFoldersRequest => await _watchedFolderHandler.ListAsync(request, ct),
+                MessageTypeCode.CreateWatchedFolderRequest => await _watchedFolderHandler.CreateAsync(request, ct),
+                MessageTypeCode.UpdateWatchedFolderRequest => await _watchedFolderHandler.UpdateAsync(request, ct),
+                MessageTypeCode.DeleteWatchedFolderRequest => await _watchedFolderHandler.DeleteAsync(request, ct),
                 _ => CreateErrorResponse(request, 3, $"Unknown message type: {request.MessageType}")
             };
         }

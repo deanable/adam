@@ -23,6 +23,7 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
     private readonly List<FileSystemWatcher> _watchers = new();
     private readonly ConcurrentDictionary<string, System.Threading.Timer> _debounceTimers = new();
     private readonly TimeSpan _debounceWindow = TimeSpan.FromMilliseconds(500);
+    private System.Threading.Timer? _refreshTimer;
 
     public FolderWatcherHostedService(IServiceProvider serviceProvider, ILogger<FolderWatcherHostedService> logger, IConfiguration configuration)
     {
@@ -31,26 +32,83 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
         _configuration = configuration;
     }
 
-    public Task StartAsync(CancellationToken ct)
+    public async Task StartAsync(CancellationToken ct)
     {
-        var folders = _configuration.GetSection("Broker:WatchedFolders").Get<string[]>() ?? Array.Empty<string>();
+        await RefreshWatchersAsync(ct);
+        _refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await RefreshWatchersAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error refreshing folder watchers");
+            }
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task RefreshWatchersAsync(CancellationToken ct)
+    {
+        var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Config-based folders
+        var configFolders = _configuration.GetSection("Broker:WatchedFolders").Get<string[]>() ?? Array.Empty<string>();
+        foreach (var f in configFolders)
+            folders.Add(f);
+
+        // DB-based folders
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var dbFolders = await db.WatchedFolders
+                .AsNoTracking()
+                .Where(w => w.IsEnabled)
+                .Select(w => w.Path)
+                .ToListAsync(ct);
+            foreach (var f in dbFolders)
+                folders.Add(f);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load watched folders from database");
+        }
+
+        // Stop watchers for removed folders
+        var toRemove = _watchers.Where(w => !folders.Contains(w.Path)).ToList();
+        foreach (var watcher in toRemove)
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+            _watchers.Remove(watcher);
+            _logger.LogInformation("Stopped watching folder: {Folder}", watcher.Path);
+        }
+
+        // Start watchers for new folders
         foreach (var folder in folders)
         {
-            if (Directory.Exists(folder))
+            if (!_watchers.Any(w => string.Equals(w.Path, folder, StringComparison.OrdinalIgnoreCase)))
             {
-                StartWatcher(folder);
-            }
-            else
-            {
-                _logger.LogWarning("Watched folder does not exist: {Folder}", folder);
+                if (Directory.Exists(folder))
+                {
+                    StartWatcher(folder);
+                }
+                else
+                {
+                    _logger.LogWarning("Watched folder does not exist: {Folder}", folder);
+                }
             }
         }
-        _logger.LogInformation("Folder watcher started: {Count} folder(s)", _watchers.Count);
-        return Task.CompletedTask;
+
+        _logger.LogDebug("Folder watcher refresh: {Count} active folder(s)", _watchers.Count);
     }
 
     public Task StopAsync(CancellationToken ct)
     {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+
         foreach (var watcher in _watchers)
         {
             watcher.EnableRaisingEvents = false;
