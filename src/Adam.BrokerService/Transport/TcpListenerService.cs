@@ -11,10 +11,12 @@ public sealed class TcpListenerService
 {
     private const int MaxConnections = 50;
     private const int MaxRequestsPerConnection = 500;
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
 
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private readonly ConcurrentDictionary<string, ConnectionState> _connections = new();
+    private readonly ConcurrentDictionary<string, Task> _connectionTasks = new();
     private readonly ILogger<TcpListenerService> _logger;
     private readonly IConnectionHandler _handler;
     private long _rejectedCount;
@@ -38,6 +40,8 @@ public sealed class TcpListenerService
 
         _logger.LogInformation("Broker service listening on port {Port}", port);
 
+        _ = IdleMonitorLoopAsync(_cts.Token);
+
         try
         {
             while (!_cts.Token.IsCancellationRequested)
@@ -58,7 +62,9 @@ public sealed class TcpListenerService
 
                 _logger.LogInformation("Client connected: {ConnectionId} (active: {Count})", connectionId, _connections.Count);
 
-                _ = HandleConnectionAsync(state, _cts.Token);
+                var task = HandleConnectionAsync(state, _cts.Token);
+                _connectionTasks.TryAdd(connectionId, task);
+                _ = task.ContinueWith(_ => _connectionTasks.TryRemove(connectionId, out Task? _), TaskScheduler.Default);
             }
         }
         catch (OperationCanceledException)
@@ -67,16 +73,34 @@ public sealed class TcpListenerService
         }
     }
 
-    public void Stop()
+    public async Task StopAsync()
     {
         _cts?.Cancel();
         _listener?.Stop();
 
+        _logger.LogInformation("Broker service stopping: waiting for {Count} connection(s) to drain", _connectionTasks.Count);
+
+        // Give active connections up to 30 seconds to finish
+        var drainTasks = _connectionTasks.Values.ToArray();
+        if (drainTasks.Length > 0)
+        {
+            var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                await Task.WhenAll(drainTasks.Select(t => t.WaitAsync(drainCts.Token)));
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Drain timeout expired; {Count} connection(s) did not finish gracefully", _connectionTasks.Count);
+            }
+        }
+
         foreach (var kvp in _connections)
         {
-            kvp.Value.Client.Close();
+            try { kvp.Value.Client.Close(); } catch { /* ignore */ }
         }
         _connections.Clear();
+        _connectionTasks.Clear();
 
         _logger.LogInformation("Broker service stopped");
     }
@@ -98,7 +122,8 @@ public sealed class TcpListenerService
                 var envelope = await TcpFrame.ReceiveAsync(stream, ct);
                 if (envelope == null) break;
 
-                state.RequestCount++;
+                state.LastActivity = DateTimeOffset.UtcNow;
+                Interlocked.Increment(ref state._requestCount);
                 var response = await _handler.HandleAsync(envelope, ct);
                 await TcpFrame.SendAsync(stream, response, ct);
             }
@@ -119,16 +144,45 @@ public sealed class TcpListenerService
         }
     }
 
+    private async Task IdleMonitorLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(1), ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            foreach (var kvp in _connections)
+            {
+                if (now - kvp.Value.LastActivity > IdleTimeout)
+                {
+                    _logger.LogInformation("Connection {ConnectionId} idle for {Idle}s; disconnecting",
+                        kvp.Key, (now - kvp.Value.LastActivity).TotalSeconds);
+                    try { kvp.Value.Client.Close(); } catch { /* ignore */ }
+                }
+            }
+        }
+    }
+
     private sealed class ConnectionState
     {
         public string Id { get; }
         public TcpClient Client { get; }
-        public int RequestCount { get; set; }
+        public DateTimeOffset LastActivity { get; set; }
+        internal long _requestCount;
+        public long RequestCount => Interlocked.Read(ref _requestCount);
 
         public ConnectionState(string id, TcpClient client)
         {
             Id = id;
             Client = client;
+            LastActivity = DateTimeOffset.UtcNow;
         }
     }
 }

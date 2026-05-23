@@ -12,14 +12,24 @@ public static class TcpFrame
     /// </summary>
     private const int ReceiveTimeoutMs = 300_000;
 
+    /// <summary>
+    /// Default timeout for sending data to a peer (30 seconds).
+    /// Prevents blocking indefinitely if a peer stops reading.
+    /// </summary>
+    private const int SendTimeoutMs = 30_000;
+
     public static async Task SendAsync(NetworkStream stream, Envelope envelope, CancellationToken ct = default)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(SendTimeoutMs);
+        var linkedCt = timeoutCts.Token;
+
         var payload = ProtoHelper.Serialize(envelope);
         var lengthBuffer = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(payload.Length));
 
-        await stream.WriteAsync(lengthBuffer, ct).ConfigureAwait(false);
-        await stream.WriteAsync(payload, ct).ConfigureAwait(false);
-        await stream.FlushAsync(ct).ConfigureAwait(false);
+        await stream.WriteAsync(lengthBuffer, linkedCt).ConfigureAwait(false);
+        await stream.WriteAsync(payload, linkedCt).ConfigureAwait(false);
+        await stream.FlushAsync(linkedCt).ConfigureAwait(false);
     }
 
     public static async Task<Envelope?> ReceiveAsync(NetworkStream stream, CancellationToken ct = default)

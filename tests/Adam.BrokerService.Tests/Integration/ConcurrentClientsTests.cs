@@ -90,7 +90,7 @@ public sealed class ConcurrentClientsTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        _listener.Stop();
+        await _listener.StopAsync();
         await _serviceProvider.DisposeAsync();
     }
 

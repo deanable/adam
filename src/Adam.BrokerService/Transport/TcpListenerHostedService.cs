@@ -21,7 +21,7 @@ public sealed class TcpListenerHostedService : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _listener.Stop();
+        await _listener.StopAsync();
         await base.StopAsync(cancellationToken);
     }
 }
