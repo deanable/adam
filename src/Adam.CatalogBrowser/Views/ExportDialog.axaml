@@ -1,0 +1,147 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        x:Class="Adam.CatalogBrowser.Views.ExportDialog"
+        x:DataType="vm:ExportDialogViewModel"
+        Title="Export Images"
+        Width="420"
+        Height="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <Border Padding="20" Background="White">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Export Images"
+                 FontSize="18"
+                 FontWeight="Bold"
+                 Foreground="#333" />
+
+      <!-- Destination folder -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Destination Folder:" FontSize="12" Foreground="#666" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox Grid.Column="0"
+                   Text="{Binding DestinationFolder}"
+                   FontSize="12"
+                   BorderThickness="1"
+                   BorderBrush="#D0D0D0"
+                   CornerRadius="4"
+                   Padding="6,4"
+                   IsReadOnly="True" />
+          <Button Grid.Column="1"
+                  Content="Browse..."
+                  Command="{Binding BrowseCommand}"
+                  Margin="8,0,0,0"
+                  Padding="10,4"
+                  FontSize="12"
+                  Background="#F0F0F0"
+                  BorderBrush="#D0D0D0"
+                  CornerRadius="4" />
+        </Grid>
+      </StackPanel>
+
+      <!-- Format -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Format:" FontSize="12" Foreground="#666" />
+        <ComboBox SelectedIndex="{Binding SelectedFormatIndex}"
+                  FontSize="12"
+                  BorderThickness="1"
+                  BorderBrush="#D0D0D0"
+                  CornerRadius="4"
+                  Padding="6,4"
+                  Width="120">
+          <ComboBoxItem Content="JPEG" />
+          <ComboBoxItem Content="TIFF" />
+        </ComboBox>
+      </StackPanel>
+
+      <!-- Quality (JPEG only) -->
+      <StackPanel Spacing="4" IsVisible="{Binding IsJpegSelected}">
+        <TextBlock Text="Quality:" FontSize="12" Foreground="#666" />
+        <Grid ColumnDefinitions="*,Auto">
+          <Slider Grid.Column="0"
+                  Minimum="1"
+                  Maximum="100"
+                  Value="{Binding Quality}"
+                  TickFrequency="1"
+                  IsSnapToTickEnabled="True" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding Quality}"
+                     FontSize="12"
+                     Width="32"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center" />
+        </Grid>
+      </StackPanel>
+
+      <!-- Compression (TIFF only) -->
+      <StackPanel Spacing="4" IsVisible="{Binding !IsJpegSelected}">
+        <TextBlock Text="Compression:" FontSize="12" Foreground="#666" />
+        <ComboBox SelectedIndex="{Binding SelectedCompressionIndex}"
+                  FontSize="12"
+                  BorderThickness="1"
+                  BorderBrush="#D0D0D0"
+                  CornerRadius="4"
+                  Padding="6,4"
+                  Width="120">
+          <ComboBoxItem Content="None" />
+          <ComboBoxItem Content="LZW" />
+        </ComboBox>
+      </StackPanel>
+
+      <!-- Max dimension -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Max Dimension (px):" FontSize="12" Foreground="#666" />
+        <TextBox Text="{Binding MaxDimensionText}"
+                 FontSize="12"
+                 BorderThickness="1"
+                 BorderBrush="#D0D0D0"
+                 CornerRadius="4"
+                 Padding="6,4"
+                 PlaceholderText="Leave empty for original size" />
+      </StackPanel>
+
+      <!-- Progress -->
+      <StackPanel Spacing="4" IsVisible="{Binding IsExporting}">
+        <ProgressBar Value="{Binding ProgressValue}"
+                     Maximum="100"
+                     Height="16"
+                     CornerRadius="4" />
+        <TextBlock Text="{Binding ProgressText}"
+                   FontSize="11"
+                   Foreground="#666"
+                   TextAlignment="Center" />
+      </StackPanel>
+
+      <!-- Buttons -->
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8"
+                  Margin="0,8,0,0">
+        <Button Content="Export"
+                Command="{Binding ExportCommand}"
+                IsEnabled="{Binding CanExport}"
+                Padding="16,6"
+                FontSize="12"
+                Background="#1976D2"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#E0E0E0" />
+              <Setter Property="Foreground" Value="#999" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Cancel"
+                IsCancel="True"
+                Padding="16,6"
+                FontSize="12"
+                Background="#F0F0F0"
+                BorderBrush="#D0D0D0"
+                CornerRadius="4" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

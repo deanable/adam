@@ -14,6 +14,7 @@ public class AssetListItem : INotifyPropertyChanged
     private Bitmap? _thumbnail;
 
     public Guid Id { get; set; }
+    public string StoragePath { get; set; } = string.Empty;
 
     public string Title
     {

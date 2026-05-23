@@ -193,6 +193,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         });
         ShowUserManagementCommand = new RelayCommand(_ => CurrentView = userManagement);
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
+        ExportCommand = new RelayCommand(_ => ShowExportDialog());
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
         RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw));
@@ -616,6 +617,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+    public ICommand ExportCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
     public ICommand FlipHorizontalCommand { get; }
@@ -1254,6 +1256,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to auto-save tags for selected asset");
+        }
+    }
+
+    private async void ShowExportDialog()
+    {
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0)
+            return;
+
+        var dialog = new Views.ExportDialog();
+        if (dialog.DataContext is ExportDialogViewModel vm)
+        {
+            vm.SelectedAssets = selected;
+        }
+
+        if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+        {
+            await dialog.ShowDialog(desktop.MainWindow);
         }
     }
 

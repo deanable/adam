@@ -299,6 +299,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                         Id = asset.Id,
                         Title = asset.Title,
                         FileName = asset.FileName,
+                        StoragePath = asset.StoragePath,
                         FileType = asset.MimeType,
                         FileSize = asset.FileSize,
                         Width = asset.Width,

@@ -342,6 +342,29 @@
                   <Button Content="⇅" Command="{Binding FlipVerticalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
                 </StackPanel>
 
+                <!-- Export button (single-asset mode) -->
+                <Button Content="Export..."
+                        Command="{Binding ExportCommand}"
+                        IsVisible="{Binding HasSingleSelection}"
+                        HorizontalAlignment="Right"
+                        Margin="0,4,0,0"
+                        Padding="12,4"
+                        FontSize="11"
+                        Background="#388E3C"
+                        Foreground="White"
+                        BorderThickness="0"
+                        CornerRadius="4"
+                        Cursor="Hand">
+                  <Button.Styles>
+                    <Style Selector="Button:pointerover">
+                      <Setter Property="Background" Value="#2E7D32" />
+                    </Style>
+                    <Style Selector="Button:pressed">
+                      <Setter Property="Background" Value="#1B5E20" />
+                    </Style>
+                  </Button.Styles>
+                </Button>
+
                 <!-- Save button (single-asset mode) -->
                 <Button Content="Save Changes"
                         Command="{Binding SaveTagsCommand}"
