@@ -45,6 +45,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private IEnumerable<string>? _categoryAutoCompleteSource;
     private DateTimeOffset? _selectedAssetDateTaken;
     private bool _dateTakenDirty;
+    private int _selectedAssetRating;
+    private bool _ratingDirty;
+    private int _selectedAssetLabel;
+    private bool _labelDirty;
+    private int _selectedAssetFlag;
+    private bool _flagDirty;
+    private string? _selectedAssetCopyright;
+    private bool _copyrightDirty;
+    private string? _selectedAssetGpsLatitude;
+    private string? _selectedAssetGpsLongitude;
+    private bool _gpsDirty;
     private bool _showSaveToast;
     private string _saveToastText = "Changes saved";
     private string _connectionStatusText = "Disconnected";
@@ -135,7 +146,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
-            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty));
+            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty));
 
         ReconnectCommand = new RelayCommand(async _ =>
         {
@@ -451,6 +462,96 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Editable categories for the currently selected asset (single-asset mode).
     /// Each string is a category name. Changes are auto-saved on selection switch.
     /// </summary>
+    public int SelectedAssetRating
+    {
+        get => _selectedAssetRating;
+        set
+        {
+            if (_selectedAssetRating != value)
+            {
+                _selectedAssetRating = value;
+                _ratingDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int SelectedAssetLabel
+    {
+        get => _selectedAssetLabel;
+        set
+        {
+            if (_selectedAssetLabel != value)
+            {
+                _selectedAssetLabel = value;
+                _labelDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int SelectedAssetFlag
+    {
+        get => _selectedAssetFlag;
+        set
+        {
+            if (_selectedAssetFlag != value)
+            {
+                _selectedAssetFlag = value;
+                _flagDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string? SelectedAssetCopyright
+    {
+        get => _selectedAssetCopyright;
+        set
+        {
+            if (_selectedAssetCopyright != value)
+            {
+                _selectedAssetCopyright = value;
+                _copyrightDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string? SelectedAssetGpsLatitude
+    {
+        get => _selectedAssetGpsLatitude;
+        set
+        {
+            if (_selectedAssetGpsLatitude != value)
+            {
+                _selectedAssetGpsLatitude = value;
+                _gpsDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string? SelectedAssetGpsLongitude
+    {
+        get => _selectedAssetGpsLongitude;
+        set
+        {
+            if (_selectedAssetGpsLongitude != value)
+            {
+                _selectedAssetGpsLongitude = value;
+                _gpsDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public ObservableCollection<string> SelectedAssetCategories
     {
         get => _selectedAssetCategories;
@@ -680,6 +781,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
                                 ? new DateTimeOffset(asset.MetadataProfile.DateTaken.Value)
                                 : null;
                             _dateTakenDirty = false;
+
+                            SelectedAssetRating = asset.Rating;
+                            _ratingDirty = false;
+                            SelectedAssetLabel = (int)asset.Label;
+                            _labelDirty = false;
+                            SelectedAssetFlag = (int)asset.Flag;
+                            _flagDirty = false;
+                            SelectedAssetCopyright = asset.Copyright;
+                            _copyrightDirty = false;
+                            SelectedAssetGpsLatitude = asset.GpsLatitude?.ToString();
+                            SelectedAssetGpsLongitude = asset.GpsLongitude?.ToString();
+                            _gpsDirty = false;
 
                             SaveTagsCommand.RaiseCanExecuteChanged();
                         });
@@ -1003,7 +1116,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     private async Task AutoSaveTagsAsync()
     {
-        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty && !_dateTakenDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
+        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty && !_dateTakenDirty && !_ratingDirty && !_labelDirty && !_flagDirty && !_copyrightDirty && !_gpsDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
             return;
 
         try
@@ -1061,13 +1174,33 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 asset.MetadataProfile.DateTaken = SelectedAssetDateTaken?.DateTime;
             }
 
+            // Save new metadata fields
+            if (_ratingDirty)
+                asset.Rating = SelectedAssetRating;
+            if (_labelDirty)
+                asset.Label = (AssetLabel)SelectedAssetLabel;
+            if (_flagDirty)
+                asset.Flag = (AssetFlag)SelectedAssetFlag;
+            if (_copyrightDirty)
+                asset.Copyright = SelectedAssetCopyright;
+            if (_gpsDirty)
+            {
+                asset.GpsLatitude = double.TryParse(SelectedAssetGpsLatitude, out var lat) ? lat : null;
+                asset.GpsLongitude = double.TryParse(SelectedAssetGpsLongitude, out var lon) ? lon : null;
+            }
+
             await db.SaveChangesAsync().ConfigureAwait(false);
-            _logger.LogInformation("[AutoSaveTags] Saved description/categories/tags/date for asset {Id}",
+            _logger.LogInformation("[AutoSaveTags] Saved metadata for asset {Id}",
                 _selectedAsset.Id);
             _tagsDirty = false;
             _categoriesDirty = false;
             _descriptionDirty = false;
             _dateTakenDirty = false;
+            _ratingDirty = false;
+            _labelDirty = false;
+            _flagDirty = false;
+            _copyrightDirty = false;
+            _gpsDirty = false;
             SaveTagsCommand.RaiseCanExecuteChanged();
 
             // Show the save-toast notification
