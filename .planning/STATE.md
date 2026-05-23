@@ -16,9 +16,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
-| 1 | ✓ | 1/1 | 100% |
-| 2 | ✓ | 1/1 | 100% |
-| 3 | ○ | 0/0 | 0% |
+| 1 | ✅ | 1/1 | 100% | Archived |
+| 2 | ✅ | 1/1 | 100% | Archived |
+| 3 | 🚧 | 0/0 | 0% | Next |
 | 4 | ○ | 0/0 | 0% |
 | 5 | ○ | 0/0 | 0% |
 | 6 | ○ | 0/0 | 0% |
@@ -66,9 +66,10 @@ None.
 - **FIXED:** TLS transport (T2.1), brute-force protection (T2.13), JWT claims (T2.14), security logging (T2.15)
 - **FIXED:** Auto-reconnect (T2.6), timeout/retry (T2.20), ChangePoller retry (T2.21), token expiry (T2.23), connection status UI (T2.22)
 - **FIXED:** FolderWatcher service (T2.24) with debounced auto-indexing
+- **FIXED:** Watched folder DB persistence + admin panel UI (T2.25)
 - All 104 tests pass (2 Docker-dependent skipped)
 - **25 of 25 Phase 2 tasks complete**
-- **Remaining:** None
+- **Phase 2 archived to:** `.planning/milestones/v1.0-in-progress.md`
 
 ## Phase 2 Plan
 
@@ -86,8 +87,8 @@ None.
 
 ## Next Actions
 
-1. Mark Phase 2 as complete and archive milestone
-2. Begin Phase 3 planning
+1. `/gsd-discuss-phase 3` — Gather context for Multi-User Concurrency
+2. `/gsd-plan-phase 3` — Create detailed plan for real-time change propagation
 3. Create integration tests for TLS, reconnection, and rate limiting
 
 ---

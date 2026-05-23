@@ -7,15 +7,15 @@
 
 ## Overview
 
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| 1 | Standalone Mode | Deliver a fully functional self-contained catalog browser with SQLite, browse/search/view, and metadata extraction | CATA-01 to CATA-11, META-05, DB-01 | 5 |
-| 2 | Multi-User Foundation | Connect catalog browser to broker service over TCP with auth, asset browsing, and folder watching | AUTH-01 to AUTH-03, AUTH-06, BROK-01, BROK-05 | 5 |
-| 3 | Multi-User Concurrency | Ensure real-time change propagation, concurrent access stability, and conflict resolution | BROK-02 to BROK-04 | 3 |
-| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 |
-| 5 | Admin Panel & Mode Management | Mode toggle, native service deployment, database migration wizard, service monitoring | ADMIN-01 to ADMIN-04 | 4 |
-| 6 | Database Provider Matrix | Full support and testing for SQLite, PostgreSQL, and SQL Server with swappable configuration | DB-02 to DB-04 | 3 |
-| 7 | User & Role Administration | Full user lifecycle, RBAC enforcement, audit log viewer | AUTH-04, AUTH-05 | 3 |
+| # | Phase | Goal | Requirements | Success Criteria | Status |
+|---|-------|------|--------------|------------------|--------|
+| 1 | Standalone Mode | Deliver a fully functional self-contained catalog browser with SQLite, browse/search/view, and metadata extraction | CATA-01 to CATA-11, META-05, DB-01 | 5 | ✅ Complete |
+| 2 | Multi-User Foundation | Connect catalog browser to broker service over TCP with auth, asset browsing, and folder watching | AUTH-01 to AUTH-03, AUTH-06, BROK-01, BROK-05 | 5 | ✅ Complete |
+| 3 | Multi-User Concurrency | Ensure real-time change propagation, concurrent access stability, and conflict resolution | BROK-02 to BROK-04 | 3 | 🚧 Not started |
+| 4 | Asset Ingestion & Management | Complete asset lifecycle — upload (folder scan), metadata editing, adjustments, export, thumbnails | META-01 to META-04, EDIT-01 to EDIT-04 | 6 | 📋 Planned |
+| 5 | Admin Panel & Mode Management | Mode toggle, native service deployment, database migration wizard, service monitoring | ADMIN-01 to ADMIN-04 | 4 | 📋 Planned |
+| 6 | Database Provider Matrix | Full support and testing for SQLite, PostgreSQL, and SQL Server with swappable configuration | DB-02 to DB-04 | 3 | 📋 Planned |
+| 7 | User & Role Administration | Full user lifecycle, RBAC enforcement, audit log viewer | AUTH-04, AUTH-05 | 3 | 📋 Planned |
 
 ## Phase Details
 
@@ -34,11 +34,13 @@
 
 **UI Hint:** yes — Avalonia views for gallery, detail pane, collection tree, search bar
 
-### Phase 2: Multi-User Foundation
+### Phase 2: Multi-User Foundation ✅
 
 **Goal:** The catalog browser connects to a running broker service over TCP, authenticates, and browses the shared catalog.
 
 **Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-06, BROK-01, BROK-05
+
+**Status:** Completed 2026-05-23
 
 **Success Criteria:**
 1. Broker service starts and accepts TCP connections on configured port
@@ -48,6 +50,8 @@
 5. Audit log records every authenticated request
 
 **UI Hint:** yes — Login view, connection status indicator
+
+**Archive:** `.planning/milestones/v1.0-in-progress.md`
 
 ### Phase 3: Multi-User Concurrency
 
@@ -122,11 +126,13 @@
 
 ## Milestones
 
-### v1.0 — Core DAM (Phases 1-3)
+### v1.0 — Core DAM (Phases 1-3) 🚧 In Progress
 
 **Goal:** A working digital asset catalog in both standalone and multi-user modes.
 **Requirements:** 19 of 34 v1 requirements
 **Completion Criteria:** All Phase 1-3 success criteria pass
+**Progress:** Phases 1-2 complete, Phase 3 pending
+**Archive:** `.planning/milestones/v1.0-in-progress.md`
 
 ### v1.1 — Management & Deployment (Phases 4-6)
 
@@ -140,6 +146,18 @@
 **Requirements:** 2 of 34 v1 requirements
 **Completion Criteria:** All Phase 7 success criteria pass
 
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Standalone Mode | v1.0 | 1/1 | Complete | 2026-05-23 |
+| 2. Multi-User Foundation | v1.0 | 1/1 | Complete | 2026-05-23 |
+| 3. Multi-User Concurrency | v1.0 | 0/1 | Not started | — |
+| 4. Asset Ingestion & Management | v1.1 | 0/1 | Planned | — |
+| 5. Admin Panel & Mode Management | v1.1 | 0/1 | Planned | — |
+| 6. Database Provider Matrix | v1.1 | 0/1 | Planned | — |
+| 7. User & Role Administration | v1.2 | 0/1 | Planned | — |
+
 ---
 *Roadmap created: 2026-05-23*
-*Last updated: 2026-05-23 after initialization*
+*Last updated: 2026-05-23 after Phase 2 completion*
