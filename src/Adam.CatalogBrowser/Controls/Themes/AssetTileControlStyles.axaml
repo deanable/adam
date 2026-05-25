@@ -28,13 +28,14 @@
   <Style Selector="controls|AssetTileControl">
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Background="White"
-                BorderBrush="#E0E0E0"
-                BorderThickness="1"
-                CornerRadius="4"
-                Padding="6">
+         <Border Background="White"
+                 BorderBrush="#E0E0E0"
+                 BorderThickness="1"
+                 CornerRadius="4"
+                 Padding="6">
 
-          <StackPanel Spacing="4">
+           <StackPanel Spacing="4"
+                       MaxWidth="{TemplateBinding ThumbnailSize}">
 
             <!-- ═══════════════════════════════════ -->
             <!--  Toolbar row (action buttons)       -->
