@@ -85,7 +85,17 @@ public class TagEditorControl : TemplatedControl
         get => _tags;
         set
         {
+            // Unsubscribe from old collection
+            if (_tags != null)
+                _tags.CollectionChanged -= OnTagsCollectionChanged;
+
             SetAndRaise(TagsProperty, ref _tags, value);
+
+            // Subscribe to new collection changes so SyncTagsToOccurrences is
+            // called whenever the ViewModel clears/refills the same instance
+            if (_tags != null)
+                _tags.CollectionChanged += OnTagsCollectionChanged;
+
             SyncTagsToOccurrences();
         }
     }
@@ -134,6 +144,44 @@ public class TagEditorControl : TemplatedControl
     {
         get => GetValue(IsMultiAssetProperty);
         set => SetValue(IsMultiAssetProperty, value);
+    }
+
+    private bool _pendingSync;
+
+    private void OnTagsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // Coalesce multiple synchronous changes (e.g. Clear + Add*N when the
+        // ViewModel bulk-replaces tags) into a single sync. We use the UI
+        // dispatcher to defer: the posted action runs after all currently
+        // queued operations complete, so all Clear/Add operations finish
+        // before SyncTagsToOccurrences executes.
+        //
+        // In unit tests (no running dispatcher loop), the try/catch ensures
+        // the posted callback never executes, so _pendingSync would stay
+        // true permanently. Tests should call ForceSync() after bulk ops.
+        if (!_pendingSync)
+        {
+            _pendingSync = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _pendingSync = false;
+                SyncTagsToOccurrences();
+            }, Avalonia.Threading.DispatcherPriority.Normal);
+        }
+    }
+
+    /// <summary>
+    /// Forces an immediate Tags → TagOccurrences sync if a deferred sync is
+    /// pending. Used in tests to flush the coalescing queue after bulk
+    /// collection modifications where no dispatcher loop is running.
+    /// </summary>
+    internal void ForceSync()
+    {
+        if (_pendingSync)
+        {
+            _pendingSync = false;
+            SyncTagsToOccurrences();
+        }
     }
 
     // ──────────────────────────────────────────────

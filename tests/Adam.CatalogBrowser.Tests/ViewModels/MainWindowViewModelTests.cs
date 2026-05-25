@@ -51,16 +51,15 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var migrationWizard = new MigrationWizardViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
 
-        // Construct the ViewModel. The constructor fires Task.Run startup
-        // which dispatches IsInitialLoading = false to the UI thread in its
-        // finally block — that will hang without a pumping dispatcher, but
-        // the constructor itself returns immediately (fire-and-forget).
-        // We set the field directly via reflection afterward.
+        // Construct the ViewModel with startUp: false to avoid the background
+        // startup pipeline (which dispatches to the UI thread and would hang
+        // without a pumping Avalonia dispatcher). We manually set the
+        // IsInitialLoading state via reflection afterward.
         _vm = new MainWindowViewModel(
             _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
             adminPanel, ingestion, metadataEditor,
-            userManagement, auditLog, migrationWizard, bulkQueue);
-        SetField("_isInitialLoading", false);
+            userManagement, auditLog, migrationWizard, bulkQueue,
+            startUp: false);
 
         // Open a DB connection for seeding/verifying test data
         _db = _modeManager.CreateDbContext();

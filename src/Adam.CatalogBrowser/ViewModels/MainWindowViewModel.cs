@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Threading;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
@@ -36,7 +37,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private ObservableCollection<TagOccurrence>? _aggregatedTags;
     private ObservableCollection<TagOccurrence>? _aggregatedCategories;
     private List<string>? _tagAutoCompleteSource;
-    private readonly ObservableCollection<string> _selectedAssetTags = [];
+    private ObservableCollection<string> _selectedAssetTags = [];
     private bool _tagsDirty;
 
     // Editable fields in the property inspector panel
@@ -66,10 +67,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
     // Bulk operation queue
     private readonly BulkOperationQueue _bulkQueue;
     private string _bulkProgressText = string.Empty;
+
+    // Cancellation source for metadata loads — cancels stale loads when the user rapidly clicks assets
+    private CancellationTokenSource? _metadataCts;
     private bool _isBulkOperationActive;
     private double _bulkProgressPercentage;
 
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue)
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue, bool startUp = true)
     {
         _logger = logger;
         _modeManager = modeManager;
@@ -254,17 +258,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             });
         };
 
-        // Track edits in the property inspector for auto-save + manual save
-        _selectedAssetTags.CollectionChanged += (_, _) =>
-        {
-            _tagsDirty = true;
-            SaveTagsCommand.RaiseCanExecuteChanged();
-        };
-        _selectedAssetCategories.CollectionChanged += (_, _) =>
-        {
-            _categoriesDirty = true;
-            SaveTagsCommand.RaiseCanExecuteChanged();
-        };
+        // Track edits in the property inspector for auto-save + manual save.
+        // Subscriptions are managed by the SelectedAssetTags and
+        // SelectedAssetCategories setters so that replacing the collection
+        // (on metadata load) properly rewires event handlers.
+        // (Intentionally no direct subscription on the field here.)
 
         assetGallery.SelectionChanged += asset =>
         {
@@ -276,6 +274,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _selectedAsset = asset;
+                    OnPropertyChanged(nameof(SelectedAsset));
                     SaveTagsCommand.RaiseCanExecuteChanged();
                 });
                 await LoadSelectedAssetMetadataAsync();
@@ -306,41 +305,44 @@ public class MainWindowViewModel : INotifyPropertyChanged
             });
         };
 
-        IsInitialLoading = true;
-
-        // Run the entire startup pipeline on a background thread so the UI
-        // thread stays free to paint the window, handle input, and show the
-        // loading overlay.  Each sub-method already dispatches UI updates
-        // (e.g., collection changes, IsLoading flags) back to the UI thread.
-        _ = Task.Run(async () =>
+        if (startUp)
         {
-            try
-            {
-                _logger.LogInformation("[Startup] Initializing database...");
-                await modeManager.InitializeAsync();
-                _logger.LogInformation("[Startup] Database initialized");
+            IsInitialLoading = true;
 
-                _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
-                await Sidebar.LoadAsync();
-                _logger.LogInformation("[Startup] Sidebar.LoadAsync() completed");
-
-                _logger.LogInformation("[Startup] Beginning AssetGallery.LoadAssetsAsync()...");
-                await AssetGallery.LoadAssetsAsync();
-                _logger.LogInformation("[Startup] AssetGallery.LoadAssetsAsync() completed");
-
-                // Pre-load keyword names for tag autocomplete
-                await LoadTagAutoCompleteSourceAsync();
-                _logger.LogInformation("[Startup] TagAutoCompleteSource loaded with {Count} entries", _tagAutoCompleteSource?.Count ?? 0);
-            }
-            catch (Exception ex)
+            // Run the entire startup pipeline on a background thread so the UI
+            // thread stays free to paint the window, handle input, and show the
+            // loading overlay.  Each sub-method already dispatches UI updates
+            // (e.g., collection changes, IsLoading flags) back to the UI thread.
+            _ = Task.Run(async () =>
             {
-                _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery on startup. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
-            }
-            finally
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => IsInitialLoading = false);
-            }
-        });
+                try
+                {
+                    _logger.LogInformation("[Startup] Initializing database...");
+                    await modeManager.InitializeAsync();
+                    _logger.LogInformation("[Startup] Database initialized");
+
+                    _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
+                    await Sidebar.LoadAsync();
+                    _logger.LogInformation("[Startup] Sidebar.LoadAsync() completed");
+
+                    _logger.LogInformation("[Startup] Beginning AssetGallery.LoadAssetsAsync()...");
+                    await AssetGallery.LoadAssetsAsync();
+                    _logger.LogInformation("[Startup] AssetGallery.LoadAssetsAsync() completed");
+
+                    // Pre-load keyword names for tag autocomplete
+                    await LoadTagAutoCompleteSourceAsync();
+                    _logger.LogInformation("[Startup] TagAutoCompleteSource loaded with {Count} entries", _tagAutoCompleteSource?.Count ?? 0);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery on startup. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
+                }
+                finally
+                {
+                    Dispatcher.UIThread.Post(() => IsInitialLoading = false);
+                }
+            });
+        }
     }
 
     private static List<Guid> GetDescendantKeywordIds(KeywordNode? node)
@@ -427,7 +429,26 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// inspector&#39;s Tags section.  Changes are tracked and auto-saved
     /// when&#160;a different asset is selected.
     /// </summary>
-    public ObservableCollection<string> SelectedAssetTags => _selectedAssetTags;
+    public ObservableCollection<string> SelectedAssetTags
+    {
+        get => _selectedAssetTags;
+        set
+        {
+            if (_selectedAssetTags != null)
+                _selectedAssetTags.CollectionChanged -= (_, _) =>
+                {
+                    _tagsDirty = true;
+                    SaveTagsCommand.RaiseCanExecuteChanged();
+                };
+            _selectedAssetTags = value ?? [];
+            _selectedAssetTags.CollectionChanged += (_, _) =>
+            {
+                _tagsDirty = true;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+            };
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>
     /// Editable description for the currently selected single asset.
@@ -723,41 +744,52 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     private async Task LoadSelectedAssetMetadataAsync()
     {
+        // Cancel any stale metadata load still in progress (e.g. user rapidly clicked another asset)
+        CancellationToken ct;
+        var thisCts = new CancellationTokenSource();
+        var oldCts = Interlocked.Exchange(ref _metadataCts, thisCts);
+        oldCts?.Cancel();
+        oldCts?.Dispose();
+        ct = thisCts.Token;
+
+        // Capture the asset reference once so concurrent selection changes
+        // don't cause a NullReferenceException halfway through loading.
+        var currentSelectedAsset = _selectedAsset;
+
         await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = true);
-        // Dispatch property-changed notifications to the UI thread so the
-        // binding system can update the inspector even though we're running
-        // on a background thread (called from Task.Run).
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            OnPropertyChanged(nameof(SelectedAsset));
-            OnPropertyChanged(nameof(HasSelectedAsset));
-        });
+        ct.ThrowIfCancellationRequested();
 
         try
         {
-            if (_selectedAsset == null)
+            if (currentSelectedAsset == null)
             {
-                SelectedAssetMetadata = [];
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    SelectedAssetMetadata = [];
+                });
                 return;
             }
 
             var entries = new List<MetadataEntry>();
 
             // File info
-            entries.Add(new MetadataEntry { Label = "File name:", Value = _selectedAsset.FileName });
-            entries.Add(new MetadataEntry { Label = "Title:", Value = _selectedAsset.Title });
+            entries.Add(new MetadataEntry { Label = "File name:", Value = currentSelectedAsset.FileName });
+            entries.Add(new MetadataEntry { Label = "Title:", Value = currentSelectedAsset.Title });
 
             // Load full asset + profile from DB for remaining fields
             if (_modeManager.IsStandalone)
             {
                 try
                 {
-                    await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                    await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+
                     var asset = await db.DigitalAssets
                         .Include(a => a.Keywords)
                         .Include(a => a.Categories)
                         .Include(a => a.MetadataProfile)
-                        .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
+                        .FirstOrDefaultAsync(a => a.Id == currentSelectedAsset.Id, ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
 
                     if (asset != null)
                     {
@@ -778,14 +810,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
                         var categoryNames = asset.Categories.Select(c => c.Name).ToList();
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            _selectedAssetTags.Clear();
-                            foreach (var name in tagNames)
-                                _selectedAssetTags.Add(name);
+                            SelectedAssetTags = new ObservableCollection<string>(tagNames);
                             _tagsDirty = false;
 
-                            _selectedAssetCategories.Clear();
-                            foreach (var name in categoryNames)
-                                _selectedAssetCategories.Add(name);
+                            SelectedAssetCategories = new ObservableCollection<string>(categoryNames);
                             _categoriesDirty = false;
 
                             SelectedAssetDescription = asset.Description;
@@ -810,6 +838,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
                             SaveTagsCommand.RaiseCanExecuteChanged();
                         });
+                        ct.ThrowIfCancellationRequested();
 
                         // Load category names for autocomplete
                         try
@@ -818,8 +847,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
                                 .Select(c => c.Name)
                                 .Distinct()
                                 .OrderBy(n => n)
-                                .ToListAsync().ConfigureAwait(false);
+                                .ToListAsync(ct).ConfigureAwait(false);
+                            ct.ThrowIfCancellationRequested();
                             await Dispatcher.UIThread.InvokeAsync(() => CategoryAutoCompleteSource = catNames);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -854,20 +888,36 @@ public class MainWindowViewModel : INotifyPropertyChanged
                         }
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to load metadata for selected asset");
                 }
             }
 
+            ct.ThrowIfCancellationRequested();
+
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                ct.ThrowIfCancellationRequested();
                 SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
             });
         }
+        catch (OperationCanceledException)
+        {
+            // Expected when the user rapidly clicks through assets — swallow
+        }
         finally
         {
-            await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = false);
+            // Only clean up our CTS if no newer request has replaced it
+            if (Interlocked.CompareExchange(ref _metadataCts, null, thisCts) == thisCts)
+            {
+                thisCts.Dispose();
+                await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = false);
+            }
         }
     }
 

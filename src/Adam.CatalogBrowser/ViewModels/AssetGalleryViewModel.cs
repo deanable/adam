@@ -121,6 +121,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         get => _selectedAsset;
         set
         {
+            if (_selectedAsset == value)
+                return;
             _selectedAsset = value;
             OnPropertyChanged();
             SelectionChanged?.Invoke(value);
