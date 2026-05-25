@@ -24,6 +24,7 @@ public class ThumbnailService
             new AudioThumbnailExtractor(),
             new OfficeThumbnailExtractor(),
             new PdfPreviewExtractor(),
+            new VideoThumbnailExtractor(),
             new GenericIconExtractor()
         ], null);
     }
