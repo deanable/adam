@@ -21,6 +21,9 @@ public class ThumbnailService
         var adjustment = new ImageAdjustmentService();
         _pipeline = new ThumbnailPipeline([
             new ImageThumbnailExtractor(adjustment),
+            new AudioThumbnailExtractor(),
+            new OfficeThumbnailExtractor(),
+            new PdfPreviewExtractor(),
             new GenericIconExtractor()
         ], null);
     }
