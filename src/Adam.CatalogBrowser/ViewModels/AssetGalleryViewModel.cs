@@ -211,6 +211,10 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                // Clear selection before clearing the collection to prevent
+                // Avalonia's SelectionModel from accessing invalid indices.
+                SelectedAsset = null;
+                _selectedAssets.Clear();
                 Assets.Clear();
                 _logger.LogInformation("[LoadAssetsAsync] Assets cleared, count={Count}", Assets.Count);
             });
