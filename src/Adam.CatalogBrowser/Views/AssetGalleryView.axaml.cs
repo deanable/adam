@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.ViewModels;
@@ -17,6 +18,10 @@ public partial class AssetGalleryView : UserControl
     // ──────────────────────────────────────────────
 
     private readonly DragGhostWindow _dragGhost = new();
+    private readonly DispatcherTimer _dragTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(30)
+    };
 
     public AssetGalleryView()
     {
@@ -32,11 +37,14 @@ public partial class AssetGalleryView : UserControl
         ListViewBox.PointerPressed += OnGalleryPointerPressed;
         ListViewBox.PointerMoved += OnGalleryPointerMoved;
 
+        _dragTimer.Tick += OnDragTimerTick;
+
         Unloaded += OnUnloaded;
     }
 
     private void OnUnloaded(object? sender, EventArgs e)
     {
+        _dragTimer.Stop();
         _dragGhost.HideGhost();
         _dragGhost.Close();
     }
@@ -104,8 +112,8 @@ public partial class AssetGalleryView : UserControl
     //  directly from PointerPressed with the selected asset IDs as text.
     //  A ghost overlay appears at the press position as a visual preview
     //  showing the primary asset thumbnail and selection count.
-    //  Note: On Windows, PointerMoved events are suppressed during an
-    //  OS drag operation, so the ghost does not track the cursor live.
+    //  On Windows, PointerMoved events are suppressed during an OS drag,
+    //  so a DispatcherTimer polls Win32 GetCursorPos to track the cursor.
     // ──────────────────────────────────────────────
 
     private async void OnGalleryPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -133,15 +141,35 @@ public partial class AssetGalleryView : UserControl
             _dragGhost.ShowGhost(screenPos, selectedAssets.Count, primaryAsset?.ThumbnailPath);
         }
 
+        // Start polling cursor position during the OLE drag
+        // (PointerMoved events are suppressed on Windows)
+        _dragTimer.Start();
+
         try
         {
             await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
         }
         finally
         {
-            // Hide the ghost after the drag completes (reuse for next drag)
+            // Stop the timer and hide the ghost after drag completes
+            _dragTimer.Stop();
             _dragGhost.HideGhost();
         }
+    }
+
+    /// <summary>
+    /// Polls cursor position via Win32 API to move the ghost overlay.
+    /// Runs on a DispatcherTimer (~30ms interval) during the drag.
+    /// On platforms where PointerMoved does fire (macOS/Linux), the
+    /// PointerMoved handler also updates the ghost independently.
+    /// </summary>
+    private void OnDragTimerTick(object? sender, EventArgs e)
+    {
+        if (!_dragGhost.IsDragging) return;
+        var cursorPos = Win32CursorHelper.GetScreenCursorPosition();
+        // Guard against the (0,0) fallback if GetCursorPos fails
+        if (cursorPos.X == 0 && cursorPos.Y == 0) return;
+        _dragGhost.UpdatePosition(cursorPos);
     }
 
     /// <summary>
@@ -149,6 +177,8 @@ public partial class AssetGalleryView : UserControl
     /// During an OS drag-drop operation, pointer events may still fire
     /// on the source control depending on the platform; if they do,
     /// the ghost will follow the cursor in real time.
+    /// On Windows, these events are suppressed, so the DispatcherTimer
+    /// (OnDragTimerTick) handles cursor tracking instead.
     /// </summary>
     private void OnGalleryPointerMoved(object? sender, PointerEventArgs e)
     {

@@ -205,28 +205,13 @@ public partial class SearchableTreeView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        var hasItems = e.DataTransfer is { Items.Count: > 0 };
-        e.DragEffects = hasItems ? DragDropEffects.Copy : DragDropEffects.None;
+        e.DragEffects = e.DataTransfer.Contains(DataFormat.Text) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        string? idsCsv = null;
-
-        // Read text data from the drag payload. The gallery creates the data
-        // as DataTransferItem.CreateText() so we look for text items.
-        if (e.DataTransfer != null)
-        {
-            foreach (var item in e.DataTransfer.Items)
-            {
-                if (item.TryGetRaw(DataFormat.Text) is string text)
-                {
-                    idsCsv = text;
-                    break;
-                }
-            }
-        }
+        var idsCsv = ReadDropText(e.DataTransfer);
 
         if (string.IsNullOrEmpty(idsCsv))
         {
@@ -270,6 +255,30 @@ public partial class SearchableTreeView : UserControl
                 return treeItem.DataContext;
 
             current = current.GetVisualParent();
+        }
+
+        return null;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Drop-text reading (extracted for testability)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads text data from the drag payload. The gallery creates the data
+    /// as <c>DataTransferItem.CreateText()</c> so we use <see cref="DataTransfer.TryGetText"/>
+    /// instead of <see cref="DataTransferItem.TryGetRaw"/> which may return <c>byte[]</c>
+    /// after crossing the OLE <c>IDataObject</c> boundary.
+    /// </summary>
+    internal static string? ReadDropText(IDataTransfer? dataTransfer)
+    {
+        if (dataTransfer == null) return null;
+
+        // Use Contains on IDataTransfer (unambiguous interface method),
+        // then cast to DataTransfer to call TryGetText (not on the interface).
+        if (dataTransfer.Contains(DataFormat.Text) && dataTransfer is DataTransfer dt)
+        {
+            return dt.TryGetText();
         }
 
         return null;
