@@ -1,0 +1,61 @@
+# Adam — Digital Asset Management System
+
+> A .NET desktop application (Avalonia UI) with a TCP-based BrokerService backend for multi-user digital asset management. Supports standalone SQLite mode and multi-user PostgreSQL/SQL Server mode.
+
+## Documentation
+
+- [DESIGN.md](DESIGN.md): High-level architecture overview and design decisions
+- [AGENTS.md](AGENTS.md): Agent-specific project context and development instructions
+
+## Source Code — Shared Library
+
+- [src/Adam.Shared/Contracts/](src/Adam.Shared/Contracts/): All protobuf message contracts (auth, assets, collections, users, sidebar, watched folders, status, notifications)
+- [src/Adam.Shared/Models/](src/Adam.Shared/Models/): Domain models (DigitalAsset, Collection, Keyword, User, MetadataProfile, etc.)
+- [src/Adam.Shared/Data/](src/Adam.Shared/Data/): EF Core DbContext, IFileService interface
+- [src/Adam.Shared/Services/](src/Adam.Shared/Services/): Shared services — PortChecker, FirewallRuleManager, IServiceInstaller, ThumbnailPipeline, MetadataExtractorService, MetadataWritebackService, ChecksumService, FileIndexer, PasswordHelper, ImageExportService, SearchService
+- [src/Adam.Shared/Transport/](src/Adam.Shared/Transport/): TcpFrame — length-prefixed protobuf framing for TCP transport
+
+## Source Code — BrokerService (Server)
+
+- [src/Adam.BrokerService/Handlers/](src/Adam.BrokerService/Handlers/): Message handlers — ConnectionHandler (router), AuthHandler, AssetHandler, CollectionHandler, UserHandler, ChangeHandler, SidebarHandler, StatusHandler, WatchedFolderHandler, AuditLogHandler
+- [src/Adam.BrokerService/Transport/](src/Adam.BrokerService/Transport/): TcpListenerService, TcpListenerHostedService, ChangeNotificationService, ConnectionRegistry
+- [src/Adam.BrokerService/Hosting/](src/Adam.BrokerService/Hosting/): Platform-specific service installers — WindowsServiceInstaller, LinuxServiceInstaller, MacOsServiceInstaller
+- [src/Adam.BrokerService/Configuration/](src/Adam.BrokerService/Configuration/): DbProviderConfig — runtime EF Core provider selection (SQLite, PostgreSQL, SQL Server)
+- [src/Adam.BrokerService/Data/](src/Adam.BrokerService/Data/): MigrationRunner, PostgresProvider, SqlServerProvider
+- [src/Adam.BrokerService/Program.cs](src/Adam.BrokerService/Program.cs): Service entry point, DI registration
+- [src/Adam.BrokerService/appsettings.json](src/Adam.BrokerService/appsettings.json): Configuration (Broker:Port, JWT settings, DB provider, TLS)
+
+## Source Code — CatalogBrowser (Desktop Client)
+
+- [src/Adam.CatalogBrowser/ViewModels/](src/Adam.CatalogBrowser/ViewModels/): MainWindowViewModel, AdminPanelViewModel, AssetGalleryViewModel, AssetDetailViewModel, SidebarViewModel, IngestionViewModel, MetadataEditorViewModel, MigrationWizardViewModel, UserManagementViewModel, AuditLogViewModel, ExportDialogViewModel
+- [src/Adam.CatalogBrowser/Views/](src/Adam.CatalogBrowser/Views/): Avalonia XAML views — MainWindow, AdminPanelView, AssetGalleryView, AssetDetailView, Sidebar, IngestionView, MetadataEditorView, MigrationWizardView, UserManagementView, AuditLogView, ExportDialog
+- [src/Adam.CatalogBrowser/Services/](src/Adam.CatalogBrowser/Services/): BrokerClient, AuthSession, ModeManager, DeleteService, BulkOperationQueue, ChangePoller, AdamConfig (persists host/port/mode to LocalApplicationData/Adam/CatalogBrowser/settings.json — `%LOCALAPPDATA%` on Windows, `~/.local/share/` on Linux)
+
+## Specifications
+
+- [specs/001-digital-asset-management/](specs/001-digital-asset-management/): Project specs, data model, API contracts, quickstart guide
+
+## Project Planning
+
+- [.planning/PROJECT.md](.planning/PROJECT.md): Living project context and core value
+- [.planning/ROADMAP.md](.planning/ROADMAP.md): Phases, requirements mapping, milestones
+- [.planning/REQUIREMENTS.md](.planning/REQUIREMENTS.md): v1/v2 requirements with traceability
+- [.planning/STATE.md](.planning/STATE.md): Current phase, progress, blockers
+- [.planning/config.json](.planning/config.json): GSD workflow preferences
+- [.planning/codebase/](.planning/codebase/): Architecture, stack, conventions, concerns documentation
+
+## Tests
+
+- [tests/Adam.BrokerService.Tests/](tests/Adam.BrokerService.Tests/): BrokerService integration tests (connection, auth, catalog query, CRUD, collections, file streaming, service status, configurable port, error resilience, concurrent clients)
+- [tests/Adam.CatalogBrowser.Tests/](tests/Adam.CatalogBrowser.Tests/): CatalogBrowser headless UI tests, ViewModel tests, service tests
+- [tests/Adam.Shared.Tests/](tests/Adam.Shared.Tests/): Shared library unit tests
+
+## Configuration
+
+- [src/Adam.BrokerService/appsettings.json](src/Adam.BrokerService/appsettings.json): BrokerService configuration — JWT signing key, Broker:Port (default 9100), TLS settings, DB provider/connection string
+- [src/Adam.CatalogBrowser/Services/AdamConfig.cs](src/Adam.CatalogBrowser/Services/AdamConfig.cs): User settings persisted to `%LOCALAPPDATA%/Adam/CatalogBrowser/settings.json` (Windows) or `~/.local/share/Adam/CatalogBrowser/settings.json` (Linux) with fields Mode, ServiceHost, ServicePort
+
+## Optional
+
+- [skills/](skills/): AI agent skills for the project
+- [docs/](docs/): Additional documentation

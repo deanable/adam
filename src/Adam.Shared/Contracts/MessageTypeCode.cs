@@ -24,11 +24,16 @@ public enum MessageTypeCode : ushort
     DeleteAssetResponse = 19,
     GetChangesRequest = 20,
     GetChangesResponse = 21,
+    GetFileRequest = 22,
+    GetFileResponse = 23,
+    GetFileChunkRequest = 24,
+    GetFileChunkResponse = 25,
 
     // Collections (30-39)
     ListCollectionsRequest = 30,
     ListCollectionsResponse = 31,
     CreateCollectionRequest = 32,
+    CreateCollectionResponse = 36,
     UpdateCollectionRequest = 33,
     DeleteCollectionRequest = 34,
     DeleteCollectionResponse = 35,

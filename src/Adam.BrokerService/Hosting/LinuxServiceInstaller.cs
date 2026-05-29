@@ -13,7 +13,7 @@ public sealed class LinuxServiceInstaller : IServiceInstaller
     public string ServiceName => ServiceNameConst;
     public bool IsSupported => OperatingSystem.IsLinux();
 
-    public async Task InstallAsync(string brokerPath, CancellationToken ct = default)
+    public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
@@ -25,7 +25,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart={{brokerPath}}
+ExecStart={{brokerPath}} --port {{port}}
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/var/log/adam-broker.log

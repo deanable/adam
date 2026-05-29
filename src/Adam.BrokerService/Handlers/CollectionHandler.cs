@@ -21,6 +21,41 @@ public sealed class CollectionHandler
         _authz = authz;
     }
 
+    public async Task<Envelope> CreateCollectionAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "collection:create", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<CreateCollectionRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var collection = new Collection
+        {
+            Id = Guid.NewGuid(),
+            Name = req.Name,
+            Description = req.Description,
+            ParentId = string.IsNullOrEmpty(req.ParentId) ? null : Guid.Parse(req.ParentId)
+        };
+
+        db.Collections.Add(collection);
+        await db.SaveChangesAsync(ct);
+
+        var response = new CreateCollectionResponse
+        {
+            Id = collection.Id.ToString()
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.CreateCollectionResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
     public async Task<Envelope> ListCollectionsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "collection:read", ct))

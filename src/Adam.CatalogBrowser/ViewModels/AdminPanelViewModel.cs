@@ -22,12 +22,19 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     private bool _isServiceInstalled;
     private string _newWatchedFolderPath = string.Empty;
     private ObservableCollection<WatchedFolderItem> _watchedFolders = new();
+    private string _serviceHost = "localhost";
+    private int _servicePort = 9100;
 
     public AdminPanelViewModel(ModeManager modeManager, IEnumerable<IServiceInstaller> serviceInstallers)
     {
         _modeManager = modeManager;
         _selectedMode = modeManager.Mode;
         _serviceInstaller = serviceInstallers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
+
+        // Load persisted settings
+        var config = App.Config;
+        _serviceHost = config.ServiceHost;
+        _servicePort = config.ServicePort;
 
         SaveModeCommand = new RelayCommand(async _ => await SaveModeAsync());
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshStatusAsync());
@@ -115,6 +122,27 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         set { _newWatchedFolderPath = value; OnPropertyChanged(); ((RelayCommand)AddWatchedFolderCommand).RaiseCanExecuteChanged(); }
     }
 
+    public string ServiceHost
+    {
+        get => _serviceHost;
+        set
+        {
+            _serviceHost = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public int ServicePort
+    {
+        get => _servicePort;
+        set
+        {
+            if (value < 1 || value > 65535) return;
+            _servicePort = value;
+            OnPropertyChanged();
+        }
+    }
+
     public event Action? NavigateToMigrationWizard;
 
     private async Task SaveModeAsync()
@@ -122,7 +150,14 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         if (SelectedMode == "Standalone")
             await _modeManager.InitializeAsync();
         else
-            await _modeManager.InitializeMultiUserAsync("localhost", 9100);
+            await _modeManager.InitializeMultiUserAsync(ServiceHost, ServicePort);
+
+        // Persist settings
+        var config = App.Config;
+        config.Mode = SelectedMode;
+        config.ServiceHost = ServiceHost;
+        config.ServicePort = ServicePort;
+        config.Save();
 
         StatusMessage = $"Mode switched to {SelectedMode}. Restart to apply.";
     }
@@ -174,9 +209,21 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         try
         {
             var brokerPath = Environment.ProcessPath ?? "";
-            await _serviceInstaller.InstallAsync(brokerPath);
+            await _serviceInstaller.InstallAsync(brokerPath, ServicePort);
+
+            // Persist port/host settings after successful install
+            var config = App.Config;
+            config.ServiceHost = ServiceHost;
+            config.ServicePort = ServicePort;
+            config.Mode = "MultiUser";
+            config.Save();
+
             StatusMessage = "Service installed and started.";
             IsServiceInstalled = true;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already in use"))
+        {
+            StatusMessage = $"⚠ {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -361,7 +408,7 @@ public sealed class NullServiceInstaller : IServiceInstaller
 {
     public string ServiceName => "None";
     public bool IsSupported => false;
-    public Task InstallAsync(string brokerPath, CancellationToken ct = default)
+    public Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
         => throw new PlatformNotSupportedException("No service installer available for this platform.");
     public Task UninstallAsync(CancellationToken ct = default)
         => throw new PlatformNotSupportedException("No service installer available for this platform.");

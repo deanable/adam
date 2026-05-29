@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 namespace Adam.CatalogBrowser.Controls;
@@ -48,6 +49,80 @@ public class DropPayload
 public partial class SearchableTreeView : UserControl
 {
     private bool _isUpdatingSelection;
+
+    // ──────────────────────────────────────────────
+    //  Drag-over highlight
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// The visual container (TreeViewItem or ListBoxItem) currently under the
+    /// drag cursor. Its background is tinted while the drag is over it.
+    /// </summary>
+    private Visual? _highlightedDropTarget;
+
+    private static readonly IBrush DropHighlightBrush =
+        new SolidColorBrush(Color.FromArgb(50, 25, 118, 210));
+
+    internal void ClearDropHighlight()
+    {
+        if (_highlightedDropTarget == null) return;
+
+        if (_highlightedDropTarget is ListBoxItem listItem)
+            listItem.ClearValue(ListBoxItem.BackgroundProperty);
+        else if (_highlightedDropTarget is TreeViewItem treeItem)
+            treeItem.ClearValue(TreeViewItem.BackgroundProperty);
+
+        _highlightedDropTarget = null;
+    }
+
+    /// <summary>
+    /// Gets or sets the currently highlighted drop target, for testing.
+    /// </summary>
+    internal Visual? HighlightedDropTarget
+    {
+        get => _highlightedDropTarget;
+        set => _highlightedDropTarget = value;
+    }
+
+    /// <summary>
+    /// Finds the visual container item at the given position and highlights it.
+    /// </summary>
+    private void UpdateDropHighlight(ItemsControl itemsControl, Point position)
+    {
+        // Find the visual item (TreeViewItem or ListBoxItem) at position
+        var hit = itemsControl.InputHitTest(position);
+        Visual? targetVisual = null;
+        if (hit != null)
+        {
+            var current = hit as Visual;
+            while (current != null)
+            {
+                if (current is ListBoxItem or TreeViewItem)
+                {
+                    targetVisual = current;
+                    break;
+                }
+                current = current.GetVisualParent();
+            }
+        }
+
+        // Same as current highlight — nothing to do
+        if (targetVisual == _highlightedDropTarget) return;
+
+        // Clear previous highlight
+        ClearDropHighlight();
+
+        // Apply new highlight
+        if (targetVisual != null)
+        {
+            if (targetVisual is ListBoxItem listItem)
+                listItem.Background = DropHighlightBrush;
+            else if (targetVisual is TreeViewItem treeItem)
+                treeItem.Background = DropHighlightBrush;
+
+            _highlightedDropTarget = targetVisual;
+        }
+    }
 
     // ──────────────────────────────────────────────
     //  Dependency properties
@@ -107,6 +182,7 @@ public partial class SearchableTreeView : UserControl
         FlatListBox.SelectionChanged += OnFlatListSelectionChanged;
 
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
 
         ItemsSourceProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.RebuildFilteredList());
@@ -203,19 +279,43 @@ public partial class SearchableTreeView : UserControl
     //  Drag-drop (target)
     // ──────────────────────────────────────────────
 
-    private void OnDragOver(object? sender, DragEventArgs e)
+    internal void OnDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.Text) ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
+        var hasText = e.DataTransfer.Contains(DataFormat.Text);
+        e.DragEffects = hasText ? DragDropEffects.Copy : DragDropEffects.None;
+        // Note: intentionally NOT setting e.Handled here, matching the
+        // IngestionView pattern, so parent containers can also observe
+        // the DragOver event if needed.
+
+        // Only show the drop highlight when the data is actually accepted
+        if (hasText)
+        {
+            if (TreeViewBox.IsVisible)
+                UpdateDropHighlight(TreeViewBox, e.GetPosition(TreeViewBox));
+            else if (FlatListBox.IsVisible)
+                UpdateDropHighlight(FlatListBox, e.GetPosition(FlatListBox));
+            else
+                ClearDropHighlight();
+        }
+        else
+        {
+            ClearDropHighlight();
+        }
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    internal void OnDragLeave(object? sender, DragEventArgs e)
     {
+        ClearDropHighlight();
+    }
+
+    internal void OnDrop(object? sender, DragEventArgs e)
+    {
+        ClearDropHighlight();
+
         var idsCsv = ReadDropText(e.DataTransfer);
 
         if (string.IsNullOrEmpty(idsCsv))
         {
-            e.Handled = true;
             return;
         }
 
@@ -236,8 +336,6 @@ public partial class SearchableTreeView : UserControl
             if (DropCommand?.CanExecute(payload) == true)
                 DropCommand.Execute(payload);
         }
-
-        e.Handled = true;
     }
 
     private static object? FindNodeAtPosition(ItemsControl itemsControl, Point position)

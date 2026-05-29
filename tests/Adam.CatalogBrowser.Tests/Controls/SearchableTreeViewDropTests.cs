@@ -15,6 +15,10 @@ namespace Adam.CatalogBrowser.Tests.Controls;
 ///
 /// These tests operate on plain <see cref="DataTransfer"/> objects only —
 /// no Avalonia control instance is required.
+///
+/// Note: These tests use the parameterless <see cref="DataTransferItem"/> constructor
+/// for non-text items. This constructor is currently public in Avalonia 12. If
+/// Avalonia ever makes it internal, the relevant tests will need updating.
 /// </summary>
 public class SearchableTreeViewDropTests
 {

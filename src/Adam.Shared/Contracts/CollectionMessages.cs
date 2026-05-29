@@ -167,6 +167,25 @@ public sealed class DeleteCollectionRequest : IProtoSerializable
     public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
 }
 
+public sealed class CreateCollectionResponse : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            if (WireFormat.GetTagFieldNumber(tag) == 1)
+                Id = input.ReadString();
+            else
+                input.SkipLastField();
+        }
+    }
+}
+
 public sealed class DeleteCollectionResponse : IProtoSerializable
 {
     public int CalculateSize() => 0;

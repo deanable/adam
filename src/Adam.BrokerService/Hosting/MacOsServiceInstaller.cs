@@ -13,7 +13,7 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
     public string ServiceName => "com.adam.broker";
     public bool IsSupported => OperatingSystem.IsMacOS();
 
-    public async Task InstallAsync(string brokerPath, CancellationToken ct = default)
+    public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
@@ -30,6 +30,8 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
     <key>ProgramArguments</key>
     <array>
         <string>{{brokerPath}}</string>
+        <string>--port</string>
+        <string>{{port}}</string>
     </array>
     <key>KeepAlive</key>
     <true/>

@@ -12,6 +12,11 @@ namespace Adam.CatalogBrowser;
 
 public partial class App : Application
 {
+    /// <summary>
+    /// Global config instance, loaded once at startup and saved on changes.
+    /// </summary>
+    internal static AdamConfig Config { get; private set; } = AdamConfig.Load();
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -21,14 +26,14 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var config = Config;
             var services = new ServiceCollection();
             var basePath = AppContext.BaseDirectory;
             System.Diagnostics.Debug.WriteLine($"[adam] App basePath: {basePath}");
             var logPath = Path.Combine(basePath, "adam-catalog.log");
             services.AddLogging(builder => builder.AddFile(logPath).SetMinimumLevel(LogLevel.Information));
 
-
-            var broker = new BrokerClient("localhost", 9100);
+            var broker = new BrokerClient(config.ServiceHost, config.ServicePort);
             var auth = new AuthSession(broker);
 
             services.AddSingleton(broker);

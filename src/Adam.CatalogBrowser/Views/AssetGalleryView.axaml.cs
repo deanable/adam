@@ -160,14 +160,19 @@ public partial class AssetGalleryView : UserControl
     /// <summary>
     /// Polls cursor position via Win32 API to move the ghost overlay.
     /// Runs on a DispatcherTimer (~30ms interval) during the drag.
-    /// On platforms where PointerMoved does fire (macOS/Linux), the
-    /// PointerMoved handler also updates the ghost independently.
+    /// Only runs on Windows (the P/Invoke would throw on macOS/Linux).
+    /// On non-Windows platforms, the PointerMoved handler (<see cref="OnGalleryPointerMoved"/>)
+    /// provides cursor tracking since pointer events are not suppressed there.
     /// </summary>
     private void OnDragTimerTick(object? sender, EventArgs e)
     {
+        if (!OperatingSystem.IsWindows()) return;
         if (!_dragGhost.IsDragging) return;
         var cursorPos = Win32CursorHelper.GetScreenCursorPosition();
-        // Guard against the (0,0) fallback if GetCursorPos fails
+        // Guard against the (0,0) fallback if GetCursorPos fails.
+        // On multi-monitor setups, (0,0) could theoretically be a valid
+        // cursor position (e.g. a secondary display above/left of primary),
+        // but missing one frame at 30ms is negligible.
         if (cursorPos.X == 0 && cursorPos.Y == 0) return;
         _dragGhost.UpdatePosition(cursorPos);
     }

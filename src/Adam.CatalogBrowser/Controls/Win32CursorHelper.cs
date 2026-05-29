@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia;
 
 namespace Adam.CatalogBrowser.Controls;
@@ -8,6 +9,7 @@ namespace Adam.CatalogBrowser.Controls;
 /// Used during OLE drag-drop operations where standard Avalonia pointer
 /// events are suppressed (Windows).
 /// </summary>
+[SupportedOSPlatform("windows")]
 internal static class Win32CursorHelper
 {
     [DllImport("user32.dll")]

@@ -13,14 +13,38 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         .IsInRole(WindowsBuiltInRole.Administrator);
 #pragma warning restore CA1416
 
-    public async Task InstallAsync(string brokerPath, CancellationToken ct = default)
+    public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
         EnsureSupported();
         EnsureElevated();
         EnsureAbsolutePath(brokerPath);
 
+        // Check if the port is available before proceeding
+        var portFree = PortChecker.IsPortFree(port);
+        if (!portFree)
+        {
+            // Try to find an alternative port
+            var freePort = PortChecker.FindFreePort(port);
+            var msg = freePort > 0
+                ? $"Port {port} is already in use. Port {freePort} is available. Please update the port setting and try again."
+                : $"Port {port} is already in use and no alternative ports are available in range.";
+            throw new InvalidOperationException(msg);
+        }
+
         await RunScAsync($"create {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
         await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
+
+        // Add Windows Firewall rule for the service port
+        try
+        {
+            await FirewallRuleManager.AddRuleAsync(port, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Non-fatal: service can still run, but may not be reachable from other machines
+            System.Diagnostics.Debug.WriteLine($"[adam] Warning: could not add firewall rule: {ex.Message}");
+        }
+
         await RunScAsync($"start {ServiceName}", ct);
     }
 
@@ -33,6 +57,16 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         if (status == ServiceStatus.Running)
             await RunScAsync($"stop {ServiceName}", ct);
         await RunScAsync($"delete {ServiceName}", ct);
+
+        // Remove Windows Firewall rule
+        try
+        {
+            await FirewallRuleManager.RemoveRuleAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[adam] Warning: could not remove firewall rule: {ex.Message}");
+        }
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)

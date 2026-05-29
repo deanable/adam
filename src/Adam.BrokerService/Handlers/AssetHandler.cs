@@ -378,6 +378,78 @@ public sealed class AssetHandler
         };
     }
 
+    public async Task<Envelope> GetFileAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<GetFileRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = await db.DigitalAssets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
+
+        if (asset == null)
+        {
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileResponse,
+                StatusCode = 5,
+                ErrorMessage = "Asset not found"
+            };
+        }
+
+        if (string.IsNullOrEmpty(asset.StoragePath) || !File.Exists(asset.StoragePath))
+        {
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileResponse,
+                StatusCode = 6,
+                ErrorMessage = "File not found on disk"
+            };
+        }
+
+        byte[] fileBytes;
+        try
+        {
+            fileBytes = await File.ReadAllBytesAsync(asset.StoragePath, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read file {StoragePath} for asset {AssetId}", asset.StoragePath, asset.Id);
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileResponse,
+                StatusCode = 13,
+                ErrorMessage = "Failed to read file from storage"
+            };
+        }
+
+        var response = new GetFileResponse
+        {
+            FileName = asset.FileName,
+            FileExtension = asset.FileExtension,
+            MimeType = asset.MimeType,
+            FileSize = asset.FileSize,
+            ChecksumSha256 = asset.ChecksumSha256,
+            Content = ByteString.CopyFrom(fileBytes)
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.GetFileResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
     public async Task<Envelope> DeleteAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
@@ -403,6 +475,132 @@ public sealed class AssetHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.DeleteAssetResponse,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> GetFileChunkAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<GetFileChunkRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = await db.DigitalAssets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
+
+        if (asset == null)
+        {
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileChunkResponse,
+                StatusCode = 5,
+                ErrorMessage = "Asset not found"
+            };
+        }
+
+        if (string.IsNullOrEmpty(asset.StoragePath) || !File.Exists(asset.StoragePath))
+        {
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileChunkResponse,
+                StatusCode = 6,
+                ErrorMessage = "File not found on disk"
+            };
+        }
+
+        // Validate requested chunk index is in range
+        if (req.ChunkIndex < 0)
+        {
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileChunkResponse,
+                StatusCode = 14,
+                ErrorMessage = "Invalid chunk index"
+            };
+        }
+
+        byte[] chunkData;
+        bool isLastChunk;
+        int totalChunks;
+
+        try
+        {
+            var fileInfo = new FileInfo(asset.StoragePath);
+            long fileSize = fileInfo.Length;
+            int chunkSize = Math.Max(4096, req.ChunkSize); // minimum 4KB
+            totalChunks = (int)((fileSize + chunkSize - 1) / chunkSize);
+
+            if (req.ChunkIndex >= totalChunks)
+            {
+                // Requesting a chunk beyond the end — return empty last chunk
+                chunkData = [];
+                isLastChunk = true;
+            }
+            else
+            {
+                long offset = (long)req.ChunkIndex * chunkSize;
+                int bytesToRead = (int)Math.Min(chunkSize, fileSize - offset);
+
+                await using var fs = new FileStream(
+                    asset.StoragePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 4096,
+                    useAsync: true);
+
+                fs.Seek(offset, SeekOrigin.Begin);
+                chunkData = new byte[bytesToRead];
+
+                int bytesRead = 0;
+                while (bytesRead < bytesToRead)
+                {
+                    int n = await fs.ReadAsync(chunkData.AsMemory(bytesRead, bytesToRead - bytesRead), ct);
+                    if (n == 0) break;
+                    bytesRead += n;
+                }
+
+                isLastChunk = req.ChunkIndex == totalChunks - 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read chunk for file {StoragePath} (asset {AssetId})", asset.StoragePath, asset.Id);
+            return new Envelope
+            {
+                CorrelationId = request.CorrelationId,
+                MessageType = MessageTypeCode.GetFileChunkResponse,
+                StatusCode = 13,
+                ErrorMessage = "Failed to read file chunk from storage"
+            };
+        }
+
+        var response = new GetFileChunkResponse
+        {
+            FileName = asset.FileName,
+            FileExtension = asset.FileExtension,
+            MimeType = asset.MimeType,
+            FileSize = asset.FileSize,
+            ChecksumSha256 = asset.ChecksumSha256,
+            ChunkData = ByteString.CopyFrom(chunkData),
+            ChunkIndex = req.ChunkIndex,
+            IsLastChunk = isLastChunk,
+            TotalChunks = totalChunks
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.GetFileChunkResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
     }

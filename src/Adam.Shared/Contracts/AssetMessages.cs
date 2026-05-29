@@ -560,6 +560,164 @@ public sealed class DeleteAssetResponse : IProtoSerializable
     public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
 }
 
+public sealed class GetFileRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+}
+
+public sealed class GetFileResponse : IProtoSerializable
+{
+    public string FileName { get; set; } = string.Empty;
+    public string FileExtension { get; set; } = string.Empty;
+    public string MimeType { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public string ChecksumSha256 { get; set; } = string.Empty;
+    public ByteString Content { get; set; } = ByteString.Empty;
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        size += ProtoHelper.FieldSize(1, FileName);
+        size += ProtoHelper.FieldSize(2, FileExtension);
+        size += ProtoHelper.FieldSize(3, MimeType);
+        size += ProtoHelper.FieldSize(4, FileSize);
+        size += ProtoHelper.FieldSize(5, ChecksumSha256);
+        size += ProtoHelper.FieldSize(6, Content);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, FileName);
+        ProtoHelper.WriteField(output, 2, FileExtension);
+        ProtoHelper.WriteField(output, 3, MimeType);
+        ProtoHelper.WriteField(output, 4, FileSize);
+        ProtoHelper.WriteField(output, 5, ChecksumSha256);
+        ProtoHelper.WriteField(output, 6, Content);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: FileName = input.ReadString(); break;
+                case 2: FileExtension = input.ReadString(); break;
+                case 3: MimeType = input.ReadString(); break;
+                case 4: FileSize = input.ReadInt64(); break;
+                case 5: ChecksumSha256 = input.ReadString(); break;
+                case 6: Content = input.ReadBytes(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class GetFileChunkRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int ChunkIndex { get; set; }
+    public int ChunkSize { get; set; } = 16 * 1024 * 1024; // 16 MB default
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        size += ProtoHelper.FieldSize(1, Id);
+        size += ProtoHelper.FieldSize(2, ChunkIndex);
+        if (ChunkSize != 16 * 1024 * 1024) size += ProtoHelper.FieldSize(3, ChunkSize);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Id);
+        ProtoHelper.WriteField(output, 2, ChunkIndex);
+        if (ChunkSize != 16 * 1024 * 1024) ProtoHelper.WriteField(output, 3, ChunkSize);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Id = input.ReadString(); break;
+                case 2: ChunkIndex = input.ReadInt32(); break;
+                case 3: ChunkSize = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class GetFileChunkResponse : IProtoSerializable
+{
+    public string FileName { get; set; } = string.Empty;
+    public string FileExtension { get; set; } = string.Empty;
+    public string MimeType { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public string ChecksumSha256 { get; set; } = string.Empty;
+    public ByteString ChunkData { get; set; } = ByteString.Empty;
+    public int ChunkIndex { get; set; }
+    public bool IsLastChunk { get; set; }
+    public int TotalChunks { get; set; }
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        size += ProtoHelper.FieldSize(1, FileName);
+        size += ProtoHelper.FieldSize(2, FileExtension);
+        size += ProtoHelper.FieldSize(3, MimeType);
+        size += ProtoHelper.FieldSize(4, FileSize);
+        size += ProtoHelper.FieldSize(5, ChecksumSha256);
+        size += ProtoHelper.FieldSize(6, ChunkData);
+        size += ProtoHelper.FieldSize(7, ChunkIndex);
+        size += ProtoHelper.FieldSize(8, IsLastChunk);
+        size += ProtoHelper.FieldSize(9, TotalChunks);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, FileName);
+        ProtoHelper.WriteField(output, 2, FileExtension);
+        ProtoHelper.WriteField(output, 3, MimeType);
+        ProtoHelper.WriteField(output, 4, FileSize);
+        ProtoHelper.WriteField(output, 5, ChecksumSha256);
+        ProtoHelper.WriteField(output, 6, ChunkData);
+        ProtoHelper.WriteField(output, 7, ChunkIndex);
+        ProtoHelper.WriteField(output, 8, IsLastChunk);
+        ProtoHelper.WriteField(output, 9, TotalChunks);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: FileName = input.ReadString(); break;
+                case 2: FileExtension = input.ReadString(); break;
+                case 3: MimeType = input.ReadString(); break;
+                case 4: FileSize = input.ReadInt64(); break;
+                case 5: ChecksumSha256 = input.ReadString(); break;
+                case 6: ChunkData = input.ReadBytes(); break;
+                case 7: ChunkIndex = input.ReadInt32(); break;
+                case 8: IsLastChunk = input.ReadBool(); break;
+                case 9: TotalChunks = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
 public sealed class GetChangesRequest : IProtoSerializable
 {
     public long SinceTimestamp { get; set; }
