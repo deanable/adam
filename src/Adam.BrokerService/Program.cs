@@ -1,7 +1,6 @@
 using Adam.BrokerService.Configuration;
 using Adam.BrokerService.Data;
 using Adam.BrokerService.Handlers;
-using Adam.BrokerService.Hosting;
 using Adam.BrokerService.Services;
 using Adam.BrokerService.Transport;
 using Adam.Shared.Data;

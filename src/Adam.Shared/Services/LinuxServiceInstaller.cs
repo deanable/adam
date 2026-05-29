@@ -1,8 +1,6 @@
 using System.Diagnostics;
-using System.Text;
-using Adam.Shared.Services;
 
-namespace Adam.BrokerService.Hosting;
+namespace Adam.Shared.Services;
 
 public sealed class LinuxServiceInstaller : IServiceInstaller
 {
@@ -15,6 +13,9 @@ public sealed class LinuxServiceInstaller : IServiceInstaller
 
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
+        Debug.WriteLine($"[adam] LinuxServiceInstaller.InstallAsync(brokerPath='{brokerPath}', port={port})");
+        Debug.WriteLine($"[adam] IsRoot={IsRoot}, SystemdPath={SystemdPath}");
+
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
 
@@ -35,45 +36,59 @@ StandardError=append:/var/log/adam-broker.err
 WantedBy=multi-user.target
 """;
 
-        // Write unit file (needs root for /etc/systemd/system/)
+        Debug.WriteLine("[adam] Writing systemd unit file...");
         await RunBashAsync($"tee {SystemdPath}", unit, ct);
+        Debug.WriteLine("[adam] Running systemctl daemon-reload...");
         await RunBashAsync("systemctl daemon-reload", ct: ct);
+        Debug.WriteLine("[adam] Enabling service...");
         await RunBashAsync($"systemctl enable {ServiceNameConst}", ct: ct);
+        Debug.WriteLine("[adam] Starting service...");
         await RunBashAsync($"systemctl start {ServiceNameConst}", ct: ct);
+        Debug.WriteLine("[adam] Service installed and started successfully.");
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
+        Debug.WriteLine("[adam] LinuxServiceInstaller.UninstallAsync()");
         EnsureSupported();
 
+        Debug.WriteLine("[adam] Stopping service...");
         await RunBashAsync($"systemctl stop {ServiceNameConst}", ct: ct);
+        Debug.WriteLine("[adam] Disabling service...");
         await RunBashAsync($"systemctl disable {ServiceNameConst}", ct: ct);
+        Debug.WriteLine("[adam] Removing unit file...");
         await RunBashAsync($"rm -f {SystemdPath}", ct: ct);
+        Debug.WriteLine("[adam] Service uninstalled successfully.");
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
+        Debug.WriteLine("[adam] LinuxServiceInstaller.GetStatusAsync()");
         if (!IsSupported) return ServiceStatus.NotInstalled;
         try
         {
             var output = await RunBashAsync($"systemctl is-active {ServiceNameConst}", ct: ct);
-            return output.Trim() switch
+            var trimmed = output.Trim();
+            Debug.WriteLine($"[adam] systemctl is-active output: '{trimmed}'");
+            var status = trimmed switch
             {
                 "active" => ServiceStatus.Running,
                 "inactive" => ServiceStatus.Stopped,
                 "failed" => ServiceStatus.Stopped,
                 _ => File.Exists(SystemdPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled
             };
+            Debug.WriteLine($"[adam] Resolved service status: {status}");
+            return status;
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[adam] GetStatusAsync error: {ex.Message}");
             return ServiceStatus.NotInstalled;
         }
     }
 
     private static async Task<string> RunBashAsync(string command, string? stdin = null, CancellationToken ct = default)
     {
-        // Prepend sudo unless already root
         if (!IsRoot && !command.StartsWith("sudo "))
             command = $"sudo {command}";
 

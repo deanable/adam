@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
@@ -29,7 +30,14 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     {
         _modeManager = modeManager;
         _selectedMode = modeManager.Mode;
-        _serviceInstaller = serviceInstallers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
+        var installers = serviceInstallers.ToList();
+        _serviceInstaller = installers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
+        Debug.WriteLine($"[adam] AdminPanelViewModel: Selected service installer = {_serviceInstaller.GetType().Name} (IsSupported={_serviceInstaller.IsSupported}, ServiceName='{_serviceInstaller.ServiceName}')");
+        Debug.WriteLine($"[adam] AdminPanelViewModel: Available installers count = {installers.Count}");
+        foreach (var installer in installers)
+        {
+            Debug.WriteLine($"[adam]   Installer: {installer.GetType().Name}, IsSupported={installer.IsSupported}, ServiceName='{installer.ServiceName}'");
+        }
 
         // Load persisted settings
         var config = App.Config;
@@ -409,9 +417,18 @@ public sealed class NullServiceInstaller : IServiceInstaller
     public string ServiceName => "None";
     public bool IsSupported => false;
     public Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
-        => throw new PlatformNotSupportedException("No service installer available for this platform.");
+    {
+        Debug.WriteLine("[adam] NullServiceInstaller.InstallAsync() — no platform installer found, throwing PlatformNotSupportedException");
+        throw new PlatformNotSupportedException("No service installer available for this platform.");
+    }
     public Task UninstallAsync(CancellationToken ct = default)
-        => throw new PlatformNotSupportedException("No service installer available for this platform.");
+    {
+        Debug.WriteLine("[adam] NullServiceInstaller.UninstallAsync() — no platform installer found, throwing PlatformNotSupportedException");
+        throw new PlatformNotSupportedException("No service installer available for this platform.");
+    }
     public Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
-        => Task.FromResult(ServiceStatus.NotInstalled);
+    {
+        Debug.WriteLine("[adam] NullServiceInstaller.GetStatusAsync() — returning NotInstalled");
+        return Task.FromResult(ServiceStatus.NotInstalled);
+    }
 }

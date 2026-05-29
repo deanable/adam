@@ -47,6 +47,11 @@ public partial class App : Application
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
 
+            // Register platform-specific service installers for BrokerService management
+            services.AddSingleton<IServiceInstaller, WindowsServiceInstaller>();
+            services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
+            services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();
+
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>();

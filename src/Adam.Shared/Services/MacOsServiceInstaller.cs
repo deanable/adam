@@ -1,8 +1,7 @@
 using System.Diagnostics;
 using System.Text;
-using Adam.Shared.Services;
 
-namespace Adam.BrokerService.Hosting;
+namespace Adam.Shared.Services;
 
 public sealed class MacOsServiceInstaller : IServiceInstaller
 {
@@ -15,9 +14,13 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
+        Debug.WriteLine($"[adam] MacOsServiceInstaller.InstallAsync(brokerPath='{brokerPath}', port={port})");
+        Debug.WriteLine($"[adam] PlistPath={PlistPath}");
+
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
 
+        Debug.WriteLine("[adam] Creating plist directory...");
         Directory.CreateDirectory(Path.GetDirectoryName(PlistPath)!);
 
         var plist = $$"""
@@ -45,30 +48,48 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 </plist>
 """;
 
+        Debug.WriteLine("[adam] Writing plist file...");
         File.WriteAllText(PlistPath, plist, Encoding.UTF8);
+        Debug.WriteLine("[adam] Loading launchd plist...");
         await RunBashAsync($"launchctl load {EscapePath(PlistPath)}", ct);
+        Debug.WriteLine("[adam] Service installed successfully.");
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
+        Debug.WriteLine("[adam] MacOsServiceInstaller.UninstallAsync()");
         EnsureSupported();
+
+        Debug.WriteLine("[adam] Unloading launchd plist...");
         await RunBashAsync($"launchctl unload {EscapePath(PlistPath)}", ct);
         if (File.Exists(PlistPath))
+        {
+            Debug.WriteLine("[adam] Deleting plist file...");
             File.Delete(PlistPath);
+        }
+        Debug.WriteLine("[adam] Service uninstalled successfully.");
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
+        Debug.WriteLine("[adam] MacOsServiceInstaller.GetStatusAsync()");
         if (!IsSupported) return ServiceStatus.NotInstalled;
         try
         {
             var output = await RunBashAsync($"launchctl list {ServiceName}", ct);
+            Debug.WriteLine($"[adam] launchctl list output length: {output.Length}");
             if (output.Contains("\"PID\""))
+            {
+                Debug.WriteLine("[adam] Service is running (PID found).");
                 return ServiceStatus.Running;
-            return File.Exists(PlistPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled;
+            }
+            var status = File.Exists(PlistPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled;
+            Debug.WriteLine($"[adam] Resolved service status: {status}");
+            return status;
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[adam] GetStatusAsync error: {ex.Message}");
             return ServiceStatus.NotInstalled;
         }
     }
@@ -105,7 +126,6 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 
     private static string EscapePath(string path)
     {
-        // Quote the path for shell safety
         return $"\"{path.Replace("\"", "\\\"")}\"";
     }
 
