@@ -48,15 +48,15 @@ public static class FirewallRuleManager
                     $"Failed to add firewall rule for port {port}: {message}");
             }
         }
-        catch (Exception ex) when (!OperatingSystem.IsWindows())
+        catch (Exception) when (!OperatingSystem.IsWindows())
         {
             // On non-Windows, netsh won't be available — silently ignore
         }
-        catch (Exception ex)
+        catch (Exception ex2)
         {
             // netsh might not be available (e.g., Windows Server Core, Nano, or non-elevated context)
             // Log and degrade gracefully — the service should still install
-            Debug.WriteLine($"Failed to add firewall rule: {ex.Message}");
+            Debug.WriteLine($"Failed to add firewall rule: {ex2.Message}");
         }
     }
 
@@ -99,13 +99,13 @@ public static class FirewallRuleManager
         {
             throw;
         }
-        catch (Exception ex) when (!OperatingSystem.IsWindows())
+        catch (Exception) when (!OperatingSystem.IsWindows())
         {
             // On non-Windows, netsh won't be available — silently ignore
         }
-        catch (Exception ex)
+        catch (Exception ex2)
         {
-            Debug.WriteLine($"Failed to remove firewall rule: {ex.Message}");
+            Debug.WriteLine($"Failed to remove firewall rule: {ex2.Message}");
         }
     }
 

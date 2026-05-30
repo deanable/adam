@@ -36,7 +36,7 @@
           <TextBlock Text="Service Configuration" FontSize="14" FontWeight="SemiBold" />
           <Grid ColumnDefinitions="Auto,*">
             <TextBlock Grid.Column="0" Text="Host:" VerticalAlignment="Center" FontWeight="SemiBold" />
-            <TextBox Grid.Column="1" Text="{Binding ServiceHost}" Margin="8,0,0,0" Watermark="localhost" />
+            <TextBox Grid.Column="1" Text="{Binding ServiceHost}" Margin="8,0,0,0" PlaceholderText="localhost" />
           </Grid>
           <Grid ColumnDefinitions="Auto,*">
             <TextBlock Grid.Column="0" Text="Port:" VerticalAlignment="Center" FontWeight="SemiBold" />
@@ -82,7 +82,30 @@
       <!-- Status -->
       <Border Background="#FAFAFA" Padding="8" CornerRadius="4"
               IsVisible="{Binding StatusMessage, Converter={x:Static local:RadioButtonConverter.Instance}}">
-        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="Gray" />
+        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+      </Border>
+
+      <!-- Operation Log -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Operation Log" FontSize="14" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+                    Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="2" MaxHeight="240">
+            <ScrollViewer>
+              <ItemsControl ItemsSource="{Binding LogMessages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                               TextWrapping="NoWrap" Foreground="#333" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
       </Border>
 
     </StackPanel>

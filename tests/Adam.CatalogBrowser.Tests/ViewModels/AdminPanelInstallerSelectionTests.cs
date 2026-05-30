@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
@@ -120,6 +120,13 @@ public sealed class AdminPanelInstallerSelectionTests
     /// </summary>
     private sealed class PlatformSpecificInstaller : IServiceInstaller
     {
+        private readonly ILogger _logger;
+
+        public PlatformSpecificInstaller()
+        {
+            _logger = new TestLogger<PlatformSpecificInstaller>();
+        }
+
         public bool IsSupportedValue { get; init; }
         public string ServiceNameValue { get; init; } = string.Empty;
 
@@ -128,118 +135,70 @@ public sealed class AdminPanelInstallerSelectionTests
 
         public Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
         {
-            Debug.WriteLine($"[adam] PlatformSpecificInstaller[{ServiceNameValue}].InstallAsync(brokerPath='{brokerPath}', port={port})");
+            _logger.LogInformation("PlatformSpecificInstaller[{Name}].InstallAsync(brokerPath='{BrokerPath}', port={Port})", ServiceNameValue, brokerPath, port);
             return Task.CompletedTask;
         }
 
         public Task UninstallAsync(CancellationToken ct = default)
         {
-            Debug.WriteLine($"[adam] PlatformSpecificInstaller[{ServiceNameValue}].UninstallAsync()");
+            _logger.LogInformation("PlatformSpecificInstaller[{Name}].UninstallAsync()", ServiceNameValue);
             return Task.CompletedTask;
         }
 
         public Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
         {
-            Debug.WriteLine($"[adam] PlatformSpecificInstaller[{ServiceNameValue}].GetStatusAsync()");
+            _logger.LogInformation("PlatformSpecificInstaller[{Name}].GetStatusAsync()", ServiceNameValue);
             return Task.FromResult(ServiceStatus.NotInstalled);
         }
     }
 }
 
 // ─────────────────────────────────────────────────────
-//  Debug logging tests for NullServiceInstaller
+//  ILogger logging tests for NullServiceInstaller
 // ─────────────────────────────────────────────────────
 
 /// <summary>
-/// Tests that <see cref="NullServiceInstaller"/> writes <c>[adam]</c>-prefixed
-/// debug traces when its methods are called.
+/// Tests that <see cref="NullServiceInstaller"/> writes log entries via ILogger
+/// when its methods are called.
 /// </summary>
-public sealed class NullServiceInstallerDebugLoggingTests : IDisposable
+public sealed class NullServiceInstallerLoggingTests
 {
-    private readonly TestTraceListener _listener;
-
-    public NullServiceInstallerDebugLoggingTests()
-    {
-        _listener = new TestTraceListener();
-        Trace.Listeners.Add(_listener);
-    }
-
-    public void Dispose()
-    {
-        Trace.Listeners.Remove(_listener);
-        _listener.Dispose();
-    }
-
     [Fact]
-    public async Task InstallAsync_WritesDebugTrace()
+    public async Task InstallAsync_WritesLog()
     {
-        var installer = new NullServiceInstaller();
+        var logger = new TestLogger<NullServiceInstaller>();
+        var installer = new NullServiceInstaller(logger);
         var act = async () => await installer.InstallAsync("/path", 9100);
 
         await act.Should().ThrowAsync<PlatformNotSupportedException>();
 
-        _listener.Messages.Should().Contain(m =>
-            m.Contains("[adam]") && m.Contains("NullServiceInstaller.InstallAsync"));
+        logger.Messages.Should().Contain(m =>
+            m.Contains("NullServiceInstaller.InstallAsync"));
     }
 
     [Fact]
-    public async Task UninstallAsync_WritesDebugTrace()
+    public async Task UninstallAsync_WritesLog()
     {
-        var installer = new NullServiceInstaller();
+        var logger = new TestLogger<NullServiceInstaller>();
+        var installer = new NullServiceInstaller(logger);
         var act = async () => await installer.UninstallAsync();
 
         await act.Should().ThrowAsync<PlatformNotSupportedException>();
 
-        _listener.Messages.Should().Contain(m =>
-            m.Contains("[adam]") && m.Contains("NullServiceInstaller.UninstallAsync"));
+        logger.Messages.Should().Contain(m =>
+            m.Contains("NullServiceInstaller.UninstallAsync"));
     }
 
     [Fact]
-    public async Task GetStatusAsync_WritesDebugTrace()
+    public async Task GetStatusAsync_WritesLog()
     {
-        var installer = new NullServiceInstaller();
+        var logger = new TestLogger<NullServiceInstaller>();
+        var installer = new NullServiceInstaller(logger);
         await installer.GetStatusAsync();
 
-        _listener.Messages.Should().Contain(m =>
-            m.Contains("[adam]") && m.Contains("NullServiceInstaller.GetStatusAsync"));
+        logger.Messages.Should().Contain(m =>
+            m.Contains("NullServiceInstaller.GetStatusAsync"));
     }
 }
 
-/// <summary>
-/// Custom <see cref="TraceListener"/> that captures <see cref="Trace.WriteLine"/>
-/// messages for test assertions.
-/// </summary>
-internal sealed class TestTraceListener : TraceListener
-{
-    private readonly List<string> _messages = [];
 
-    public IReadOnlyList<string> Messages => _messages.AsReadOnly();
-
-    public override void Write(string? message)
-    {
-    }
-
-    public override void WriteLine(string? message)
-    {
-        if (message != null)
-        {
-            lock (_messages)
-            {
-                _messages.Add(message);
-            }
-        }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            lock (_messages)
-            {
-                _messages.Clear();
-            }
-        }
-
-        base.Dispose(disposing);
-    }
-}

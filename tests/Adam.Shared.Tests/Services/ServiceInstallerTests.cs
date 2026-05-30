@@ -1,7 +1,8 @@
-using System.Diagnostics;
 using System.Security.Principal;
 using Adam.Shared.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Tests.Services;
 
@@ -201,186 +202,164 @@ public sealed class ServiceInstallerTests
     }
 
     // ──────────────────────────────────────────────
-    //  Debug logging trace capture tests
+    //  ILogger logging capture tests
     // ──────────────────────────────────────────────
 
-    public sealed class DebugLoggingTests : IDisposable
+    public sealed class DebugLoggingTests
     {
-        private readonly TestTraceListener _listener;
-
-        public DebugLoggingTests()
-        {
-            _listener = new TestTraceListener();
-            Trace.Listeners.Add(_listener);
-        }
-
-        public void Dispose()
-        {
-            Trace.Listeners.Remove(_listener);
-            _listener.Dispose();
-        }
-
         [Fact]
-        public async Task WindowsServiceInstaller_InstallAsync_RelativePath_WritesDebugTrace()
+        public async Task WindowsServiceInstaller_InstallAsync_RelativePath_WritesLog()
         {
-            var installer = new WindowsServiceInstaller();
+            var logger = new TestLogger<WindowsServiceInstaller>();
+            var installer = new WindowsServiceInstaller(logger);
             var act = async () => await installer.InstallAsync("relative/path.exe", 9100);
 
             // On Windows non-admin: UnauthorizedAccessException from EnsureElevated()
             // On Windows admin: ArgumentException from EnsureAbsolutePath()
             // On non-Windows: PlatformNotSupportedException from EnsureSupported()
-            // Either way, the debug trace should be written first
+            // Either way, the log should be written first
             await act.Should().ThrowAsync<Exception>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("WindowsServiceInstaller.InstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("WindowsServiceInstaller.InstallAsync"));
         }
 
         [Fact]
-        public async Task LinuxServiceInstaller_InstallAsync_RelativePath_WritesDebugTrace()
+        public async Task LinuxServiceInstaller_InstallAsync_RelativePath_WritesLog()
         {
-            var installer = new LinuxServiceInstaller();
+            var logger = new TestLogger<LinuxServiceInstaller>();
+            var installer = new LinuxServiceInstaller(logger);
             var act = async () => await installer.InstallAsync("relative/path", 9100);
 
             // On Linux: ArgumentException from EnsureAbsolutePath()
             // On other platforms: PlatformNotSupportedException from EnsureSupported()
-            // Either way, the debug trace should be written first
             await act.Should().ThrowAsync<Exception>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("LinuxServiceInstaller.InstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("LinuxServiceInstaller.InstallAsync"));
         }
 
         [Fact]
-        public async Task MacOsServiceInstaller_InstallAsync_RelativePath_WritesDebugTrace()
+        public async Task MacOsServiceInstaller_InstallAsync_RelativePath_WritesLog()
         {
-            var installer = new MacOsServiceInstaller();
+            var logger = new TestLogger<MacOsServiceInstaller>();
+            var installer = new MacOsServiceInstaller(logger);
             var act = async () => await installer.InstallAsync("relative/path", 9100);
 
             // On macOS: ArgumentException from EnsureAbsolutePath()
             // On other platforms: PlatformNotSupportedException from EnsureSupported()
             await act.Should().ThrowAsync<Exception>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("MacOsServiceInstaller.InstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("MacOsServiceInstaller.InstallAsync"));
         }
 
         [Fact]
-        public async Task WindowsServiceInstaller_UninstallAsync_OnNonWindows_WritesDebugTrace()
+        public async Task WindowsServiceInstaller_UninstallAsync_OnNonWindows_WritesLog()
         {
             if (OperatingSystem.IsWindows()) return;
 
-            var installer = new WindowsServiceInstaller();
+            var logger = new TestLogger<WindowsServiceInstaller>();
+            var installer = new WindowsServiceInstaller(logger);
             var act = async () => await installer.UninstallAsync();
 
             await act.Should().ThrowAsync<PlatformNotSupportedException>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("WindowsServiceInstaller.UninstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("WindowsServiceInstaller.UninstallAsync"));
         }
 
         [Fact]
-        public async Task LinuxServiceInstaller_UninstallAsync_OnNonLinux_WritesDebugTrace()
+        public async Task LinuxServiceInstaller_UninstallAsync_OnNonLinux_WritesLog()
         {
             if (OperatingSystem.IsLinux()) return;
 
-            var installer = new LinuxServiceInstaller();
+            var logger = new TestLogger<LinuxServiceInstaller>();
+            var installer = new LinuxServiceInstaller(logger);
             var act = async () => await installer.UninstallAsync();
 
             await act.Should().ThrowAsync<PlatformNotSupportedException>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("LinuxServiceInstaller.UninstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("LinuxServiceInstaller.UninstallAsync"));
         }
 
         [Fact]
-        public async Task MacOsServiceInstaller_UninstallAsync_OnNonMac_WritesDebugTrace()
+        public async Task MacOsServiceInstaller_UninstallAsync_OnNonMac_WritesLog()
         {
             if (OperatingSystem.IsMacOS()) return;
 
-            var installer = new MacOsServiceInstaller();
+            var logger = new TestLogger<MacOsServiceInstaller>();
+            var installer = new MacOsServiceInstaller(logger);
             var act = async () => await installer.UninstallAsync();
 
             await act.Should().ThrowAsync<PlatformNotSupportedException>();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("MacOsServiceInstaller.UninstallAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("MacOsServiceInstaller.UninstallAsync"));
         }
 
         [Fact]
-        public async Task WindowsServiceInstaller_GetStatusAsync_OnNonWindows_WritesDebugTrace()
+        public async Task WindowsServiceInstaller_GetStatusAsync_OnNonWindows_WritesLog()
         {
             if (OperatingSystem.IsWindows()) return;
 
-            var installer = new WindowsServiceInstaller();
+            var logger = new TestLogger<WindowsServiceInstaller>();
+            var installer = new WindowsServiceInstaller(logger);
             await installer.GetStatusAsync();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("WindowsServiceInstaller.GetStatusAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("WindowsServiceInstaller.GetStatusAsync"));
         }
 
         [Fact]
-        public async Task LinuxServiceInstaller_GetStatusAsync_OnNonLinux_WritesDebugTrace()
+        public async Task LinuxServiceInstaller_GetStatusAsync_OnNonLinux_WritesLog()
         {
             if (OperatingSystem.IsLinux()) return;
 
-            var installer = new LinuxServiceInstaller();
+            var logger = new TestLogger<LinuxServiceInstaller>();
+            var installer = new LinuxServiceInstaller(logger);
             await installer.GetStatusAsync();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("LinuxServiceInstaller.GetStatusAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("LinuxServiceInstaller.GetStatusAsync"));
         }
 
         [Fact]
-        public async Task MacOsServiceInstaller_GetStatusAsync_OnNonMac_WritesDebugTrace()
+        public async Task MacOsServiceInstaller_GetStatusAsync_OnNonMac_WritesLog()
         {
             if (OperatingSystem.IsMacOS()) return;
 
-            var installer = new MacOsServiceInstaller();
+            var logger = new TestLogger<MacOsServiceInstaller>();
+            var installer = new MacOsServiceInstaller(logger);
             await installer.GetStatusAsync();
 
-            _listener.Messages.Should().Contain(m =>
-                m.Contains("[adam]") && m.Contains("MacOsServiceInstaller.GetStatusAsync"));
+            logger.Messages.Should().Contain(m =>
+                m.Contains("MacOsServiceInstaller.GetStatusAsync"));
         }
     }
 }
 
 /// <summary>
-/// Custom <see cref="TraceListener"/> that captures <see cref="Trace.WriteLine"/>
-/// and <see cref="Debug.WriteLine"/> messages for test assertions.
+/// Test <see cref="ILogger{T}"/> implementation that captures formatted log messages
+/// for test assertions.
 /// </summary>
-internal sealed class TestTraceListener : TraceListener
+internal sealed class TestLogger<T> : ILogger<T>
 {
     private readonly List<string> _messages = [];
 
     public IReadOnlyList<string> Messages => _messages.AsReadOnly();
 
-    public override void Write(string? message)
-    {
-        // Not needed for Debug.WriteLine tests
-    }
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-    public override void WriteLine(string? message)
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        if (message != null)
+        var msg = formatter(state, exception);
+        lock (_messages)
         {
-            lock (_messages)
-            {
-                _messages.Add(message);
-            }
+            _messages.Add(msg);
         }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            lock (_messages)
-            {
-                _messages.Clear();
-            }
-        }
-
-        base.Dispose(disposing);
     }
 }

@@ -110,9 +110,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
         };
 
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
-        AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
+        AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);            // Wire up CollectionChanged handlers for the initial tag and category collections.
+            // The property setters normally do this, but during construction the collections
+            // are field-initialized (the setter is never called), so these handlers would
+            // never be attached without this explicit wiring.
+            SelectedAssetTags = _selectedAssetTags;
+            SelectedAssetCategories = _selectedAssetCategories;
 
-        // Wire up broker connection status and change notifications for multi-user mode
+            // Wire up broker connection status and change notifications for multi-user mode
         if (modeManager.BrokerClient != null)
         {
             modeManager.BrokerClient.StatusChanged += (_, status) =>
@@ -1278,7 +1283,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
             catch (MetadataWritebackService.ReadOnlyFileException)
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     SaveToastText = "Saved to catalog, but file is read-only";
                     ShowSaveToast = true;
@@ -1296,7 +1301,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
 
             // Show the save-toast notification
-            await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = true);
+            Dispatcher.UIThread.Post(() => ShowSaveToast = true);
             _ = Task.Run(async () =>
             {
                 await Task.Delay(2500).ConfigureAwait(false);

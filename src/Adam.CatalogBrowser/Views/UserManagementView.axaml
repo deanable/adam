@@ -63,6 +63,29 @@
       </Border>
 
       <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
+
+      <!-- Operation Log -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Operation Log" FontSize="14" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+                    Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="2" MaxHeight="240">
+            <ScrollViewer>
+              <ItemsControl ItemsSource="{Binding LogMessages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                               TextWrapping="NoWrap" Foreground="#333" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 

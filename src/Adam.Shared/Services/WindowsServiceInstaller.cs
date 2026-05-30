@@ -1,10 +1,14 @@
 using System.Diagnostics;
 using System.Security.Principal;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Services;
 
 public sealed class WindowsServiceInstaller : IServiceInstaller
 {
+    private readonly ILogger _logger;
+
     public string ServiceName => "AdamBrokerService";
     public bool IsSupported => OperatingSystem.IsWindows();
 #pragma warning disable CA1416
@@ -12,15 +16,20 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         .IsInRole(WindowsBuiltInRole.Administrator);
 #pragma warning restore CA1416
 
+    public WindowsServiceInstaller(ILogger<WindowsServiceInstaller>? logger = null)
+    {
+        _logger = logger ?? NullLogger<WindowsServiceInstaller>.Instance;
+    }
+
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
-        Debug.WriteLine($"[adam] WindowsServiceInstaller.InstallAsync(brokerPath='{brokerPath}', port={port})");
+        _logger.LogInformation("WindowsServiceInstaller.InstallAsync(brokerPath='{BrokerPath}', port={Port})", brokerPath, port);
 
         EnsureSupported();
         EnsureElevated();
         EnsureAbsolutePath(brokerPath);
 
-        Debug.WriteLine($"[adam] Checking port {port} availability...");
+        _logger.LogInformation("Checking port {Port} availability...", port);
         var portFree = PortChecker.IsPortFree(port);
         if (!portFree)
         {
@@ -28,66 +37,66 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
             var msg = freePort > 0
                 ? $"Port {port} is already in use. Port {freePort} is available. Please update the port setting and try again."
                 : $"Port {port} is already in use and no alternative ports are available in range.";
-            Debug.WriteLine($"[adam] Port check failed: {msg}");
+            _logger.LogWarning("Port check failed: {Message}", msg);
             throw new InvalidOperationException(msg);
         }
 
-        Debug.WriteLine($"[adam] Creating service '{ServiceName}' with binPath='{brokerPath}'...");
+        _logger.LogInformation("Creating service '{ServiceName}' with binPath='{BrokerPath}'...", ServiceName, brokerPath);
         await RunScAsync($"create {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
-        Debug.WriteLine("[adam] Setting service description...");
+        _logger.LogInformation("Setting service description...");
         await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
 
-        Debug.WriteLine($"[adam] Adding Windows Firewall rule for port {port}...");
+        _logger.LogInformation("Adding Windows Firewall rule for port {Port}...", port);
         try
         {
             await FirewallRuleManager.AddRuleAsync(port, ct);
-            Debug.WriteLine("[adam] Firewall rule added successfully.");
+            _logger.LogInformation("Firewall rule added successfully.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Debug.WriteLine($"[adam] Warning: could not add firewall rule: {ex.Message}");
+            _logger.LogWarning(ex, "Could not add firewall rule for port {Port}", port);
         }
 
-        Debug.WriteLine($"[adam] Starting service '{ServiceName}'...");
+        _logger.LogInformation("Starting service '{ServiceName}'...", ServiceName);
         await RunScAsync($"start {ServiceName}", ct);
-        Debug.WriteLine($"[adam] Service '{ServiceName}' installed and started successfully.");
+        _logger.LogInformation("Service '{ServiceName}' installed and started successfully.", ServiceName);
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] WindowsServiceInstaller.UninstallAsync()");
+        _logger.LogInformation("WindowsServiceInstaller.UninstallAsync()");
 
         EnsureSupported();
         EnsureElevated();
 
         var status = await GetStatusInternalAsync(ct);
-        Debug.WriteLine($"[adam] Current service status: {status}");
+        _logger.LogInformation("Current service status: {Status}", status);
         if (status == ServiceStatus.Running)
         {
-            Debug.WriteLine("[adam] Stopping service...");
+            _logger.LogInformation("Stopping service...");
             await RunScAsync($"stop {ServiceName}", ct);
         }
 
-        Debug.WriteLine("[adam] Deleting service...");
+        _logger.LogInformation("Deleting service...");
         await RunScAsync($"delete {ServiceName}", ct);
 
-        Debug.WriteLine("[adam] Removing Windows Firewall rule...");
+        _logger.LogInformation("Removing Windows Firewall rule...");
         try
         {
             await FirewallRuleManager.RemoveRuleAsync(ct);
-            Debug.WriteLine("[adam] Firewall rule removed successfully.");
+            _logger.LogInformation("Firewall rule removed successfully.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Debug.WriteLine($"[adam] Warning: could not remove firewall rule: {ex.Message}");
+            _logger.LogWarning(ex, "Could not remove firewall rule");
         }
 
-        Debug.WriteLine("[adam] Service uninstalled successfully.");
+        _logger.LogInformation("Service uninstalled successfully.");
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] WindowsServiceInstaller.GetStatusAsync()");
+        _logger.LogInformation("WindowsServiceInstaller.GetStatusAsync()");
         if (!IsSupported) return ServiceStatus.NotInstalled;
         return await GetStatusInternalAsync(ct);
     }
@@ -98,12 +107,12 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         {
             var output = await RunScRawAsync($"query {ServiceName}", ct);
             var status = ParseScQuery(output);
-            Debug.WriteLine($"[adam] Service status: {status}");
+            _logger.LogInformation("Service status: {Status}", status);
             return status;
         }
         catch (Exception ex) when (ex is not PlatformNotSupportedException && ex is not UnauthorizedAccessException)
         {
-            Debug.WriteLine($"[adam] GetStatusInternalAsync: service not found or not accessible: {ex.Message}");
+            _logger.LogWarning(ex, "GetStatusInternalAsync: service not found or not accessible");
             return ServiceStatus.NotInstalled;
         }
     }

@@ -8,11 +8,14 @@ using Adam.Shared.Services;
 using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
 public class UserManagementViewModel : INotifyPropertyChanged
 {
+    private readonly ILogger<UserManagementViewModel> _logger;
     private readonly ModeManager _modeManager;
     private string _statusText = string.Empty;
     private bool _isLoading;
@@ -24,9 +27,12 @@ public class UserManagementViewModel : INotifyPropertyChanged
     private bool _editIsActive = true;
     private bool _isEditing;
     private RoleItem? _selectedRole;
+    private ObservableCollection<string> _logMessages = [];
+    private Guid _editUserId;
 
-    public UserManagementViewModel(ModeManager modeManager)
+    public UserManagementViewModel(ModeManager modeManager, ILogger<UserManagementViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<UserManagementViewModel>.Instance;
         _modeManager = modeManager;
         RefreshCommand = new RelayCommand(async _ => await LoadUsersAsync());
         AddUserCommand = new RelayCommand(_ => BeginAddUser());
@@ -34,6 +40,9 @@ public class UserManagementViewModel : INotifyPropertyChanged
         SaveUserCommand = new RelayCommand(async _ => await SaveUserAsync());
         DeleteUserCommand = new RelayCommand(async _ => await DeleteUserAsync(), _ => SelectedUser != null);
         CancelEditCommand = new RelayCommand(_ => CancelEdit());
+        ClearLogCommand = new RelayCommand(_ => LogMessages.Clear());
+
+        _logMessages.Add($"[{DateTime.Now:HH:mm:ss.fff}] User Management initialized");
     }
 
     public ObservableCollection<UserItem> Users { get; } = [];
@@ -45,6 +54,13 @@ public class UserManagementViewModel : INotifyPropertyChanged
     public ICommand SaveUserCommand { get; }
     public ICommand DeleteUserCommand { get; }
     public ICommand CancelEditCommand { get; }
+    public ICommand ClearLogCommand { get; }
+
+    public ObservableCollection<string> LogMessages
+    {
+        get => _logMessages;
+        set { _logMessages = value; OnPropertyChanged(); }
+    }
 
     public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
     public bool IsLoading { get => _isLoading; set { _isLoading = value; OnPropertyChanged(); } }
@@ -68,10 +84,32 @@ public class UserManagementViewModel : INotifyPropertyChanged
         set { _selectedRole = value; OnPropertyChanged(); EditRoleId = value?.Id.ToString() ?? ""; }
     }
 
-    private Guid _editUserId;
+    private void AddLog(string message)
+    {
+        _logger.LogInformation("[UserManagement] {Message}", message);
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        var entry = $"[{timestamp}] {message}";
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            AddLogEntry(entry);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() => AddLogEntry(entry));
+        }
+    }
+
+    private void AddLogEntry(string entry)
+    {
+        if (_logMessages.Count > 500)
+            _logMessages.RemoveAt(0);
+        _logMessages.Add(entry);
+    }
 
     public async Task LoadUsersAsync()
     {
+        AddLog("Loading users...");
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             IsLoading = true;
@@ -83,6 +121,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
         {
             if (_modeManager.IsStandalone)
             {
+                AddLog("Standalone mode: querying SQLite database...");
                 List<UserItem> userItems;
                 List<RoleItem> roleItems;
 
@@ -113,6 +152,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     foreach (var r in roleItems)
                         Roles.Add(r);
                 });
+                AddLog($"Loaded {userItems.Count} user(s) and {roleItems.Count} role(s) from database.");
             }
             else if (_modeManager.IsMultiUser)
             {
@@ -121,8 +161,12 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 if (broker == null || auth == null) return;
 
                 if (!broker.IsConnected)
+                {
+                    AddLog("Multi-user mode: connecting to broker...");
                     await broker.ConnectAsync().ConfigureAwait(false);
+                }
 
+                AddLog("Requesting user list from broker...");
                 var corrId = Guid.NewGuid().ToString();
                 var req = new Envelope
                 {
@@ -151,8 +195,14 @@ public class UserManagementViewModel : INotifyPropertyChanged
                             });
                         }
                     });
+                    AddLog($"Loaded {listResp.Items.Count} user(s) from broker.");
+                }
+                else
+                {
+                    AddLog($"Broker returned error {resp.StatusCode}: {resp.ErrorMessage}");
                 }
 
+                AddLog("Requesting role list from broker...");
                 var roleReq = new Envelope
                 {
                     AuthToken = auth.Token ?? "",
@@ -169,6 +219,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         foreach (var r in listRoles.Items)
                             Roles.Add(new RoleItem { Id = Guid.Parse(r.Id), Name = r.Name });
                     });
+                    AddLog($"Loaded {listRoles.Items.Count} role(s) from broker.");
                 }
             }
 
@@ -176,6 +227,8 @@ public class UserManagementViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to load users");
+            AddLog($"ERROR loading users: {ex.GetType().Name}: {ex.Message}");
             await Dispatcher.UIThread.InvokeAsync(() => StatusText = $"Error: {ex.Message}");
         }
         finally
@@ -186,6 +239,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
 
     private void BeginAddUser()
     {
+        AddLog("Opening Add User form...");
         _editUserId = Guid.Empty;
         EditUsername = "";
         EditEmail = "";
@@ -198,6 +252,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
     private void BeginEditUser()
     {
         if (SelectedUser == null) return;
+        AddLog($"Editing user '{SelectedUser.Username}' (ID={SelectedUser.Id})...");
         _editUserId = SelectedUser.Id;
         EditUsername = SelectedUser.Username;
         EditEmail = SelectedUser.Email;
@@ -211,8 +266,18 @@ public class UserManagementViewModel : INotifyPropertyChanged
     {
         try
         {
+            if (_editUserId == Guid.Empty)
+            {
+                AddLog($"Saving new user '{EditUsername}' ({EditEmail})...");
+            }
+            else
+            {
+                AddLog($"Updating user '{EditUsername}' (ID={_editUserId})...");
+            }
+
             if (_modeManager.IsStandalone)
             {
+                AddLog("Standalone mode: writing to SQLite database...");
                 await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
                 if (_editUserId == Guid.Empty)
                 {
@@ -228,6 +293,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         CreatedAt = DateTimeOffset.UtcNow
                     };
                     db.Users.Add(user);
+                    AddLog($"Created user '{user.Username}' with ID={user.Id}");
                 }
                 else
                 {
@@ -240,6 +306,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         user.RoleId = Guid.Parse(EditRoleId);
                         user.IsActive = EditIsActive;
                         db.Users.Update(user);
+                        AddLog($"Updated user '{user.Username}' (ID={user.Id})");
                     }
                 }
                 await db.SaveChangesAsync().ConfigureAwait(false);
@@ -266,6 +333,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         }))
                     };
                     await broker.SendAsync(req);
+                    AddLog($"Create user request sent to broker for '{EditUsername}'.");
                 }
                 else
                 {
@@ -284,15 +352,19 @@ public class UserManagementViewModel : INotifyPropertyChanged
                         }))
                     };
                     await broker.SendAsync(req);
+                    AddLog($"Update user request sent to broker for ID={_editUserId}.");
                 }
             }
 
             IsEditing = false;
             await LoadUsersAsync();
             StatusText = "User saved.";
+            AddLog("User saved successfully.");
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to save user");
+            AddLog($"ERROR saving user: {ex.GetType().Name}: {ex.Message}");
             StatusText = $"Error saving user: {ex.Message}";
         }
     }
@@ -300,6 +372,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
     private async Task DeleteUserAsync()
     {
         if (SelectedUser == null) return;
+        AddLog($"Deactivating user '{SelectedUser.Username}' (ID={SelectedUser.Id})...");
         try
         {
             if (_modeManager.IsStandalone)
@@ -311,6 +384,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     user.IsActive = false;
                     db.Users.Update(user);
                     await db.SaveChangesAsync().ConfigureAwait(false);
+                    AddLog($"User '{user.Username}' (ID={user.Id}) deactivated in database.");
                 }
             }
             else if (_modeManager.IsMultiUser)
@@ -330,13 +404,17 @@ public class UserManagementViewModel : INotifyPropertyChanged
                     }))
                 };
                 await broker.SendAsync(req);
+                AddLog($"Deactivate user request sent to broker for ID={SelectedUser.Id}.");
             }
 
             await LoadUsersAsync();
             StatusText = "User deactivated.";
+            AddLog("User deactivated successfully.");
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to delete user");
+            AddLog($"ERROR deleting user: {ex.GetType().Name}: {ex.Message}");
             StatusText = $"Error deleting user: {ex.Message}";
         }
     }

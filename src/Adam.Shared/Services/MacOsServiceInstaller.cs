@@ -1,10 +1,14 @@
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Services;
 
 public sealed class MacOsServiceInstaller : IServiceInstaller
 {
+    private readonly ILogger _logger;
+
     private static readonly string PlistPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         "Library", "LaunchAgents", "com.adam.broker.plist");
@@ -12,15 +16,20 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
     public string ServiceName => "com.adam.broker";
     public bool IsSupported => OperatingSystem.IsMacOS();
 
+    public MacOsServiceInstaller(ILogger<MacOsServiceInstaller>? logger = null)
+    {
+        _logger = logger ?? NullLogger<MacOsServiceInstaller>.Instance;
+    }
+
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
-        Debug.WriteLine($"[adam] MacOsServiceInstaller.InstallAsync(brokerPath='{brokerPath}', port={port})");
-        Debug.WriteLine($"[adam] PlistPath={PlistPath}");
+        _logger.LogInformation("MacOsServiceInstaller.InstallAsync(brokerPath='{BrokerPath}', port={Port})", brokerPath, port);
+        _logger.LogInformation("PlistPath={PlistPath}", PlistPath);
 
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
 
-        Debug.WriteLine("[adam] Creating plist directory...");
+        _logger.LogInformation("Creating plist directory...");
         Directory.CreateDirectory(Path.GetDirectoryName(PlistPath)!);
 
         var plist = $$"""
@@ -48,48 +57,48 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
 </plist>
 """;
 
-        Debug.WriteLine("[adam] Writing plist file...");
+        _logger.LogInformation("Writing plist file to {PlistPath}...", PlistPath);
         File.WriteAllText(PlistPath, plist, Encoding.UTF8);
-        Debug.WriteLine("[adam] Loading launchd plist...");
+        _logger.LogInformation("Loading launchd plist...");
         await RunBashAsync($"launchctl load {EscapePath(PlistPath)}", ct);
-        Debug.WriteLine("[adam] Service installed successfully.");
+        _logger.LogInformation("Service installed successfully.");
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] MacOsServiceInstaller.UninstallAsync()");
+        _logger.LogInformation("MacOsServiceInstaller.UninstallAsync()");
         EnsureSupported();
 
-        Debug.WriteLine("[adam] Unloading launchd plist...");
+        _logger.LogInformation("Unloading launchd plist...");
         await RunBashAsync($"launchctl unload {EscapePath(PlistPath)}", ct);
         if (File.Exists(PlistPath))
         {
-            Debug.WriteLine("[adam] Deleting plist file...");
+            _logger.LogInformation("Deleting plist file at {PlistPath}...", PlistPath);
             File.Delete(PlistPath);
         }
-        Debug.WriteLine("[adam] Service uninstalled successfully.");
+        _logger.LogInformation("Service uninstalled successfully.");
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] MacOsServiceInstaller.GetStatusAsync()");
+        _logger.LogInformation("MacOsServiceInstaller.GetStatusAsync()");
         if (!IsSupported) return ServiceStatus.NotInstalled;
         try
         {
             var output = await RunBashAsync($"launchctl list {ServiceName}", ct);
-            Debug.WriteLine($"[adam] launchctl list output length: {output.Length}");
+            _logger.LogInformation("launchctl list output length: {Length}", output.Length);
             if (output.Contains("\"PID\""))
             {
-                Debug.WriteLine("[adam] Service is running (PID found).");
+                _logger.LogInformation("Service is running (PID found).");
                 return ServiceStatus.Running;
             }
             var status = File.Exists(PlistPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled;
-            Debug.WriteLine($"[adam] Resolved service status: {status}");
+            _logger.LogInformation("Resolved service status: {Status}", status);
             return status;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[adam] GetStatusAsync error: {ex.Message}");
+            _logger.LogWarning(ex, "GetStatusAsync error");
             return ServiceStatus.NotInstalled;
         }
     }

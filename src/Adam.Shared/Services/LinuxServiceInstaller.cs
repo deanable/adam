@@ -1,9 +1,13 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Services;
 
 public sealed class LinuxServiceInstaller : IServiceInstaller
 {
+    private readonly ILogger _logger;
+
     private const string SystemdPath = "/etc/systemd/system/adam-broker.service";
     private const string ServiceNameConst = "adam-broker";
     private static bool IsRoot => Environment.UserName == "root" || Environment.GetEnvironmentVariable("SUDO_USER") != null;
@@ -11,10 +15,15 @@ public sealed class LinuxServiceInstaller : IServiceInstaller
     public string ServiceName => ServiceNameConst;
     public bool IsSupported => OperatingSystem.IsLinux();
 
+    public LinuxServiceInstaller(ILogger<LinuxServiceInstaller>? logger = null)
+    {
+        _logger = logger ?? NullLogger<LinuxServiceInstaller>.Instance;
+    }
+
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
-        Debug.WriteLine($"[adam] LinuxServiceInstaller.InstallAsync(brokerPath='{brokerPath}', port={port})");
-        Debug.WriteLine($"[adam] IsRoot={IsRoot}, SystemdPath={SystemdPath}");
+        _logger.LogInformation("LinuxServiceInstaller.InstallAsync(brokerPath='{BrokerPath}', port={Port})", brokerPath, port);
+        _logger.LogInformation("IsRoot={IsRoot}, SystemdPath={SystemdPath}", IsRoot, SystemdPath);
 
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
@@ -36,40 +45,40 @@ StandardError=append:/var/log/adam-broker.err
 WantedBy=multi-user.target
 """;
 
-        Debug.WriteLine("[adam] Writing systemd unit file...");
+        _logger.LogInformation("Writing systemd unit file to {SystemdPath}...", SystemdPath);
         await RunBashAsync($"tee {SystemdPath}", unit, ct);
-        Debug.WriteLine("[adam] Running systemctl daemon-reload...");
+        _logger.LogInformation("Running systemctl daemon-reload...");
         await RunBashAsync("systemctl daemon-reload", ct: ct);
-        Debug.WriteLine("[adam] Enabling service...");
+        _logger.LogInformation("Enabling service...");
         await RunBashAsync($"systemctl enable {ServiceNameConst}", ct: ct);
-        Debug.WriteLine("[adam] Starting service...");
+        _logger.LogInformation("Starting service...");
         await RunBashAsync($"systemctl start {ServiceNameConst}", ct: ct);
-        Debug.WriteLine("[adam] Service installed and started successfully.");
+        _logger.LogInformation("Service installed and started successfully.");
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] LinuxServiceInstaller.UninstallAsync()");
+        _logger.LogInformation("LinuxServiceInstaller.UninstallAsync()");
         EnsureSupported();
 
-        Debug.WriteLine("[adam] Stopping service...");
+        _logger.LogInformation("Stopping service...");
         await RunBashAsync($"systemctl stop {ServiceNameConst}", ct: ct);
-        Debug.WriteLine("[adam] Disabling service...");
+        _logger.LogInformation("Disabling service...");
         await RunBashAsync($"systemctl disable {ServiceNameConst}", ct: ct);
-        Debug.WriteLine("[adam] Removing unit file...");
+        _logger.LogInformation("Removing unit file at {SystemdPath}...", SystemdPath);
         await RunBashAsync($"rm -f {SystemdPath}", ct: ct);
-        Debug.WriteLine("[adam] Service uninstalled successfully.");
+        _logger.LogInformation("Service uninstalled successfully.");
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
-        Debug.WriteLine("[adam] LinuxServiceInstaller.GetStatusAsync()");
+        _logger.LogInformation("LinuxServiceInstaller.GetStatusAsync()");
         if (!IsSupported) return ServiceStatus.NotInstalled;
         try
         {
             var output = await RunBashAsync($"systemctl is-active {ServiceNameConst}", ct: ct);
             var trimmed = output.Trim();
-            Debug.WriteLine($"[adam] systemctl is-active output: '{trimmed}'");
+            _logger.LogInformation("systemctl is-active output: '{Output}'", trimmed);
             var status = trimmed switch
             {
                 "active" => ServiceStatus.Running,
@@ -77,12 +86,12 @@ WantedBy=multi-user.target
                 "failed" => ServiceStatus.Stopped,
                 _ => File.Exists(SystemdPath) ? ServiceStatus.Stopped : ServiceStatus.NotInstalled
             };
-            Debug.WriteLine($"[adam] Resolved service status: {status}");
+            _logger.LogInformation("Resolved service status: {Status}", status);
             return status;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[adam] GetStatusAsync error: {ex.Message}");
+            _logger.LogWarning(ex, "GetStatusAsync error");
             return ServiceStatus.NotInstalled;
         }
     }
