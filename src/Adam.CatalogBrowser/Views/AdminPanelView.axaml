@@ -63,9 +63,22 @@
             <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                     Content="Refresh Status" Command="{Binding RefreshStatusCommand}" Margin="0,8,0,0" />
           </Grid>
+          <!-- Elevation notice (shown when not running as admin) -->
+          <Border Background="#FFF3CD" BorderBrush="#FFE69C" BorderThickness="1" Padding="8" CornerRadius="4"
+                  IsVisible="{Binding IsElevationRequired}">
+            <StackPanel Spacing="4">
+              <TextBlock Text="⚠ Administrator privileges required" FontSize="11" FontWeight="Bold" Foreground="#856404" />
+              <TextBlock Text="Some service operations need Administrator access. When you click Install, Uninstall, Start, or Stop, Windows will prompt you to approve the elevation."
+                         FontSize="11" Foreground="#856404" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
           <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
             <Button Content="Install Service" Command="{Binding InstallServiceCommand}" />
             <Button Content="Uninstall Service" Command="{Binding UninstallServiceCommand}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Start Service" Command="{Binding StartServiceCommand}" />
+            <Button Content="Stop Service" Command="{Binding StopServiceCommand}" />
           </StackPanel>
         </StackPanel>
       </Border>
@@ -100,6 +113,30 @@
                   <DataTemplate>
                     <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
                                TextWrapping="NoWrap" Foreground="#333" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- Service Installation Log (terminal output from sc.exe, netsh, elevated process) -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Service Installation Log" FontSize="14" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+                    Command="{Binding ClearServiceLogCommand}" />
+          </Grid>              <TextBlock Text="Captures all application log output including sc.exe, netsh, and elevated process diagnostics."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+          <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="2" MaxHeight="320">
+            <ScrollViewer>
+              <ItemsControl ItemsSource="{Binding ServiceLogMessages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                               TextWrapping="NoWrap" Foreground="#D4D4D4" />
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>

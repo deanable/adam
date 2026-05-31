@@ -70,6 +70,24 @@ WantedBy=multi-user.target
         _logger.LogInformation("Service uninstalled successfully.");
     }
 
+    public async Task StartAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("LinuxServiceInstaller.StartAsync()");
+        EnsureSupported();
+        _logger.LogInformation("Starting service '{ServiceNameConst}'...", ServiceNameConst);
+        await RunBashAsync($"systemctl start {ServiceNameConst}", ct: ct);
+        _logger.LogInformation("Service '{ServiceNameConst}' started successfully.", ServiceNameConst);
+    }
+
+    public async Task StopAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("LinuxServiceInstaller.StopAsync()");
+        EnsureSupported();
+        _logger.LogInformation("Stopping service '{ServiceNameConst}'...", ServiceNameConst);
+        await RunBashAsync($"systemctl stop {ServiceNameConst}", ct: ct);
+        _logger.LogInformation("Service '{ServiceNameConst}' stopped successfully.", ServiceNameConst);
+    }
+
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
         _logger.LogInformation("LinuxServiceInstaller.GetStatusAsync()");

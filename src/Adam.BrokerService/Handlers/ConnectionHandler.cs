@@ -66,6 +66,8 @@ public sealed class ConnectionHandler : IConnectionHandler
                 MessageTypeCode.DeleteUserRequest => await _userHandler.DeleteUserAsync(request, ct),
                 MessageTypeCode.ListAuditLogsRequest => await _auditLogHandler.ListAuditLogsAsync(request, ct),
                 MessageTypeCode.GetServiceStatusRequest => await _statusHandler.GetStatusAsync(request, ct),
+                MessageTypeCode.StartServiceRequest => await _statusHandler.StartServiceAsync(request, ct),
+                MessageTypeCode.StopServiceRequest => await _statusHandler.StopServiceAsync(request, ct),
                 MessageTypeCode.ListFoldersRequest => await _sidebarHandler.ListFoldersAsync(request, ct),
                 MessageTypeCode.ListKeywordsRequest => await _sidebarHandler.ListKeywordsAsync(request, ct),
                 MessageTypeCode.ListMediaFormatCountsRequest => await _sidebarHandler.ListMediaFormatCountsAsync(request, ct),

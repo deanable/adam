@@ -79,6 +79,30 @@ public sealed class MacOsServiceInstaller : IServiceInstaller
         _logger.LogInformation("Service uninstalled successfully.");
     }
 
+    public async Task StartAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("MacOsServiceInstaller.StartAsync()");
+        EnsureSupported();
+        _logger.LogInformation("Loading launchd service '{ServiceName}'...", ServiceName);
+        if (File.Exists(PlistPath))
+            await RunBashAsync($"launchctl load {EscapePath(PlistPath)}", ct);
+        else
+            _logger.LogWarning("Plist file not found at {PlistPath}. Cannot start.", PlistPath);
+        _logger.LogInformation("Service '{ServiceName}' started.", ServiceName);
+    }
+
+    public async Task StopAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("MacOsServiceInstaller.StopAsync()");
+        EnsureSupported();
+        _logger.LogInformation("Unloading launchd service '{ServiceName}'...", ServiceName);
+        if (File.Exists(PlistPath))
+            await RunBashAsync($"launchctl unload {EscapePath(PlistPath)}", ct);
+        else
+            _logger.LogWarning("Plist file not found at {PlistPath}. Cannot stop.", PlistPath);
+        _logger.LogInformation("Service '{ServiceName}' stopped.", ServiceName);
+    }
+
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
     {
         _logger.LogInformation("MacOsServiceInstaller.GetStatusAsync()");

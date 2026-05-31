@@ -24,13 +24,17 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     private int _activeConnections;
     private string _uptimeText = "";
     private bool _isServiceInstalled;
+    private bool _isServiceRunning;
+    private bool _isElevated;
     private string _newWatchedFolderPath = string.Empty;
     private ObservableCollection<WatchedFolderItem> _watchedFolders = new();
     private string _serviceHost = "localhost";
     private int _servicePort = 9100;
     private ObservableCollection<string> _logMessages = new();
+    private readonly ObservableCollection<string> _serviceLogMessages;
+    private readonly DispatcherTimer _autoRefreshTimer;
 
-    public AdminPanelViewModel(ModeManager modeManager, IEnumerable<IServiceInstaller> serviceInstallers, ILogger<AdminPanelViewModel>? logger = null)
+    public AdminPanelViewModel(ModeManager modeManager, IEnumerable<IServiceInstaller> serviceInstallers, ILogger<AdminPanelViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null)
     {
         _logger = logger ?? NullLogger<AdminPanelViewModel>.Instance;
         _modeManager = modeManager;
@@ -46,6 +50,12 @@ public class AdminPanelViewModel : INotifyPropertyChanged
                 installer.GetType().Name, installer.IsSupported, installer.ServiceName);
         }
 
+        // Detect elevation state — used to show a reminder when admin access is needed
+        _isElevated = !OperatingSystem.IsWindows() ||
+            new System.Security.Principal.WindowsPrincipal(
+                System.Security.Principal.WindowsIdentity.GetCurrent())
+                .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+
         // Load persisted settings
         var config = App.Config;
         _serviceHost = config.ServiceHost;
@@ -55,11 +65,27 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshStatusAsync());
         InstallServiceCommand = new RelayCommand(async _ => await InstallServiceAsync(), _ => !_isServiceInstalled);
         UninstallServiceCommand = new RelayCommand(async _ => await UninstallServiceAsync(), _ => _isServiceInstalled);
+        StartServiceCommand = new RelayCommand(async _ => await StartServiceAsync(), _ => _isServiceInstalled && !_isServiceRunning);
+        StopServiceCommand = new RelayCommand(async _ => await StopServiceAsync(), _ => _isServiceInstalled && _isServiceRunning);
         OpenMigrationWizardCommand = new RelayCommand(_ => OpenMigrationWizard());
         AddWatchedFolderCommand = new RelayCommand(async _ => await AddWatchedFolderAsync(), _ => !string.IsNullOrWhiteSpace(NewWatchedFolderPath));
         RemoveWatchedFolderCommand = new RelayCommand(async param => await RemoveWatchedFolderAsync(param), _ => true);
         RefreshWatchedFoldersCommand = new RelayCommand(async _ => await LoadWatchedFoldersAsync());
+        _serviceLogMessages = serviceLogMessages ?? new ObservableCollection<string>();
+
         ClearLogCommand = new RelayCommand(_ => LogMessages.Clear());
+        ClearServiceLogCommand = new RelayCommand(_ => ServiceLogMessages.Clear());
+
+        // Start auto-refresh timer: polls service status every 5 seconds
+        // Guard with IsBusy to prevent concurrent refreshes if a poll takes longer than the interval.
+        _autoRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _autoRefreshTimer.Tick += async (_, _) =>
+        {
+            if (_isBusy) return;
+            try { await RefreshStatusAsync(); }
+            catch { /* exceptions are already logged inside RefreshStatusAsync */ }
+        };
+        _autoRefreshTimer.Start();
 
         // Log initialization to the UI log directly (constructor always runs on UI thread)
         _logMessages.Add($"[{DateTime.Now:HH:mm:ss.fff}] Admin panel initialized");
@@ -108,6 +134,13 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         set { _uptimeText = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// True when running on Windows without Administrator privileges.
+    /// Shows a visual reminder prompting the user to restart as Administrator
+    /// before attempting service installation or uninstallation.
+    /// </summary>
+    public bool IsElevationRequired => !_isElevated;
+
     public bool IsServiceInstalled
     {
         get => _isServiceInstalled;
@@ -117,6 +150,20 @@ public class AdminPanelViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             ((RelayCommand)InstallServiceCommand).RaiseCanExecuteChanged();
             ((RelayCommand)UninstallServiceCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)StartServiceCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)StopServiceCommand).RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool IsServiceRunning
+    {
+        get => _isServiceRunning;
+        set
+        {
+            _isServiceRunning = value;
+            OnPropertyChanged();
+            ((RelayCommand)StartServiceCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)StopServiceCommand).RaiseCanExecuteChanged();
         }
     }
 
@@ -124,11 +171,14 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     public ICommand RefreshStatusCommand { get; }
     public ICommand InstallServiceCommand { get; }
     public ICommand UninstallServiceCommand { get; }
+    public ICommand StartServiceCommand { get; }
+    public ICommand StopServiceCommand { get; }
     public ICommand OpenMigrationWizardCommand { get; }
     public ICommand AddWatchedFolderCommand { get; }
     public ICommand RemoveWatchedFolderCommand { get; }
     public ICommand RefreshWatchedFoldersCommand { get; }
     public ICommand ClearLogCommand { get; }
+    public ICommand ClearServiceLogCommand { get; }
 
     public ObservableCollection<WatchedFolderItem> WatchedFolders
     {
@@ -169,6 +219,53 @@ public class AdminPanelViewModel : INotifyPropertyChanged
     {
         get => _logMessages;
         set { _logMessages = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Collection of all ILogger messages (including terminal output from sc.exe/netsh
+    /// and forwarded elevated process logs). Populated by <see cref="LogCaptureProvider"/>.
+    /// </summary>
+    public ObservableCollection<string> ServiceLogMessages => _serviceLogMessages;
+
+    /// <summary>
+    /// Resolves the path to Adam.BrokerService.exe by searching relative to the current
+    /// assembly location. Falls back to <c>Environment.ProcessPath</c> if not found.
+    /// </summary>
+    private static string ResolveBrokerServicePath()
+    {
+        var baseDir = AppContext.BaseDirectory;
+
+        // First check: same directory (side-by-side deployment or published scenario)
+        var sameDir = Path.Combine(baseDir, "Adam.BrokerService.exe");
+        if (File.Exists(sameDir))
+            return sameDir;
+
+        // Second check: walk up directory tree looking for solution root (presence of .git or *.sln)
+        // Then construct path to BrokerService build output
+        var dir = new DirectoryInfo(baseDir);
+        while (dir != null)
+        {
+            var hasGit = Directory.Exists(Path.Combine(dir.FullName, ".git"));
+            var hasSln = dir.GetFiles("*.sln").Length > 0;
+            if (hasGit || hasSln)
+            {
+                // Try Debug net10.0
+                var candidate = Path.Combine(dir.FullName, "src", "Adam.BrokerService", "bin", "Debug", "net10.0", "Adam.BrokerService.exe");
+                if (File.Exists(candidate))
+                    return candidate;
+
+                // Try Release net10.0
+                candidate = Path.Combine(dir.FullName, "src", "Adam.BrokerService", "bin", "Release", "net10.0", "Adam.BrokerService.exe");
+                if (File.Exists(candidate))
+                    return candidate;
+
+                break;
+            }
+            dir = dir.Parent;
+        }
+
+        // Fallback: use the current process path (might be BrokerService itself, or CatalogBrowser)
+        return Environment.ProcessPath ?? string.Empty;
     }
 
     private void AddLog(string message)
@@ -269,7 +366,8 @@ public class AdminPanelViewModel : INotifyPropertyChanged
                 var svc = await _serviceInstaller.GetStatusAsync();
                 ServiceStatusText = svc.ToString();
                 IsServiceInstalled = svc != ServiceStatus.NotInstalled;
-                AddLog($"Local service status: {svc}, IsInstalled={IsServiceInstalled}");
+                IsServiceRunning = svc == ServiceStatus.Running;
+                AddLog($"Local service status: {svc}, IsInstalled={IsServiceInstalled}, IsRunning={IsServiceRunning}");
             }
         }
         catch (Exception ex)
@@ -277,6 +375,140 @@ public class AdminPanelViewModel : INotifyPropertyChanged
             _logger.LogError(ex, "Status refresh failed");
             AddLog($"ERROR refreshing status: {ex.GetType().Name}: {ex.Message}");
             StatusMessage = $"Status error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task StartServiceAsync()
+    {
+        AddLog($"=== STARTING SERVICE ===");
+        IsBusy = true;
+        try
+        {
+            if (_modeManager.IsMultiUser && _modeManager.BrokerClient?.IsConnected == true)
+            {
+                AddLog("Multi-user mode: sending StartServiceRequest to broker...");
+                var auth = _modeManager.AuthSession;
+                var result = await _modeManager.BrokerClient.StartServiceAsync(auth?.Token ?? "");
+                AddLog($"Broker response: Success={result.Success}, Message='{result.Message}', StatusCode={result.StatusCode}");
+
+                if (result.Success)
+                {
+                    AddLog($"Remote start succeeded: {result.Message}");
+                    IsServiceRunning = true;
+                    ServiceStatusText = ServiceStatus.Running.ToString();
+                    StatusMessage = result.Message;
+                }
+                else
+                {
+                    AddLog($"Remote start returned failure: {result.Message}");
+                    StatusMessage = $"Remote start failed: {result.Message}";
+                }
+            }
+            else
+            {
+                AddLog($"Standalone mode: using installer {_serviceInstaller.GetType().Name}");
+                if (!_serviceInstaller.IsSupported)
+                {
+                    var msg = "No service installer available for this platform.";
+                    _logger.LogError("Start aborted: {Message}", msg);
+                    AddLog($"FAILED: {msg}");
+                    StatusMessage = msg;
+                    return;
+                }
+
+                AddLog("Calling installer.StartAsync...");
+                await _serviceInstaller.StartAsync();
+                AddLog("Installer.StartAsync completed successfully.");
+
+                IsServiceRunning = true;
+                ServiceStatusText = ServiceStatus.Running.ToString();
+                StatusMessage = "Service started.";
+            }
+
+            AddLog($"=== SERVICE STARTED ===");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Insufficient privileges to start service");
+            AddLog($"❌ ADMIN REQUIRED: {ex.Message}");
+            StatusMessage = $"❌ Administrator privileges required. Restart the app as Administrator and try again.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start service");
+            AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
+            StatusMessage = $"Start error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task StopServiceAsync()
+    {
+        AddLog($"=== STOPPING SERVICE ===");
+        IsBusy = true;
+        try
+        {
+            if (_modeManager.IsMultiUser && _modeManager.BrokerClient?.IsConnected == true)
+            {
+                AddLog("Multi-user mode: sending StopServiceRequest to broker...");
+                var auth = _modeManager.AuthSession;
+                var result = await _modeManager.BrokerClient.StopServiceAsync(auth?.Token ?? "");
+                AddLog($"Broker response: Success={result.Success}, Message='{result.Message}', StatusCode={result.StatusCode}");
+
+                if (result.Success)
+                {
+                    AddLog($"Remote stop succeeded: {result.Message}");
+                    IsServiceRunning = false;
+                    ServiceStatusText = ServiceStatus.Stopped.ToString();
+                    StatusMessage = result.Message;
+                }
+                else
+                {
+                    AddLog($"Remote stop returned failure: {result.Message}");
+                    StatusMessage = $"Remote stop failed: {result.Message}";
+                }
+            }
+            else
+            {
+                AddLog($"Standalone mode: using installer {_serviceInstaller.GetType().Name}");
+                if (!_serviceInstaller.IsSupported)
+                {
+                    var msg = "No service installer available for this platform.";
+                    _logger.LogError("Stop aborted: {Message}", msg);
+                    AddLog($"FAILED: {msg}");
+                    StatusMessage = msg;
+                    return;
+                }
+
+                AddLog("Calling installer.StopAsync...");
+                await _serviceInstaller.StopAsync();
+                AddLog("Installer.StopAsync completed successfully.");
+
+                IsServiceRunning = false;
+                ServiceStatusText = ServiceStatus.Stopped.ToString();
+                StatusMessage = "Service stopped.";
+            }
+
+            AddLog($"=== SERVICE STOPPED ===");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Insufficient privileges to stop service");
+            AddLog($"❌ ADMIN REQUIRED: {ex.Message}");
+            StatusMessage = $"❌ Administrator privileges required. Restart the app as Administrator and try again.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop service");
+            AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
+            StatusMessage = $"Stop error: {ex.Message}";
         }
         finally
         {
@@ -293,8 +525,8 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         IsBusy = true;
         try
         {
-            var brokerPath = Environment.ProcessPath ?? "";
-            AddLog($"Broker process path: '{brokerPath}'");
+            var brokerPath = ResolveBrokerServicePath();
+            AddLog($"Broker service path: '{brokerPath}'");
             AddLog($"Target port: {ServicePort}");
 
             if (!_serviceInstaller.IsSupported)
@@ -321,6 +553,7 @@ public class AdminPanelViewModel : INotifyPropertyChanged
 
             StatusMessage = "Service installed and started.";
             IsServiceInstalled = true;
+            IsServiceRunning = true;
             AddLog($"=== SERVICE INSTALLATION SUCCEEDED ===");
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already in use"))
@@ -332,8 +565,13 @@ public class AdminPanelViewModel : INotifyPropertyChanged
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges for service installation");
-            AddLog($"ACCESS DENIED: {ex.Message}");
-            StatusMessage = $"Access denied: {ex.Message}";
+            AddLog($"❌ ADMIN REQUIRED: {ex.Message}");
+            AddLog("To install the service, close this app and restart it as Administrator:");
+            AddLog("  1. Close Adam CatalogBrowser");
+            AddLog("  2. Right-click the Adam CatalogBrowser shortcut or executable");
+            AddLog("  3. Select 'Run as administrator'");
+            AddLog("  4. Navigate to Admin Panel and click 'Install Service' again");
+            StatusMessage = $"❌ Administrator privileges required. Restart the app as Administrator and try again.";
         }
         catch (Exception ex)
         {
@@ -375,13 +613,18 @@ public class AdminPanelViewModel : INotifyPropertyChanged
 
             StatusMessage = "Service stopped and removed.";
             IsServiceInstalled = false;
+            IsServiceRunning = false;
             AddLog($"=== SERVICE UNINSTALLATION SUCCEEDED ===");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges for service uninstallation");
-            AddLog($"ACCESS DENIED: {ex.Message}");
-            StatusMessage = $"Access denied: {ex.Message}";
+            AddLog($"❌ ADMIN REQUIRED: {ex.Message}");
+            AddLog("To uninstall the service, restart this app as Administrator:");
+            AddLog("  1. Close Adam CatalogBrowser");
+            AddLog("  2. Right-click the executable and select 'Run as administrator'");
+            AddLog("  3. Navigate to Admin Panel and click 'Uninstall Service' again");
+            StatusMessage = $"❌ Administrator privileges required. Restart the app as Administrator and try again.";
         }
         catch (Exception ex)
         {
@@ -569,6 +812,16 @@ public sealed class NullServiceInstaller : IServiceInstaller
     public Task UninstallAsync(CancellationToken ct = default)
     {
         _logger.LogWarning("NullServiceInstaller.UninstallAsync() — no platform installer found, throwing PlatformNotSupportedException");
+        throw new PlatformNotSupportedException("No service installer available for this platform.");
+    }
+    public Task StartAsync(CancellationToken ct = default)
+    {
+        _logger.LogWarning("NullServiceInstaller.StartAsync() — no platform installer found, throwing PlatformNotSupportedException");
+        throw new PlatformNotSupportedException("No service installer available for this platform.");
+    }
+    public Task StopAsync(CancellationToken ct = default)
+    {
+        _logger.LogWarning("NullServiceInstaller.StopAsync() — no platform installer found, throwing PlatformNotSupportedException");
         throw new PlatformNotSupportedException("No service installer available for this platform.");
     }
     public Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)

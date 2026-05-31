@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Services;
 
@@ -14,12 +16,16 @@ public static class FirewallRuleManager
     /// Adds a Windows Firewall inbound rule allowing TCP traffic on the specified port.
     /// Requires administrator privileges on Windows.
     /// </summary>
-    public static async Task AddRuleAsync(int port, CancellationToken ct = default)
+    public static async Task AddRuleAsync(int port, CancellationToken ct = default, ILogger? logger = null)
     {
         if (!OperatingSystem.IsWindows())
             return;
 
+        logger ??= NullLogger.Instance;
+
         var args = $"advfirewall firewall add rule name=\"{RuleName}\" protocol=TCP dir=in localport={port} action=allow profile=any description=\"Allows the Adam Digital Asset Management Broker Service to receive connections on TCP port {port}.\"";
+
+        logger.LogDebug("Running netsh {Args}", args);
 
         try
         {
@@ -41,12 +47,21 @@ public static class FirewallRuleManager
             var error = await process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);
 
+            // Log terminal output for debugging
+            if (!string.IsNullOrWhiteSpace(output))
+                logger.LogDebug("netsh stdout: {Output}", output.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(error))
+                logger.LogWarning("netsh stderr: {Error}", error.TrimEnd());
+
             if (process.ExitCode != 0)
             {
                 var message = string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim();
+                logger.LogError("netsh add rule failed (exit code {ExitCode}): {Message}", process.ExitCode, message);
                 throw new InvalidOperationException(
                     $"Failed to add firewall rule for port {port}: {message}");
             }
+
+            logger.LogDebug("netsh add rule completed successfully (exit code 0)");
         }
         catch (Exception) when (!OperatingSystem.IsWindows())
         {
@@ -56,17 +71,22 @@ public static class FirewallRuleManager
         {
             // netsh might not be available (e.g., Windows Server Core, Nano, or non-elevated context)
             // Log and degrade gracefully — the service should still install
-            Debug.WriteLine($"Failed to add firewall rule: {ex2.Message}");
+            logger.LogWarning(ex2, "Failed to add firewall rule for port {Port}", port);
         }
     }
 
     /// <summary>
     /// Removes the Windows Firewall inbound rule for the Adam Broker service.
     /// </summary>
-    public static async Task RemoveRuleAsync(CancellationToken ct = default)
+    public static async Task RemoveRuleAsync(CancellationToken ct = default, ILogger? logger = null)
     {
         if (!OperatingSystem.IsWindows())
             return;
+
+        logger ??= NullLogger.Instance;
+
+        var args = $"advfirewall firewall delete rule name=\"{RuleName}\"";
+        logger.LogDebug("Running netsh {Args}", args);
 
         try
         {
@@ -75,7 +95,7 @@ public static class FirewallRuleManager
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "netsh",
-                    Arguments = $"advfirewall firewall delete rule name=\"{RuleName}\"",
+                    Arguments = args,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -88,12 +108,21 @@ public static class FirewallRuleManager
             var error = await process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);
 
+            // Log terminal output for debugging
+            if (!string.IsNullOrWhiteSpace(output))
+                logger.LogDebug("netsh stdout: {Output}", output.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(error))
+                logger.LogWarning("netsh stderr: {Error}", error.TrimEnd());
+
             if (process.ExitCode != 0)
             {
                 var message = string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim();
+                logger.LogError("netsh delete rule failed (exit code {ExitCode}): {Message}", process.ExitCode, message);
                 throw new InvalidOperationException(
                     $"Failed to remove firewall rule: {message}");
             }
+
+            logger.LogDebug("netsh delete rule completed successfully (exit code 0)");
         }
         catch (InvalidOperationException)
         {
@@ -105,24 +134,29 @@ public static class FirewallRuleManager
         }
         catch (Exception ex2)
         {
-            Debug.WriteLine($"Failed to remove firewall rule: {ex2.Message}");
+            logger.LogWarning(ex2, "Failed to remove firewall rule");
         }
     }
 
     /// <summary>
     /// Checks if the firewall rule exists.
     /// </summary>
-    public static async Task<bool> RuleExistsAsync(CancellationToken ct = default)
+    public static async Task<bool> RuleExistsAsync(CancellationToken ct = default, ILogger? logger = null)
     {
         if (!OperatingSystem.IsWindows())
             return false;
+
+        logger ??= NullLogger.Instance;
+
+        var args = $"advfirewall firewall show rule name=\"{RuleName}\"";
+        logger.LogDebug("Running netsh {Args}", args);
 
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "netsh",
-                Arguments = $"advfirewall firewall show rule name=\"{RuleName}\"",
+                Arguments = args,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -132,7 +166,16 @@ public static class FirewallRuleManager
 
         process.Start();
         var output = await process.StandardOutput.ReadToEndAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
         await process.WaitForExitAsync(ct);
+
+        // Log terminal output for debugging
+        if (!string.IsNullOrWhiteSpace(output))
+            logger.LogDebug("netsh stdout: {Output}", output.TrimEnd());
+        if (!string.IsNullOrWhiteSpace(error))
+            logger.LogWarning("netsh stderr: {Error}", error.TrimEnd());
+
+        logger.LogDebug("netsh show rule completed (exit code {ExitCode})", process.ExitCode);
 
         return output.Contains(RuleName, StringComparison.OrdinalIgnoreCase);
     }

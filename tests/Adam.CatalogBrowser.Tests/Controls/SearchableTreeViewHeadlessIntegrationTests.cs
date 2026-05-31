@@ -28,6 +28,7 @@ internal sealed class TestCatalogBrowserApp : Application
 /// highlight feature. Invokes <c>internal</c> handlers directly to avoid
 /// <see cref="InputElement.InputHitTest"/> limitations in headless mode.
 /// </summary>
+[Collection(nameof(HeadlessAvaloniaCollection))]
 public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
 {
     private static readonly Lazy<HeadlessUnitTestSession> Session = new(

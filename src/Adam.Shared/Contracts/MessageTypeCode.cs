@@ -80,6 +80,10 @@ public enum MessageTypeCode : ushort
     // Status / Misc (90-99)
     GetServiceStatusRequest = 90,
     GetServiceStatusResponse = 91,
+    StartServiceRequest = 92,
+    StartServiceResponse = 93,
+    StopServiceRequest = 94,
+    StopServiceResponse = 95,
     NoData = 98,
     GeneralError = 99
 }

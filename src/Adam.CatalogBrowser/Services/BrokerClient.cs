@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using Adam.Shared.Contracts;
 using Adam.Shared.Transport;
+using Google.Protobuf;
 
 namespace Adam.CatalogBrowser.Services;
 
@@ -306,6 +307,50 @@ public sealed class BrokerClient : IAsyncDisposable
                 kvp.Value.TrySetException(new InvalidOperationException("Max reconnection attempts exceeded."));
             _pending.Clear();
         }
+    }
+
+    /// <summary>
+    /// Sends a <see cref="MessageTypeCode.StartServiceRequest"/> to the broker and returns
+    /// the deserialized result.
+    /// </summary>
+    public async Task<ServiceOperationResult> StartServiceAsync(string authToken, CancellationToken ct = default)
+    {
+        var request = new Envelope
+        {
+            AuthToken = authToken,
+            CorrelationId = Guid.NewGuid().ToString(),
+            MessageType = MessageTypeCode.StartServiceRequest,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new StartServiceRequest()))
+        };
+
+        var response = await SendAsync(request, ct);
+        if (response.StatusCode != 0)
+            return new ServiceOperationResult(false, response.ErrorMessage, response.StatusCode);
+
+        var payload = ProtoHelper.Deserialize<StartServiceResponse>(response.Payload.ToByteArray());
+        return new ServiceOperationResult(payload.Success, payload.Message, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="MessageTypeCode.StopServiceRequest"/> to the broker and returns
+    /// the deserialized result.
+    /// </summary>
+    public async Task<ServiceOperationResult> StopServiceAsync(string authToken, CancellationToken ct = default)
+    {
+        var request = new Envelope
+        {
+            AuthToken = authToken,
+            CorrelationId = Guid.NewGuid().ToString(),
+            MessageType = MessageTypeCode.StopServiceRequest,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new StopServiceRequest()))
+        };
+
+        var response = await SendAsync(request, ct);
+        if (response.StatusCode != 0)
+            return new ServiceOperationResult(false, response.ErrorMessage, response.StatusCode);
+
+        var payload = ProtoHelper.Deserialize<StopServiceResponse>(response.Payload.ToByteArray());
+        return new ServiceOperationResult(payload.Success, payload.Message, response.StatusCode);
     }
 
     public async ValueTask DisposeAsync()

@@ -101,6 +101,22 @@ public sealed class AdminPanelInstallerSelectionTests
         status.Should().Be(ServiceStatus.NotInstalled);
     }
 
+    [Fact]
+    public async Task SelectInstaller_NullServiceInstaller_StartAsync_Throws()
+    {
+        var installer = new NullServiceInstaller();
+        var act = async () => await installer.StartAsync();
+        await act.Should().ThrowAsync<PlatformNotSupportedException>();
+    }
+
+    [Fact]
+    public async Task SelectInstaller_NullServiceInstaller_StopAsync_Throws()
+    {
+        var installer = new NullServiceInstaller();
+        var act = async () => await installer.StopAsync();
+        await act.Should().ThrowAsync<PlatformNotSupportedException>();
+    }
+
     /// <summary>
     /// Creates a stub <see cref="IServiceInstaller"/> with the given support
     /// flag and service name.
@@ -142,6 +158,18 @@ public sealed class AdminPanelInstallerSelectionTests
         public Task UninstallAsync(CancellationToken ct = default)
         {
             _logger.LogInformation("PlatformSpecificInstaller[{Name}].UninstallAsync()", ServiceNameValue);
+            return Task.CompletedTask;
+        }
+
+        public Task StartAsync(CancellationToken ct = default)
+        {
+            _logger.LogInformation("PlatformSpecificInstaller[{Name}].StartAsync()", ServiceNameValue);
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken ct = default)
+        {
+            _logger.LogInformation("PlatformSpecificInstaller[{Name}].StopAsync()", ServiceNameValue);
             return Task.CompletedTask;
         }
 
@@ -198,6 +226,32 @@ public sealed class NullServiceInstallerLoggingTests
 
         logger.Messages.Should().Contain(m =>
             m.Contains("NullServiceInstaller.GetStatusAsync"));
+    }
+
+    [Fact]
+    public async Task StartAsync_WritesLog()
+    {
+        var logger = new TestLogger<NullServiceInstaller>();
+        var installer = new NullServiceInstaller(logger);
+        var act = async () => await installer.StartAsync();
+
+        await act.Should().ThrowAsync<PlatformNotSupportedException>();
+
+        logger.Messages.Should().Contain(m =>
+            m.Contains("NullServiceInstaller.StartAsync"));
+    }
+
+    [Fact]
+    public async Task StopAsync_WritesLog()
+    {
+        var logger = new TestLogger<NullServiceInstaller>();
+        var installer = new NullServiceInstaller(logger);
+        var act = async () => await installer.StopAsync();
+
+        await act.Should().ThrowAsync<PlatformNotSupportedException>();
+
+        logger.Messages.Should().Contain(m =>
+            m.Contains("NullServiceInstaller.StopAsync"));
     }
 }
 

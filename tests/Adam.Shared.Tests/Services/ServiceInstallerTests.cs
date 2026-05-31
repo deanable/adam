@@ -64,9 +64,8 @@ public sealed class ServiceInstallerTests
 
             var act2 = async () => await _sut.InstallAsync("relative/path.exe", 9100);
 
-            // On non-elevated Windows, EnsureElevated() throws UnauthorizedAccessException
-            // before EnsureAbsolutePath() gets a chance to throw ArgumentException.
-            // We accept either exception type since the point is that validation works.
+            // On non-elevated Windows: EnsureElevated() throws UnauthorizedAccessException.
+            // On elevated Windows: EnsureAbsolutePath() throws ArgumentException.
             var assertion = await act2.Should().ThrowAsync<Exception>();
             var ex = assertion.Which;
             (ex is ArgumentException || ex is UnauthorizedAccessException).Should().BeTrue(

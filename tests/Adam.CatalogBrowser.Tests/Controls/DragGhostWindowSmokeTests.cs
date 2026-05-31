@@ -14,6 +14,7 @@ namespace Adam.CatalogBrowser.Tests.Controls;
 /// Verifies the window construction, visual tree structure, show/hide lifecycle,
 /// position tracking, count badge behavior, and reusability.
 /// </summary>
+[Collection(nameof(HeadlessAvaloniaCollection))]
 public class DragGhostWindowSmokeTests : IDisposable
 {
     private static readonly Lazy<HeadlessUnitTestSession> Session = new(
