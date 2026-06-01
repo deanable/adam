@@ -5,23 +5,146 @@
         x:Class="Adam.CatalogBrowser.Views.LoginDialog"
         x:DataType="vm:LoginDialogViewModel"
         Title="Service Login"
-        Width="380"
-        Height="280"
+        Width="420"
+        Height="460"
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
+  <Window.Styles>
+    <Style Selector="Path.spinner-ring">
+      <Style.Animations>
+        <Animation Duration="0:0:0.8" IterationCount="INFINITE">
+          <KeyFrame Cue="100%">
+            <Setter Property="(RotateTransform.Angle)" Value="360"/>
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </Window.Styles>
+
   <Border Padding="24" Background="White">
-    <StackPanel Spacing="16">
+    <StackPanel Spacing="12">
 
       <!-- Header -->
-      <StackPanel Spacing="4">
-        <TextBlock Text="Service Login"
+      <StackPanel Spacing="4" Margin="0,0,0,4">
+        <TextBlock Text="Connect to Service"
                    FontSize="18"
                    FontWeight="Bold"
                    Foreground="#333" />
-        <TextBlock Text="{Binding ServiceHost, StringFormat='Connect to {0}'}"
+        <TextBlock Text="Enter the service address and your credentials"
                    FontSize="12"
                    Foreground="#888" />
+      </StackPanel>
+
+      <!-- Service Address -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Service Address:" FontSize="12" Foreground="#555" />
+        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+          <!-- Host text box -->
+          <TextBox Grid.Row="0" Grid.Column="0"
+                   Text="{Binding ServiceHost}"
+                   FontSize="13"
+                   BorderThickness="1"
+                   BorderBrush="#D0D0D0"
+                   CornerRadius="4"
+                   Padding="8,6"
+                   PlaceholderText="e.g. localhost or 192.168.1.100" />
+          <!-- Recent hosts dropdown -->
+          <ComboBox Grid.Row="0" Grid.Column="1"
+                    ItemsSource="{Binding RecentHosts}"
+                    SelectedItem="{Binding SelectedRecentHost}"
+                    Width="140"
+                    PlaceholderText="Recent..."
+                    FontSize="13"
+                    BorderThickness="1"
+                    BorderBrush="#D0D0D0"
+                    CornerRadius="4"
+                    Padding="6,4"
+                    Cursor="Hand">
+            <ComboBox.Styles>
+              <Style Selector="ComboBox:pointerover">
+                <Setter Property="BorderBrush" Value="#1976D2" />
+              </Style>
+            </ComboBox.Styles>
+          </ComboBox>
+        </Grid>
+      </StackPanel>
+
+      <!-- Port -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Port:" FontSize="12" Foreground="#555" />
+        <NumericUpDown Value="{Binding ServicePort}"
+                        Minimum="1"
+                        Maximum="65535"
+                        Increment="1"
+                        FontSize="13"
+                        BorderThickness="1"
+                        BorderBrush="#D0D0D0"
+                        CornerRadius="4"
+                        Padding="4,2"
+                        FormatString="0" />
+      </StackPanel>
+
+      <!-- Test Connection -->
+      <StackPanel Spacing="6">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Button Content="Test Connection"
+                  Command="{Binding TestConnectionCommand}"
+                  IsEnabled="{Binding CanTestConnection}"
+                  Padding="14,6"
+                  FontSize="12"
+                  HorizontalAlignment="Left"
+                  Background="#F5F5F5"
+                  BorderBrush="#D0D0D0"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Cursor="Hand">
+            <Button.Styles>
+              <Style Selector="Button:disabled">
+                <Setter Property="Background" Value="#E0E0E0" />
+                <Setter Property="Foreground" Value="#999" />
+              </Style>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="#E8E8E8" />
+              </Style>
+            </Button.Styles>
+          </Button>
+          <!-- Spinner while testing -->
+          <StackPanel Orientation="Horizontal" Spacing="6"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding IsTestingConnection}">
+            <Path Data="M 0,-8 A 8,8 0 1,1 0,8"
+                  Stroke="#888"
+                  StrokeThickness="2.5"
+                  StrokeLineCap="Round"
+                  Width="16"
+                  Height="16"
+                  RenderTransformOrigin="50%,50%"
+                  Classes="spinner-ring">
+              <Path.RenderTransform>
+                <RotateTransform Angle="0" />
+              </Path.RenderTransform>
+            </Path>
+            <TextBlock Text="Testing..."
+                       FontSize="12"
+                       Foreground="#888"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+        <!-- Connection test result -->
+        <StackPanel Orientation="Horizontal" Spacing="6"
+                    IsVisible="{Binding HasConnectionTestResult}">
+          <TextBlock Text="{Binding ConnectionTestIcon}"
+                     Foreground="{Binding ConnectionTestForeground}"
+                     FontSize="13"
+                     FontWeight="Bold"
+                     VerticalAlignment="Center" />
+          <TextBlock Text="{Binding ConnectionTestStatus}"
+                     FontSize="11"
+                     Foreground="#555"
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Center" />
+        </StackPanel>
       </StackPanel>
 
       <!-- Username -->
@@ -48,6 +171,29 @@
                  Padding="8,6"
                  PlaceholderText="Enter password"
                  PasswordChar="●" />
+      </StackPanel>
+
+      <!-- Clear saved credentials -->
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Content="Clear Saved"
+                Command="{Binding ClearCredentialsCommand}"
+                FontSize="11"
+                Foreground="#888"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Cursor="Hand"
+                HorizontalAlignment="Left">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Foreground" Value="#D32F2F" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <TextBlock Text="— resets host, port, username, and recent servers"
+                   FontSize="11"
+                   Foreground="#AAA"
+                   VerticalAlignment="Center" />
       </StackPanel>
 
       <!-- Error message -->

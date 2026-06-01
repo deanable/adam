@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-x64
+          - os: windows-latest
+            rid: win-x64
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Avalonia dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libharfbuzz0b
+
+      - name: Restore
+        run: dotnet restore src/Adam.slnx
+
+      - name: Build
+        run: dotnet build src/Adam.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test src/Adam.slnx -c Release --no-build
+        timeout-minutes: 15
+
+      - name: Publish (self-contained)
+        shell: bash
+        run: |
+          dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj \
+            -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true \
+            -o publish/CatalogBrowser
+          dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj \
+            -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true \
+            -o publish/BrokerService
+          dotnet publish src/Adam.ServiceManager/Adam.ServiceManager.csproj \
+            -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true \
+            -o publish/ServiceManager
+
+      - name: Create TAR.GZ
+        shell: bash
+        run: tar -czf "adam-ci-${{ matrix.rid }}.tar.gz" -C publish .
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.rid }}
+          path: adam-ci-*.tar.gz
+          retention-days: 5

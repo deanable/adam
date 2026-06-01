@@ -9,6 +9,7 @@ using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using System.Diagnostics;
 using RelayCommand = Adam.Shared.Services.RelayCommand;
 using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
@@ -124,9 +125,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
             SelectedAssetTags = _selectedAssetTags;
             SelectedAssetCategories = _selectedAssetCategories;
 
-            // Mode toggle commands
+        // Service Manager launch command
+        OpenServiceManagerCommand = new RelayCommand(_ => OpenServiceManager());
+
+        // Mode toggle commands
         ToggleLocalModeCommand = new RelayCommand(_ => IsServiceMode = false);
-        ToggleServiceModeCommand = new RelayCommand(_ => IsServiceMode = true);
+        ToggleServiceModeCommand = new RelayCommand(async _ => await ShowLoginAndConnectAsync());
         ConnectToServiceCommand = new RelayCommand(async _ => await ConnectToServiceAsync(), _ => !_isConnectedToService);
         DisconnectFromServiceCommand = new RelayCommand(async _ => await DisconnectFromServiceAsync(), _ => _isConnectedToService);
         LogoutCommand = new RelayCommand(async _ => await LogoutAsync(), _ => _isConnectedToService && _modeManager.AuthSession?.IsLoggedIn == true);
@@ -733,13 +737,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             _isServiceMode = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsLocalMode));
-            if (value)
-            {
-                // Switching to service mode — show connection panel
-                ServiceConnectionStatus = "Disconnected";
-                IsConnectedToService = false;
-            }
-            else
+            if (!value)
             {
                 // Switching to local — disconnect and re-init
                 _ = SwitchToLocalAsync();
@@ -772,6 +770,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         get => _serviceConnectionStatus;
         set { _serviceConnectionStatus = value; OnPropertyChanged(); }
     }
+
+    public RelayCommand OpenServiceManagerCommand { get; }
 
     public RelayCommand ToggleLocalModeCommand { get; }
     public RelayCommand ToggleServiceModeCommand { get; }
@@ -1521,6 +1521,250 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     // ──────────────────────────────────────────────
+    //  Service Manager launcher
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Launches the Service Manager application as a separate process.
+    /// Searches for the executable next to the current assembly or in
+    /// common build output locations.
+    /// </summary>
+    private void OpenServiceManager()
+    {
+        try
+        {
+            var path = ResolveServiceManagerPath();
+            if (string.IsNullOrEmpty(path))
+            {
+                StatusText = "Service Manager executable not found.";
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+                WorkingDirectory = Path.GetDirectoryName(path)!
+            };
+
+            Process.Start(psi);
+            _logger.LogInformation("Launched Service Manager: {Path}", path);
+            StatusText = "Service Manager opened";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to launch Service Manager");
+            StatusText = $"Failed to launch Service Manager: {ex.Message}";
+        }
+    }
+
+    private static string ResolveServiceManagerPath()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var extensions = OperatingSystem.IsWindows() ? new[] { ".exe", ".dll" } : new[] { "", ".dll" };
+
+        // Check same directory
+        foreach (var ext in extensions)
+        {
+            var path = Path.Combine(baseDir, $"Adam.ServiceManager{ext}");
+            if (File.Exists(path))
+                return path;
+        }
+
+        // Check sibling directory (publish layout)
+        var siblingDir = Path.GetFullPath(Path.Combine(baseDir, "..", "ServiceManager"));
+        foreach (var ext in extensions)
+        {
+            var path = Path.Combine(siblingDir, $"Adam.ServiceManager{ext}");
+            if (File.Exists(path))
+                return path;
+        }
+
+        // Walk up to find repo root and check build output
+        var dir = new DirectoryInfo(baseDir);
+        while (dir != null)
+        {
+            var hasGit = Directory.Exists(Path.Combine(dir.FullName, ".git"));
+            var hasSln = dir.GetFiles("*.sln*").Length > 0;
+
+            if (hasGit || hasSln)
+            {
+                foreach (var config in new[] { "Release", "Debug" })
+                {
+                    var candidate = Path.Combine(
+                        dir.FullName, "src", "Adam.ServiceManager",
+                        "bin", config, "net10.0", "Adam.ServiceManager.exe");
+
+                    if (File.Exists(candidate))
+                        return candidate;
+
+                    var dllCandidate = Path.Combine(
+                        dir.FullName, "src", "Adam.ServiceManager",
+                        "bin", config, "net10.0", "Adam.ServiceManager.dll");
+
+                    if (File.Exists(dllCandidate))
+                        return dllCandidate;
+                }
+                break;
+            }
+            dir = dir.Parent;
+        }
+
+        return string.Empty;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Service mode login flow
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Shows the login dialog with editable host, port, username, and password.
+    /// The dialog handles authentication inline via an <see cref="LoginDialogViewModel.AuthenticateAsync"/>
+    /// delegate. On failure the dialog stays open so the user can retry.
+    /// On success the dialog closes and multi-user mode is activated.
+    /// If cancelled, stays in Local mode.
+    /// </summary>
+    private async Task ShowLoginAndConnectAsync()
+    {
+        var cfg = App.Config;
+        var recentHosts = new ObservableCollection<string>(cfg.RecentHosts);
+        var loginVm = new LoginDialogViewModel
+        {
+            ServiceHost = cfg.ServiceHost,
+            ServicePort = cfg.ServicePort,
+            Username = cfg.LastUsername,
+            RecentHosts = recentHosts,
+            TestConnectionAsync = async (host, port) =>
+            {
+                try
+                {
+                    using var client = new System.Net.Sockets.TcpClient();
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    await client.ConnectAsync(host, port, cts.Token);
+                    return null; // reachable
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            },
+            ClearCredentialsAsync = () =>
+            {
+                cfg.ServiceHost = "localhost";
+                cfg.ServicePort = 9100;
+                cfg.LastUsername = string.Empty;
+                cfg.RecentHosts.Clear();
+                cfg.Save();
+                return Task.CompletedTask;
+            },
+            AuthenticateAsync = async (host, port, username, password) =>
+            {
+                try
+                {
+                    StatusText = "Connecting to service...";
+
+                    // Initialize multi-user mode with the latest host/port
+                    await _modeManager.InitializeMultiUserAsync(host, port);
+
+                    if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
+                        return "Broker client is not available.";
+
+                    await _modeManager.BrokerClient.ConnectAsync();
+
+                    var ok = await _modeManager.AuthSession.LoginAsync(username, password);
+                    if (!ok)
+                    {
+                        // Auth failed — disconnect so the next attempt starts fresh
+                        await _modeManager.BrokerClient.DisconnectAsync();
+                        return "Authentication failed. Check your username and password.";
+                    }
+
+                    // Persist host/port, username, and recent hosts
+                    cfg.ServiceHost = host;
+                    cfg.ServicePort = port;
+                    cfg.LastUsername = username;
+                    cfg.PushRecentHost(host, port);
+                    cfg.Save();
+
+                    // Update the live collection so the dropdown reflects the new entry
+                    recentHosts.Clear();
+                    foreach (var h in cfg.RecentHosts)
+                        recentHosts.Add(h);
+
+                    return null; // success
+                }
+                catch (Exception ex)
+                {
+                    // Clean up on failure so retry starts clean
+                    try
+                    {
+                        if (_modeManager.BrokerClient?.IsConnected == true)
+                            await _modeManager.BrokerClient.DisconnectAsync();
+                    }
+                    catch { /* best-effort */ }
+
+                    return ex.Message;
+                }
+            }
+        };
+
+        var loginDialog = new Views.LoginDialog(loginVm);
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+
+        if (mainWindow == null)
+        {
+            IsServiceMode = false;
+            return;
+        }
+
+        var loginResult = await loginDialog.ShowDialog<bool?>(mainWindow);
+
+        if (loginResult == true)
+        {
+            // Authentication succeeded inside the dialog — broker is already connected and authenticated
+            _serviceHost = loginVm.ServiceHost;
+            _servicePort = loginVm.ServicePort;
+            _isServiceMode = true;
+            OnPropertyChanged(nameof(IsServiceMode));
+            OnPropertyChanged(nameof(IsLocalMode));
+            OnPropertyChanged(nameof(ServiceHost));
+            OnPropertyChanged(nameof(ServicePort));
+
+            IsConnectedToService = true;
+            ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort}";
+            ConnectToServiceCommand.RaiseCanExecuteChanged();
+            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
+
+            try
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to reload data after connecting to service");
+            }
+
+            App.Config.Mode = "MultiUser";
+            App.Config.Save();
+
+            StatusText = $"Connected to {_serviceHost}:{_servicePort}";
+        }
+        else
+        {
+            // User cancelled the login dialog — stay in Local mode
+            _isServiceMode = false;
+            OnPropertyChanged(nameof(IsServiceMode));
+            OnPropertyChanged(nameof(IsLocalMode));
+            IsConnectedToService = false;
+            ServiceConnectionStatus = "Login cancelled";
+            StatusText = "Cancelled connecting to service";
+        }
+    }
+
+    // ──────────────────────────────────────────────
     //  Mode toggle & service connection
     // ──────────────────────────────────────────────
 
@@ -1562,14 +1806,55 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Creates and shows the login dialog modally on the UI thread.
+    /// The dialog collects host, port, username, and password and authenticates
+    /// inline. On failure the dialog stays open so the user can retry.
     /// </summary>
     /// <returns>True if authentication succeeded.</returns>
     private static async Task<bool> TryShowLoginDialogAsync(IAuthSession authSession, string host, int port)
     {
-        var loginVm = new LoginDialogViewModel(authSession)
+        var cfg = App.Config;
+        var recentHosts = new ObservableCollection<string>(cfg.RecentHosts);
+        var loginVm = new LoginDialogViewModel
         {
             ServiceHost = host,
-            ServicePort = port
+            ServicePort = port,
+            Username = cfg.LastUsername,
+            RecentHosts = recentHosts,
+            TestConnectionAsync = async (h, p) =>
+            {
+                try
+                {
+                    using var client = new System.Net.Sockets.TcpClient();
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    await client.ConnectAsync(h, p, cts.Token);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            },
+            ClearCredentialsAsync = () =>
+            {
+                cfg.ServiceHost = "localhost";
+                cfg.ServicePort = 9100;
+                cfg.LastUsername = string.Empty;
+                cfg.RecentHosts.Clear();
+                cfg.Save();
+                return Task.CompletedTask;
+            },
+            AuthenticateAsync = async (_, _, username, password) =>
+            {
+                try
+                {
+                    var ok = await authSession.LoginAsync(username, password);
+                    return ok ? null : "Authentication failed. Check your credentials.";
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            }
         };
 
         var loginDialog = new Views.LoginDialog(loginVm);
@@ -1581,7 +1866,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
             return false;
 
         var loginResult = await loginDialog.ShowDialog<bool?>(mainWindow);
-        return loginResult == true && authSession.IsLoggedIn;
+        if (loginResult == true)
+        {
+            // Save username and recent hosts
+            cfg.LastUsername = loginVm.Username;
+            cfg.PushRecentHost(loginVm.ServiceHost, loginVm.ServicePort);
+            cfg.Save();
+        }
+        return loginResult == true;
     }
 
     private async Task ConnectToServiceAsync()

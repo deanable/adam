@@ -66,6 +66,12 @@ public partial class App : Application
             {
                 DataContext = vm
             };
+
+            // Dispose the DI container on app exit
+            desktop.Exit += (_, _) =>
+            {
+                (provider as IDisposable)?.Dispose();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
