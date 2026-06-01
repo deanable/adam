@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.ServiceManager.Services;
 
 /// <summary>
 /// An <see cref="ILoggerProvider"/> that captures all log messages into an

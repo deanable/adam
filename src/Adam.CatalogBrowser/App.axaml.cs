@@ -32,11 +32,8 @@ public partial class App : Application
             System.Diagnostics.Debug.WriteLine($"[adam] App basePath: {basePath}");
             var logPath = Path.Combine(basePath, "adam-catalog.log");
 
-            // Create a shared capture for service installation logs (sc.exe, netsh, elevated process)
-            var serviceLogCapture = new System.Collections.ObjectModel.ObservableCollection<string>();
             services.AddLogging(builder => builder
                 .AddFile(logPath)
-                .AddProvider(new LogCaptureProvider(serviceLogCapture))
                 .SetMinimumLevel(LogLevel.Information));
 
             var broker = new BrokerClient(config.ServiceHost, config.ServicePort);
@@ -53,21 +50,9 @@ public partial class App : Application
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
 
-            // Register platform-specific service installers for BrokerService management
-            services.AddSingleton<IServiceInstaller, WindowsServiceInstaller>();
-            services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
-            services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();
-
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>();
-            services.AddSingleton<AdminPanelViewModel>(sp =>
-            {
-                var logger = sp.GetRequiredService<ILogger<AdminPanelViewModel>>();
-                var modeManager = sp.GetRequiredService<ModeManager>();
-                var installers = sp.GetServices<IServiceInstaller>();
-                return new AdminPanelViewModel(modeManager, installers, logger, serviceLogCapture);
-            });
             services.AddTransient<MigrationWizardViewModel>();
             services.AddTransient<IngestionViewModel>();
             services.AddTransient<MetadataEditorViewModel>();

@@ -1,4 +1,5 @@
 using Adam.Shared.Data;
+using Adam.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.CatalogBrowser.Services;

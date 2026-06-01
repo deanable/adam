@@ -6,7 +6,7 @@ using Adam.Shared.Contracts;
 using Adam.Shared.Transport;
 using Google.Protobuf;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.Shared.Services;
 
 public enum ConnectionStatus
 {

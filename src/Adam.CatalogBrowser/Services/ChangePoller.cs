@@ -1,4 +1,5 @@
 using Adam.Shared.Contracts;
+using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 

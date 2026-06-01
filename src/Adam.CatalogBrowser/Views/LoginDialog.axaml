@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+        x:Class="Adam.CatalogBrowser.Views.LoginDialog"
+        x:DataType="vm:LoginDialogViewModel"
+        Title="Service Login"
+        Width="380"
+        Height="280"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <Border Padding="24" Background="White">
+    <StackPanel Spacing="16">
+
+      <!-- Header -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Service Login"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Foreground="#333" />
+        <TextBlock Text="{Binding ServiceHost, StringFormat='Connect to {0}'}"
+                   FontSize="12"
+                   Foreground="#888" />
+      </StackPanel>
+
+      <!-- Username -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Username:" FontSize="12" Foreground="#555" />
+        <TextBox Name="UsernameTextBox"
+                 Text="{Binding Username}"
+                 FontSize="13"
+                 BorderThickness="1"
+                 BorderBrush="#D0D0D0"
+                 CornerRadius="4"
+                 Padding="8,6"
+                 PlaceholderText="Enter username" />
+      </StackPanel>
+
+      <!-- Password -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Password:" FontSize="12" Foreground="#555" />
+        <TextBox Text="{Binding Password}"
+                 FontSize="13"
+                 BorderThickness="1"
+                 BorderBrush="#D0D0D0"
+                 CornerRadius="4"
+                 Padding="8,6"
+                 PlaceholderText="Enter password"
+                 PasswordChar="●" />
+      </StackPanel>
+
+      <!-- Error message -->
+      <TextBlock Text="{Binding ErrorMessage}"
+                 FontSize="11"
+                 Foreground="#D32F2F"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static views:StringNotEmptyConverter.Instance}}"
+                 TextWrapping="Wrap" />
+
+      <!-- Buttons -->
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8"
+                  Margin="0,8,0,0">
+        <Button Content="Login"
+                Command="{Binding LoginCommand}"
+                IsDefault="True"
+                IsEnabled="{Binding CanLogin}"
+                Padding="20,8"
+                FontSize="13"
+                Background="#1976D2"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#E0E0E0" />
+              <Setter Property="Foreground" Value="#999" />
+            </Style>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#1565C0" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Cancel"
+                IsCancel="True"
+                Padding="20,8"
+                FontSize="13"
+                Background="#F0F0F0"
+                BorderBrush="#D0D0D0"
+                CornerRadius="4"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#E0E0E0" />
+            </Style>
+          </Button.Styles>
+        </Button>
+      </StackPanel>
+
+    </StackPanel>
+  </Border>
+</Window>

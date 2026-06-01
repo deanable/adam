@@ -1,8 +1,9 @@
 using Adam.Shared.Contracts;
+using Google.Protobuf;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.Shared.Services;
 
-public sealed class AuthSession
+public sealed class AuthSession : IAuthSession
 {
     private readonly BrokerClient _broker;
 
@@ -26,7 +27,7 @@ public sealed class AuthSession
         {
             CorrelationId = correlationId,
             MessageType = MessageTypeCode.LoginRequest,
-            Payload = Google.Protobuf.ByteString.CopyFrom(
+            Payload = ByteString.CopyFrom(
                 ProtoHelper.Serialize(new LoginRequest { Username = username, Password = password }))
         };
 

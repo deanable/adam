@@ -9,6 +9,7 @@ using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using RelayCommand = Adam.Shared.Services.RelayCommand;
 using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -39,6 +40,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private List<string>? _tagAutoCompleteSource;
     private ObservableCollection<string> _selectedAssetTags = [];
     private bool _tagsDirty;
+
+    // Mode toggle & service connection
+    private bool _isServiceMode;
+    private string _serviceHost = "localhost";
+    private int _servicePort = 9100;
+    private bool _isConnectedToService;
+    private string _serviceConnectionStatus = "Disconnected";
 
     // Editable fields in the property inspector panel
     private string? _selectedAssetDescription;
@@ -73,7 +81,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBulkOperationActive;
     private double _bulkProgressPercentage;
 
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, AdminPanelViewModel adminPanel, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue, bool startUp = true)
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue, bool startUp = true)
     {
         _logger = logger;
         _modeManager = modeManager;
@@ -82,7 +90,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ModeManager = modeManager;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
-        AdminPanel = adminPanel;
         Ingestion = ingestion;
         MetadataEditor = metadataEditor;
         UserManagement = userManagement;
@@ -117,7 +124,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
             SelectedAssetTags = _selectedAssetTags;
             SelectedAssetCategories = _selectedAssetCategories;
 
-            // Wire up broker connection status and change notifications for multi-user mode
+            // Mode toggle commands
+        ToggleLocalModeCommand = new RelayCommand(_ => IsServiceMode = false);
+        ToggleServiceModeCommand = new RelayCommand(_ => IsServiceMode = true);
+        ConnectToServiceCommand = new RelayCommand(async _ => await ConnectToServiceAsync(), _ => !_isConnectedToService);
+        DisconnectFromServiceCommand = new RelayCommand(async _ => await DisconnectFromServiceAsync(), _ => _isConnectedToService);
+        LogoutCommand = new RelayCommand(async _ => await LogoutAsync(), _ => _isConnectedToService && _modeManager.AuthSession?.IsLoggedIn == true);
+
+        // Wire up broker connection status and change notifications for multi-user mode
         if (modeManager.BrokerClient != null)
         {
             modeManager.BrokerClient.StatusChanged += (_, status) =>
@@ -188,7 +202,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogError(ex, "Failed to load gallery");
             }
         });
-        ShowAdminCommand = new RelayCommand(_ => CurrentView = adminPanel);
         ShowIngestionCommand = new RelayCommand(async _ =>
         {
             CurrentView = ingestion;
@@ -208,8 +221,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw));
         FlipHorizontalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipHorizontal));
         FlipVerticalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipVertical));
-
-        adminPanel.NavigateToMigrationWizard += () => CurrentView = migrationWizard;
 
         sidebar.FilterChanged += () =>
         {
@@ -316,15 +327,92 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
             // Run the entire startup pipeline on a background thread so the UI
             // thread stays free to paint the window, handle input, and show the
-            // loading overlay.  Each sub-method already dispatches UI updates
-            // (e.g., collection changes, IsLoading flags) back to the UI thread.
+            // loading overlay.
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    _logger.LogInformation("[Startup] Initializing database...");
-                    await modeManager.InitializeAsync();
-                    _logger.LogInformation("[Startup] Database initialized");
+                    var config = App.Config;
+
+                    if (config.Mode == "MultiUser")
+                    {
+                        _logger.LogInformation("[Startup] Initializing in MultiUser mode (connect to {Host}:{Port})...", config.ServiceHost, config.ServicePort);
+                        await modeManager.InitializeMultiUserAsync(config.ServiceHost, config.ServicePort);
+                        _logger.LogInformation("[Startup] Database initialized");
+
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            _isServiceMode = true;
+                            _serviceHost = config.ServiceHost;
+                            _servicePort = config.ServicePort;
+                            OnPropertyChanged(nameof(IsServiceMode));
+                            OnPropertyChanged(nameof(IsLocalMode));
+                            OnPropertyChanged(nameof(ServiceHost));
+                            OnPropertyChanged(nameof(ServicePort));
+                        });
+
+                        // Connect to broker and authenticate
+                        try
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                ServiceConnectionStatus = "Connecting...";
+                                ConnectToServiceCommand.RaiseCanExecuteChanged();
+                            });
+
+                            if (modeManager.BrokerClient == null || modeManager.AuthSession == null)
+                            {
+                                _logger.LogWarning("[Startup] Broker client or auth session not available");
+                            }
+                            else
+                            {
+                                await modeManager.BrokerClient.ConnectAsync();
+
+                                // Show login dialog on UI thread
+                                var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
+                                    TryShowLoginDialogAsync(modeManager.AuthSession, config.ServiceHost, config.ServicePort));
+
+                                if (authenticated)
+                                {
+                                    await Dispatcher.UIThread.InvokeAsync(() =>
+                                    {
+                                        _isConnectedToService = true;
+                                        ServiceConnectionStatus = $"Connected to {config.ServiceHost}:{config.ServicePort}";
+                                        OnPropertyChanged(nameof(IsConnectedToService));
+                                        DisconnectFromServiceCommand.RaiseCanExecuteChanged();
+                                    });
+
+                                    _logger.LogInformation("[Startup] Connected to broker at {Host}:{Port}", config.ServiceHost, config.ServicePort);
+                                }
+                                else
+                                {
+                                    // Login cancelled or failed — disconnect broker
+                                    await modeManager.BrokerClient.DisconnectAsync();
+
+                                    await Dispatcher.UIThread.InvokeAsync(() =>
+                                    {
+                                        ServiceConnectionStatus = "Login cancelled — connect manually";
+                                    });
+
+                                    _logger.LogInformation("[Startup] Login cancelled by user");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "[Startup] Auto-connect to broker failed — user can connect manually");
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                ServiceConnectionStatus = $"Connection failed: {ex.Message}";
+                            });
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[Startup] Initializing database...");
+                        await modeManager.InitializeAsync();
+                        _logger.LogInformation("[Startup] Database initialized");
+                    }
 
                     _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
                     await Sidebar.LoadAsync();
@@ -371,7 +459,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ModeManager ModeManager { get; }
     public SidebarViewModel Sidebar { get; }
     public AssetGalleryViewModel AssetGallery { get; }
-    public AdminPanelViewModel AdminPanel { get; }
     public IngestionViewModel Ingestion { get; }
     public MetadataEditorViewModel MetadataEditor { get; }
     public UserManagementViewModel UserManagement { get; }
@@ -636,9 +723,64 @@ public class MainWindowViewModel : INotifyPropertyChanged
         set { _showConnectionStatus = value; OnPropertyChanged(); }
     }
 
+    // Mode & connection properties
+    public bool IsServiceMode
+    {
+        get => _isServiceMode;
+        set
+        {
+            if (_isServiceMode == value) return;
+            _isServiceMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsLocalMode));
+            if (value)
+            {
+                // Switching to service mode — show connection panel
+                ServiceConnectionStatus = "Disconnected";
+                IsConnectedToService = false;
+            }
+            else
+            {
+                // Switching to local — disconnect and re-init
+                _ = SwitchToLocalAsync();
+            }
+        }
+    }
+
+    public bool IsLocalMode => !_isServiceMode;
+
+    public string ServiceHost
+    {
+        get => _serviceHost;
+        set { _serviceHost = value; OnPropertyChanged(); }
+    }
+
+    public int ServicePort
+    {
+        get => _servicePort;
+        set { _servicePort = value; OnPropertyChanged(); }
+    }
+
+    public bool IsConnectedToService
+    {
+        get => _isConnectedToService;
+        set { _isConnectedToService = value; OnPropertyChanged(); }
+    }
+
+    public string ServiceConnectionStatus
+    {
+        get => _serviceConnectionStatus;
+        set { _serviceConnectionStatus = value; OnPropertyChanged(); }
+    }
+
+    public RelayCommand ToggleLocalModeCommand { get; }
+    public RelayCommand ToggleServiceModeCommand { get; }
+    public RelayCommand ConnectToServiceCommand { get; }
+    public RelayCommand DisconnectFromServiceCommand { get; }
+    public RelayCommand LogoutCommand { get; }
+
     public ICommand ReconnectCommand { get; }
     public ICommand ShowGalleryCommand { get; }
-    public ICommand ShowAdminCommand { get; }
     public ICommand ShowIngestionCommand { get; }
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
@@ -1378,6 +1520,192 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    // ──────────────────────────────────────────────
+    //  Mode toggle & service connection
+    // ──────────────────────────────────────────────
+
+    private async Task SwitchToLocalAsync()
+    {
+        try
+        {
+            StatusText = "Switching to local mode...";
+
+            // Disconnect broker if connected
+            if (_modeManager.BrokerClient?.IsConnected == true)
+            {
+                await _modeManager.BrokerClient.DisconnectAsync();
+            }
+
+            await _modeManager.InitializeAsync();
+
+            IsConnectedToService = false;
+            ServiceConnectionStatus = "Disconnected";
+            ConnectToServiceCommand.RaiseCanExecuteChanged();
+            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
+
+            // Reload data
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+
+            // Persist mode
+            App.Config.Mode = "Standalone";
+            App.Config.Save();
+
+            StatusText = "Switched to local mode";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to switch to local mode");
+            StatusText = $"Failed to switch: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Creates and shows the login dialog modally on the UI thread.
+    /// </summary>
+    /// <returns>True if authentication succeeded.</returns>
+    private static async Task<bool> TryShowLoginDialogAsync(IAuthSession authSession, string host, int port)
+    {
+        var loginVm = new LoginDialogViewModel(authSession)
+        {
+            ServiceHost = host,
+            ServicePort = port
+        };
+
+        var loginDialog = new Views.LoginDialog(loginVm);
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+
+        if (mainWindow == null)
+            return false;
+
+        var loginResult = await loginDialog.ShowDialog<bool?>(mainWindow);
+        return loginResult == true && authSession.IsLoggedIn;
+    }
+
+    private async Task ConnectToServiceAsync()
+    {
+        try
+        {
+            ServiceConnectionStatus = "Connecting...";
+            StatusText = "Connecting to service...";
+
+            await _modeManager.InitializeMultiUserAsync(_serviceHost, _servicePort);
+
+            // Connect broker (TCP connection)
+            if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
+            {
+                ServiceConnectionStatus = "Broker client not available";
+                return;
+            }
+
+            await _modeManager.BrokerClient.ConnectAsync();
+
+            // Show login dialog for authentication
+            var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
+                TryShowLoginDialogAsync(_modeManager.AuthSession, _serviceHost, _servicePort));
+
+            if (!authenticated)
+            {
+                // Login was cancelled or failed — disconnect and abort
+                await _modeManager.BrokerClient.DisconnectAsync();
+                ServiceConnectionStatus = "Login cancelled";
+                StatusText = "Connection cancelled";
+                return;
+            }
+
+            IsConnectedToService = true;
+            ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort}";
+            ConnectToServiceCommand.RaiseCanExecuteChanged();
+            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
+
+            // Reload data
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+
+            // Persist mode and connection settings
+            App.Config.Mode = "MultiUser";
+            App.Config.ServiceHost = _serviceHost;
+            App.Config.ServicePort = _servicePort;
+            App.Config.Save();
+
+            StatusText = "Connected to service";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to connect to service");
+            ServiceConnectionStatus = $"Connection failed: {ex.Message}";
+            IsConnectedToService = false;
+            StatusText = "Connection failed";
+
+            // Ensure we disconnect on failure
+            try
+            {
+                if (_modeManager.BrokerClient?.IsConnected == true)
+                    await _modeManager.BrokerClient.DisconnectAsync();
+            }
+            catch { /* best-effort cleanup */ }
+        }
+    }        private async Task LogoutAsync()
+        {
+            try
+            {
+                // Clear the auth session
+                _modeManager.AuthSession?.Logout();
+
+                // Show the login dialog again for re-authentication
+                var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
+                    TryShowLoginDialogAsync(_modeManager.AuthSession!, _serviceHost, _servicePort));
+
+                if (authenticated)
+                {
+                    ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort} (re-authenticated)";
+                    StatusText = "Re-authenticated successfully";
+                    LogoutCommand.RaiseCanExecuteChanged();
+                }
+                else
+                {
+                    // Re-authentication cancelled or failed — disconnect
+                    // DisconnectFromServiceAsync handles the status text update
+                    await DisconnectFromServiceAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to re-authenticate after logout");
+                StatusText = $"Logout failed: {ex.Message}";
+                // Fall back to disconnect on error
+                await DisconnectFromServiceAsync();
+            }
+        }
+
+        private async Task DisconnectFromServiceAsync()
+    {
+        try
+        {
+            StatusText = "Disconnecting from service...";
+
+            if (_modeManager.BrokerClient?.IsConnected == true)
+            {
+                await _modeManager.BrokerClient.DisconnectAsync();
+            }
+
+            IsConnectedToService = false;
+            ServiceConnectionStatus = "Disconnected";
+            ConnectToServiceCommand.RaiseCanExecuteChanged();
+            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
+            LogoutCommand.RaiseCanExecuteChanged();
+
+            StatusText = "Disconnected from service";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to disconnect from service");
+            StatusText = $"Disconnect failed: {ex.Message}";
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -1386,21 +1714,4 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 }
 
-public class RelayCommand : ICommand
-{
-    private readonly Action<object?> _execute;
-    private readonly Func<object?, bool>? _canExecute;
 
-    public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
-    {
-        _execute = execute;
-        _canExecute = canExecute;
-    }
-
-    public event EventHandler? CanExecuteChanged;
-
-    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-
-    public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
-    public void Execute(object? parameter) => _execute(parameter);
-}

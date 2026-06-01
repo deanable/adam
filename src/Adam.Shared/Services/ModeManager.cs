@@ -3,7 +3,7 @@ using Adam.Shared.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.Shared.Services;
 
 public sealed class ModeManager
 {

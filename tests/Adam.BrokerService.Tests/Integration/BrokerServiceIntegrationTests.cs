@@ -817,8 +817,10 @@ public sealed class BrokerServiceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Service_can_listen_on_alternative_port()
     {
-        // Start a second listener on a different port
-        var secondPort = PortChecker.FindFreePort(_port + 1000);
+        // Start a second listener on a different port.
+        // Use FindFreePort() with the default start (9100) instead of _port + 1000
+        // to avoid overflow when _port is in the high ephemeral range (>64535).
+        var secondPort = PortChecker.FindFreePort();
         secondPort.Should().BeGreaterThan(0);
 
         var secondListener = _serviceProvider.GetRequiredService<TcpListenerService>();

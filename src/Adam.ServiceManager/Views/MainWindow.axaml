@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.ServiceManager.ViewModels"
+        xmlns:views="clr-namespace:Adam.ServiceManager.Views"
+        x:Class="Adam.ServiceManager.Views.MainWindow"
+        Title="Adam Service Manager"
+        Width="800"
+        Height="700"
+        x:CompileBindings="False">
+  <Window.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:ServiceManagerViewModel}">
+      <views:ServiceManagerView />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid RowDefinitions="Auto,*">
+    <!-- Title bar -->
+    <Border Grid.Row="0" Background="#005A9E" Padding="8">
+      <Grid ColumnDefinitions="Auto,*">
+        <TextBlock Text="Adam Service Manager" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0">
+          <Run Text="Running as: " />
+          <Run Text="{Binding AdministratorAccount}" FontWeight="SemiBold" />
+          <Run Text="|" Foreground="#888" />
+          <Run Text="{Binding HealthLabel}" />
+        </TextBlock>
+      </Grid>
+    </Border>
+
+    <!-- Content -->
+    <ContentControl Grid.Row="1" Content="{Binding}" Background="Transparent" />
+  </Grid>
+</Window>

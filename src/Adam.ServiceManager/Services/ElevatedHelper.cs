@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Adam.Shared.Services;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.ServiceManager.Services;
 
 /// <summary>
-/// Handles headless elevated operations when CatalogBrowser is launched with
+/// Handles headless elevated operations when ServiceManager is launched with
 /// <c>--elevated &lt;requestFile&gt;</c>. Runs the requested service operation
 /// (install, uninstall, start, stop) and writes the result back to the request file.
 /// </summary>

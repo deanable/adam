@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
+using Adam.Shared.Services;
 using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;

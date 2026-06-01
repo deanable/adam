@@ -3,6 +3,7 @@ using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -43,7 +44,6 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
         _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
         _gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
-        var adminPanel = new AdminPanelViewModel(_modeManager, Enumerable.Empty<Adam.Shared.Services.IServiceInstaller>());
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var userManagement = new UserManagementViewModel(_modeManager);
@@ -57,7 +57,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         // IsInitialLoading state via reflection afterward.
         _vm = new MainWindowViewModel(
             _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
-            adminPanel, ingestion, metadataEditor,
+            ingestion, metadataEditor,
             userManagement, auditLog, migrationWizard, bulkQueue,
             startUp: false);
 
@@ -514,6 +514,61 @@ public class MainWindowViewModelTests : IAsyncLifetime
     }
 
     // ──────────────────────────────────────────────
+    //  LogoutCommand.CanExecute guards
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void LogoutCommand_CanExecute_WhenNotConnected_ReturnsFalse()
+    {
+        // Default state: _isConnectedToService is false, auth is null
+        _vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void LogoutCommand_CanExecute_WhenConnectedNotLoggedIn_ReturnsFalse()
+    {
+        SetField("_isConnectedToService", true);
+        // _modeManager.AuthSession is null → null-conditional yields false
+        _vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LogoutCommand_CanExecute_WhenConnectedAndLoggedIn_ReturnsTrue()
+    {
+        await using var ctx = new LoggedInVmContext();
+        await ctx.InitializeAsync();
+
+        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LogoutCommand_CanExecute_AfterDisconnect_ReturnsFalse()
+    {
+        await using var ctx = new LoggedInVmContext();
+        await ctx.InitializeAsync();
+
+        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeTrue();
+
+        // Disconnect should disable the command
+        ctx.Vm.DisconnectFromServiceCommand.Execute(null);
+        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LogoutCommand_CanExecute_WhenNotConnectedButAuthLoggedIn_ReturnsFalse()
+    {
+        await using var ctx = new LoggedInVmContext();
+        await ctx.InitializeAsync();
+
+        // Simulate disconnect but keep auth session logged in
+        var connectedField = typeof(MainWindowViewModel).GetField("_isConnectedToService",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        connectedField.SetValue(ctx.Vm, false);
+
+        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    // ──────────────────────────────────────────────
     //  HasSingleSelection / HasMultiSelection
     // ──────────────────────────────────────────────
 
@@ -673,3 +728,76 @@ public class MainWindowViewModelTests : IAsyncLifetime
         return assetId;
     }
 }
+
+/// <summary>
+/// Context that creates a <see cref="MainWindowViewModel"/> connected to a fake
+/// broker with a logged-in <see cref="AuthSession"/>. Used for testing
+/// LogoutCommand state and execution.
+/// </summary>
+internal sealed class LoggedInVmContext : IAsyncDisposable
+{
+    private readonly string _basePath;
+    private readonly BrokerClient _broker;
+    private readonly AuthSession _auth;
+    private readonly ModeManager _modeManager;
+
+    public MainWindowViewModel Vm { get; private set; } = null!;
+    public AuthSession AuthSession => _auth;
+
+    public LoggedInVmContext()
+    {
+        _basePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        _broker = new BrokerClient("localhost", 9999);
+        _auth = new AuthSession(_broker);
+        _modeManager = new ModeManager(_basePath, _broker, _auth);
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _modeManager.InitializeAsync();
+
+        // Set Token and CurrentUser via reflection to make IsLoggedIn = true
+        var tokenField = typeof(AuthSession).GetField("<Token>k__BackingField",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        tokenField.SetValue(_auth, "test-jwt-token");
+
+        var currentUserField = typeof(AuthSession).GetField("<CurrentUser>k__BackingField",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        currentUserField.SetValue(_auth, new Adam.Shared.Contracts.UserProfile { Username = "testuser" });
+
+        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
+        var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
+
+        Vm = new MainWindowViewModel(
+            new NullLogger<MainWindowViewModel>(),
+            _modeManager,
+            new MetadataWritebackService(),
+            sidebar,
+            gallery,
+            new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
+            new MetadataEditorViewModel(_modeManager),
+            new UserManagementViewModel(_modeManager),
+            new AuditLogViewModel(_modeManager),
+            new MigrationWizardViewModel(_modeManager),
+            new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>()),
+            startUp: false);
+
+        // Set connected state via reflection to simulate a connected service
+        var isConnectedField = typeof(MainWindowViewModel).GetField("_isConnectedToService",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        isConnectedField.SetValue(Vm, true);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _broker.DisposeAsync();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try
+        {
+            if (Directory.Exists(_basePath))
+                Directory.Delete(_basePath, recursive: true);
+        }
+        catch (IOException) { }
+    }
+}
+

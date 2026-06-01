@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.CatalogBrowser.ViewModels;

@@ -4,6 +4,7 @@ using Adam.CatalogBrowser.ViewModels;
 using System.Reflection;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
+using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +49,6 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         _bulkQueue = new BulkOperationQueue(_modeManager, _queueLogger);
         var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
         var gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
-        var adminPanel = new AdminPanelViewModel(_modeManager, []);
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var userManagement = new UserManagementViewModel(_modeManager);
@@ -57,7 +57,7 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
 
         _vm = new MainWindowViewModel(
             _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
-            adminPanel, ingestion, metadataEditor,
+            ingestion, metadataEditor,
             userManagement, auditLog, migrationWizard, _bulkQueue);
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false

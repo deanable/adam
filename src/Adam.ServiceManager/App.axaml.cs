@@ -1,0 +1,65 @@
+using Adam.ServiceManager.Services;
+using Adam.ServiceManager.ViewModels;
+using Adam.ServiceManager.Views;
+using Adam.Shared.Services;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Adam.ServiceManager;
+
+public partial class App : Application
+{
+    /// <summary>
+    /// Global config instance, loaded once at startup and saved on changes.
+    /// </summary>
+    internal static ServiceManagerConfig Config { get; private set; } = ServiceManagerConfig.Load();
+
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var config = Config;
+            var services = new ServiceCollection();
+            var basePath = AppContext.BaseDirectory;
+            System.Diagnostics.Debug.WriteLine($"[adam-service] App basePath: {basePath}");
+            var logPath = Path.Combine(basePath, "adam-service-manager.log");
+
+            // Create a shared capture for service installation logs (sc.exe, netsh, elevated process)
+            var serviceLogCapture = new System.Collections.ObjectModel.ObservableCollection<string>();
+            services.AddLogging(builder => builder
+                .AddFile(logPath)
+                .AddProvider(new LogCaptureProvider(serviceLogCapture))
+                .SetMinimumLevel(LogLevel.Information));
+
+            // Register platform-specific service installers for BrokerService management
+            services.AddSingleton<IServiceInstaller, WindowsServiceInstaller>();
+            services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
+            services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();
+
+            services.AddSingleton<ServiceManagerViewModel>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILogger<ServiceManagerViewModel>>();
+                var installers = sp.GetServices<IServiceInstaller>();
+                return new ServiceManagerViewModel(installers, logger, serviceLogCapture);
+            });
+
+            var provider = services.BuildServiceProvider();
+
+            var vm = provider.GetRequiredService<ServiceManagerViewModel>();
+            desktop.MainWindow = new MainWindow
+            {
+                DataContext = vm
+            };
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+}

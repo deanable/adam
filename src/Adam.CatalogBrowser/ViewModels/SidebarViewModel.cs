@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Adam.CatalogBrowser.Services;
+using Adam.Shared.Services;
 using Adam.Shared.Contracts;
 using Avalonia.Threading;
 using Google.Protobuf;

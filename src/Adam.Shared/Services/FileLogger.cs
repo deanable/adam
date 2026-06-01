@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.Shared.Services;
 
 public sealed class FileLoggerProvider : ILoggerProvider
 {

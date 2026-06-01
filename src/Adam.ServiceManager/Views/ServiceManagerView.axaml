@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Adam.ServiceManager.Views"
+             xmlns:controls="clr-namespace:Adam.ServiceManager.Controls"
+             x:Class="Adam.ServiceManager.Views.ServiceManagerView"
+             x:CompileBindings="False">
+  <Grid>
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="16">
+
+      <!-- Service Status Dashboard -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="20" CornerRadius="8">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Service Status" FontSize="18" FontWeight="Bold" />
+
+          <!-- Traffic-light indicator row -->
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <!-- Status indicator ellipse -->
+            <Ellipse Grid.Column="0"
+                     Width="24" Height="24"
+                     Stroke="#666" StrokeThickness="1.5"
+                     Fill="{Binding Health, Converter={x:Static local:ServiceHealthConverter.Instance}}"
+                     VerticalAlignment="Center" />
+
+            <!-- Status label -->
+            <TextBlock Grid.Column="1"
+                       Text="{Binding HealthLabel}"
+                       FontSize="16" FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0" />
+
+            <!-- Last refresh / status text -->
+            <TextBlock Grid.Column="2"
+                       Text="{Binding ServiceStatusText}"
+                       FontSize="12" Foreground="#888"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Right" />
+
+            <!-- Refresh button -->
+            <Button Grid.Column="3"
+                    Content="⟳ Refresh"
+                    Command="{Binding RefreshStatusCommand}"
+                    Margin="8,0,0,0"
+                    Padding="12,4" FontSize="12" />
+          </Grid>
+
+          <!-- Action buttons -->
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Install Service" Command="{Binding InstallServiceCommand}" />
+            <Button Content="Uninstall Service" Command="{Binding UninstallServiceCommand}" />
+            <Button Content="Start Service" Command="{Binding StartServiceCommand}" />
+            <Button Content="Stop Service" Command="{Binding StopServiceCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Administrator Account -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="8">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Text="Running as:" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding AdministratorAccount}"
+                       Margin="8,0,0,0" FontSize="14"
+                       VerticalAlignment="Center" />
+          </Grid>
+
+          <!-- Elevation status badge -->
+          <Border CornerRadius="4" Padding="8,4"
+                  Background="{Binding IsElevated, Converter={x:Static local:AdminBadgeBackgroundConverter.Instance}}">
+            <TextBlock Text="{Binding IsElevated, Converter={x:Static local:AdminBadgeTextConverter.Instance}}"
+                       FontSize="12" FontWeight="SemiBold"
+                       Foreground="White" />
+          </Border>
+
+          <!-- Relaunch as Admin button (only shown when not elevated) -->
+          <Button Content="Relaunch as Administrator"
+                  Command="{Binding RelaunchAsAdminCommand}"
+                  IsVisible="{Binding IsElevationRequired}"
+                  HorizontalAlignment="Left"
+                  Padding="16,6" />
+        </StackPanel>
+      </Border>
+
+      <!-- Service Configuration -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Service Configuration" FontSize="14" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Grid.Column="0" Text="Host:" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <TextBox Grid.Column="1" Text="{Binding ServiceHost}" Margin="8,0,0,0" PlaceholderText="localhost" />
+          </Grid>
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Grid.Column="0" Text="Port:" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+              <NumericUpDown Value="{Binding ServicePort}" Minimum="1" Maximum="65535" FormatString="#0" Width="120" />
+              <TextBlock Text="(1-65535)" VerticalAlignment="Center" Foreground="Gray" FontSize="11" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Text="Restart the app after changing host/port for the new settings to take effect."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- Status Message -->
+      <Border Background="#FAFAFA" Padding="8" CornerRadius="4"
+              IsVisible="{Binding StatusMessage, Converter={x:Static local:NotEmptyConverter.Instance}}">
+        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+      </Border>
+
+      <!-- Operation Log -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Operation Log" FontSize="14" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+                    Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="2" MaxHeight="240">
+            <ScrollViewer>
+              <ItemsControl ItemsSource="{Binding LogMessages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                               TextWrapping="NoWrap" Foreground="#333" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- Service Installation Log -->
+      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Service Installation Log" FontSize="14" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+                    Command="{Binding ClearServiceLogCommand}" />
+          </Grid>
+          <TextBlock Text="Captures all application log output including sc.exe, netsh, and elevated process diagnostics."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+          <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="2" MaxHeight="320">
+            <ScrollViewer>
+              <ItemsControl ItemsSource="{Binding ServiceLogMessages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                               TextWrapping="NoWrap" Foreground="#D4D4D4" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+
+  <!-- Loading overlay -->
+  <Border Background="#CCFFFFFF" IsVisible="{Binding IsBusy}"
+          HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <controls:LoadingSpinner Width="40" Height="40" Foreground="#1976D2"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+  </Border>
+  </Grid>
+</UserControl>

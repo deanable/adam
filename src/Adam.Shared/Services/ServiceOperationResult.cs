@@ -1,4 +1,4 @@
-namespace Adam.CatalogBrowser.Services;
+namespace Adam.Shared.Services;
 
 /// <summary>
 /// Represents the result of a remote service operation (start/stop)

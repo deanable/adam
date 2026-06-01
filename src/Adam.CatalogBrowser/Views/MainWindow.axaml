@@ -11,9 +11,6 @@
     <DataTemplate DataType="{x:Type vm:AssetGalleryViewModel}">
       <views:AssetGalleryView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:AdminPanelViewModel}">
-      <views:AdminPanelView />
-    </DataTemplate>
     <DataTemplate DataType="{x:Type vm:IngestionViewModel}">
       <views:IngestionView />
     </DataTemplate>
@@ -46,11 +43,11 @@
     <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveTagsCommand}" />
   </Window.KeyBindings>
 
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
 
     <!-- Title bar -->
     <Border Grid.Row="0" Background="#005A9E" Padding="8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
         <TextBlock Text="adam" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
@@ -58,10 +55,79 @@
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Users" Command="{Binding ShowUserManagementCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Admin" Command="{Binding ShowAdminCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
         </StackPanel>
-        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
+
+        <!-- Mode toggle -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0" Margin="8,0" VerticalAlignment="Center">
+          <Button Content="Local" Command="{Binding ToggleLocalModeCommand}"
+                  FontSize="11" Foreground="White" Cursor="Hand" Padding="8,2"
+                  Background="{Binding IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  BorderThickness="1" BorderBrush="#005A9E" CornerRadius="3,0,0,3" />
+          <Button Content="Service" Command="{Binding ToggleServiceModeCommand}"
+                  FontSize="11" Foreground="White" Cursor="Hand" Padding="8,2"
+                  Background="{Binding IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  BorderThickness="1" BorderBrush="#005A9E" CornerRadius="0,3,3,0" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="3" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
+
+        <!-- Connection status indicator -->
+        <Ellipse Grid.Column="4" Width="8" Height="8" Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
+                 VerticalAlignment="Center" Margin="2,0" />
       </Grid>
+    </Border>
+
+    <!-- Connection panel (visible when Service mode is selected) -->
+    <Border Grid.Row="1" Background="#E3F2FD" Padding="6,4" IsVisible="{Binding IsServiceMode}">
+      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+        <TextBlock Text="Host:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+        <TextBox Text="{Binding ServiceHost}" Width="120" FontSize="11" Padding="2,1"
+                 IsEnabled="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+        <TextBlock Text="Port:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+        <NumericUpDown Value="{Binding ServicePort}" Minimum="1" Maximum="65535" Increment="1"
+                        Width="100" FontSize="11"
+                        IsEnabled="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+        <Button Content="Connect" Command="{Binding ConnectToServiceCommand}" FontSize="11" Padding="8,2"
+                Background="#388E3C" Foreground="White" BorderThickness="0" CornerRadius="3"
+                IsVisible="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#BDBDBD" />
+            </Style>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#2E7D32" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Logout" Command="{Binding LogoutCommand}" FontSize="11" Padding="8,2"
+                Background="#E65100" Foreground="White" BorderThickness="0" CornerRadius="3"
+                IsVisible="{Binding IsConnectedToService}"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#BDBDBD" />
+            </Style>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#EF6C00" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Disconnect" Command="{Binding DisconnectFromServiceCommand}" FontSize="11" Padding="8,2"
+                Background="#D32F2F" Foreground="White" BorderThickness="0" CornerRadius="3"
+                IsVisible="{Binding IsConnectedToService}"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#BDBDBD" />
+            </Style>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#C62828" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <TextBlock Text="{Binding ServiceConnectionStatus}" FontSize="11" Foreground="#1565C0" VerticalAlignment="Center" Margin="4,0,0,0" />
+      </StackPanel>
     </Border>
 
     <!-- 3-column layout -->
@@ -445,7 +511,7 @@
     </Grid>
 
     <!-- Status bar -->
-    <Border Grid.Row="2" Background="#F0F0F0" Padding="4,2">
+    <Border Grid.Row="3" Background="#F0F0F0" Padding="4,2">
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#666" VerticalAlignment="Center" />
 
