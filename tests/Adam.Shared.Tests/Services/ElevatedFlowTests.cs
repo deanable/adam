@@ -410,7 +410,7 @@ public sealed class ElevatedFlowTests
             logger.Messages.Should().Contain(m =>
                 m.Contains("ElevatedProcessHandler is set"));
             logger.Messages.Should().Contain(m =>
-                m.Contains("Elevated operation completed successfully"));
+                m.Contains("Elevated operation 'install' completed successfully"));
         }
     }
 }

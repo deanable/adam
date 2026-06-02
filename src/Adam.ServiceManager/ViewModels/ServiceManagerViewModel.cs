@@ -308,11 +308,12 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
             var svc = await _serviceInstaller.GetStatusAsync();
             ServiceStatusText = svc.ToString();
 
-            // Only treat Running or Stopped as "installed". Unknown → Red.
-            IsServiceInstalled = svc is ServiceStatus.Running or ServiceStatus.Stopped;
+            // Treat Running, Stopped, or Unknown (START_PENDING / transitional) as "installed".
+            // NotInstalled is the only state that means the service doesn't exist.
+            IsServiceInstalled = svc != ServiceStatus.NotInstalled;
             IsServiceRunning = svc == ServiceStatus.Running;
 
-            AddLog($"Service status: {svc}, Installed={IsServiceInstalled}, Running={IsServiceRunning}");
+            AddLog($"Service status: {svc} (raw sc.exe output will be in the service log), Installed={IsServiceInstalled}, Running={IsServiceRunning}");
         }
         catch (Exception ex)
         {
@@ -330,7 +331,12 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
 
     private async Task StartServiceAsync()
     {
+        var sw = Stopwatch.StartNew();
         AddLog("=== STARTING SERVICE ===");
+        AddLog($"Installer type: {_serviceInstaller.GetType().Name}, IsSupported: {_serviceInstaller.IsSupported}");
+        AddLog($"Installer IsElevated: {(OperatingSystem.IsWindows() ? new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator).ToString() : "N/A")}");
+        AddLog($"Environment: PID={Environment.ProcessId}, ProcessPath={Environment.ProcessPath}");
+        AddLog($"OS: {Environment.OSVersion}, UserInteractive: {Environment.UserInteractive}");
         IsBusy = true;
         try
         {
@@ -344,8 +350,10 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
             }
 
             AddLog("Calling installer.StartAsync...");
+            var before = DateTime.UtcNow;
             await _serviceInstaller.StartAsync();
-            AddLog("Installer.StartAsync completed successfully.");
+            var elapsed = sw.Elapsed;
+            AddLog($"Installer.StartAsync completed successfully. Elapsed: {elapsed.TotalMilliseconds:F0}ms (started={before:O}, ended={DateTime.UtcNow:O})");
 
             IsServiceRunning = true;
             ServiceStatusText = ServiceStatus.Running.ToString();
@@ -355,25 +363,31 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "Insufficient privileges to start service");
+            _logger.LogError(ex, "Insufficient privileges to start service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ADMIN REQUIRED: {ex.Message}");
             StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start service");
+            _logger.LogError(ex, "Failed to start service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
+            AddLog($"STACK TRACE: {ex.StackTrace}");
+            if (ex.InnerException != null)
+                AddLog($"INNER EXCEPTION: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
             StatusMessage = $"Start error: {ex.Message}";
         }
         finally
         {
             IsBusy = false;
+            AddLog($"Total start operation elapsed: {sw.Elapsed.TotalMilliseconds:F0}ms");
         }
     }
 
     private async Task StopServiceAsync()
     {
+        var sw = Stopwatch.StartNew();
         AddLog("=== STOPPING SERVICE ===");
+        AddLog($"Installer type: {_serviceInstaller.GetType().Name}, IsSupported: {_serviceInstaller.IsSupported}");
         IsBusy = true;
         try
         {
@@ -387,8 +401,10 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
             }
 
             AddLog("Calling installer.StopAsync...");
+            var before = DateTime.UtcNow;
             await _serviceInstaller.StopAsync();
-            AddLog("Installer.StopAsync completed successfully.");
+            var elapsed = sw.Elapsed;
+            AddLog($"Installer.StopAsync completed successfully. Elapsed: {elapsed.TotalMilliseconds:F0}ms (started={before:O}, ended={DateTime.UtcNow:O})");
 
             IsServiceRunning = false;
             ServiceStatusText = ServiceStatus.Stopped.ToString();
@@ -398,19 +414,23 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "Insufficient privileges to stop service");
+            _logger.LogError(ex, "Insufficient privileges to stop service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ADMIN REQUIRED: {ex.Message}");
             StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to stop service");
+            _logger.LogError(ex, "Failed to stop service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
+            AddLog($"STACK TRACE: {ex.StackTrace}");
+            if (ex.InnerException != null)
+                AddLog($"INNER EXCEPTION: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
             StatusMessage = $"Stop error: {ex.Message}";
         }
         finally
         {
             IsBusy = false;
+            AddLog($"Total stop operation elapsed: {sw.Elapsed.TotalMilliseconds:F0}ms");
         }
     }
 

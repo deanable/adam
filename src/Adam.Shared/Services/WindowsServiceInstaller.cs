@@ -57,20 +57,24 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
 
     public async Task InstallAsync(string brokerPath, int port, CancellationToken ct = default)
     {
-        _logger.LogInformation("WindowsServiceInstaller.InstallAsync(brokerPath='{BrokerPath}', port={Port})", brokerPath, port);
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("[TIMING] WindowsServiceInstaller.InstallAsync(brokerPath='{BrokerPath}', port={Port}) — entering at {Timestamp:O}", brokerPath, port, DateTime.UtcNow);
 
         EnsureSupported();
         EnsureAbsolutePath(brokerPath);
 
         if (!IsElevated)
         {
-            _logger.LogInformation("Not elevated — launching helper process via UAC...");
+            _logger.LogInformation("Not elevated (IsElevated={IsElevated}) — launching helper process via UAC...", IsElevated);
+            LogDiagnosticState();
             await RunElevatedAsync(new ElevatedRequest { Operation = "install", BrokerPath = brokerPath, Port = port }, ct);
+            _logger.LogInformation("[TIMING] InstallAsync via elevation completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             return;
         }
 
-        _logger.LogInformation("Checking port {Port} availability...", port);
+        _logger.LogInformation("[TIMING] Checking port {Port} availability...", port);
         var portFree = PortChecker.IsPortFree(port);
+        _logger.LogInformation("[TIMING] Port check completed in {ElapsedMs:F0}ms: portFree={PortFree}", sw.Elapsed.TotalMilliseconds, portFree);
         if (!portFree)
         {
             var freePort = PortChecker.FindFreePort(port);
@@ -82,115 +86,153 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         }
 
         // Check if service already exists — if so, update it instead of recreating
+        _logger.LogInformation("[TIMING] Checking if service '{ServiceName}' already exists (elapsed: {ElapsedMs:F0}ms)...", ServiceName, sw.Elapsed.TotalMilliseconds);
         var existingStatus = await GetStatusInternalAsync(ct);
+        _logger.LogInformation("[TIMING] Existing service status: {Status} (elapsed: {ElapsedMs:F0}ms)", existingStatus, sw.Elapsed.TotalMilliseconds);
+
         if (existingStatus != ServiceStatus.NotInstalled)
         {
             _logger.LogInformation("Service '{ServiceName}' already exists (status={Status}). Updating configuration...", ServiceName, existingStatus);
 
             if (existingStatus == ServiceStatus.Running)
             {
-                _logger.LogInformation("Stopping service before updating...");
+                _logger.LogInformation("[TIMING] Stopping running service before update...");
                 await RunScAsync($"stop {ServiceName}", ct);
             }
 
-            _logger.LogInformation("Updating service binary path to '{BrokerPath}'...", brokerPath);
+            _logger.LogInformation("[TIMING] Updating service config: binPath='{BrokerPath}'...", brokerPath);
             await RunScAsync($"config {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
-            _logger.LogInformation("Updating service description...");
+            _logger.LogInformation("[TIMING] Updating service description...");
             await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
         }
         else
         {
-            _logger.LogInformation("Creating service '{ServiceName}' with binPath='{BrokerPath}'...", ServiceName, brokerPath);
+            _logger.LogInformation("[TIMING] Creating new service '{ServiceName}' with binPath='{BrokerPath}'...", ServiceName, brokerPath);
             await RunScAsync($"create {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
-            _logger.LogInformation("Setting service description...");
+            _logger.LogInformation("[TIMING] Setting service description...");
             await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
         }
 
-        _logger.LogInformation("Adding Windows Firewall rule for port {Port}...", port);
+        _logger.LogInformation("[TIMING] Adding Windows Firewall rule for port {Port} (elapsed: {ElapsedMs:F0}ms)...", port, sw.Elapsed.TotalMilliseconds);
         try
         {
             await FirewallRuleManager.AddRuleAsync(port, ct, _logger);
-            _logger.LogInformation("Firewall rule added successfully.");
+            _logger.LogInformation("[TIMING] Firewall rule added successfully.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not add firewall rule for port {Port}", port);
         }
 
-        _logger.LogInformation("Starting service '{ServiceName}'...", ServiceName);
+        _logger.LogInformation("[TIMING] Starting service '{ServiceName}' via sc.exe (elapsed: {ElapsedMs:F0}ms)...", ServiceName, sw.Elapsed.TotalMilliseconds);
         await RunScAsync($"start {ServiceName}", ct);
-        _logger.LogInformation("Service '{ServiceName}' installed and started successfully.", ServiceName);
+        _logger.LogInformation("[TIMING] Service '{ServiceName}' installed and started successfully in {ElapsedMs:F0}ms", ServiceName, sw.Elapsed.TotalMilliseconds);
     }
 
     public async Task UninstallAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("WindowsServiceInstaller.UninstallAsync()");
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("[TIMING] WindowsServiceInstaller.UninstallAsync() — entering at {Timestamp:O}", DateTime.UtcNow);
 
         EnsureSupported();
 
         if (!IsElevated)
         {
-            _logger.LogInformation("Not elevated — launching helper process via UAC...");
+            _logger.LogInformation("Not elevated (IsElevated={IsElevated}) — launching helper process via UAC...", IsElevated);
             await RunElevatedAsync(new ElevatedRequest { Operation = "uninstall" }, ct);
+            _logger.LogInformation("[TIMING] UninstallAsync via elevation completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             return;
         }
 
+        _logger.LogInformation("[TIMING] Querying current service status (elapsed: {ElapsedMs:F0}ms)...", sw.Elapsed.TotalMilliseconds);
         var status = await GetStatusInternalAsync(ct);
-        _logger.LogInformation("Current service status: {Status}", status);
+        _logger.LogInformation("[TIMING] Service status: {Status} (elapsed: {ElapsedMs:F0}ms)", status, sw.Elapsed.TotalMilliseconds);
+
         if (status == ServiceStatus.Running)
         {
-            _logger.LogInformation("Stopping service...");
+            _logger.LogInformation("[TIMING] Stopping service before uninstall...");
             await RunScAsync($"stop {ServiceName}", ct);
         }
 
-        _logger.LogInformation("Deleting service...");
+        _logger.LogInformation("[TIMING] Deleting service '{ServiceName}'...", ServiceName);
         await RunScAsync($"delete {ServiceName}", ct);
-        _logger.LogInformation("Removing Windows Firewall rule...");
+
+        _logger.LogInformation("[TIMING] Removing Windows Firewall rule (elapsed: {ElapsedMs:F0}ms)...", sw.Elapsed.TotalMilliseconds);
         try
         {
             await FirewallRuleManager.RemoveRuleAsync(ct, _logger);
-            _logger.LogInformation("Firewall rule removed successfully.");
+            _logger.LogInformation("[TIMING] Firewall rule removed successfully.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not remove firewall rule");
         }
 
-        _logger.LogInformation("Service uninstalled successfully.");
+        _logger.LogInformation("[TIMING] Service '{ServiceName}' uninstalled successfully in {ElapsedMs:F0}ms", ServiceName, sw.Elapsed.TotalMilliseconds);
     }
 
     public async Task StartAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("WindowsServiceInstaller.StartAsync()");
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("[TIMING] WindowsServiceInstaller.StartAsync() — entering at {Timestamp:O}", DateTime.UtcNow);
         EnsureSupported();
 
         if (!IsElevated)
         {
-            _logger.LogInformation("Not elevated — launching helper process via UAC...");
+            _logger.LogInformation("Not elevated (IsElevated={IsElevated}) — launching helper process via UAC...", IsElevated);
+            LogDiagnosticState();
             await RunElevatedAsync(new ElevatedRequest { Operation = "start" }, ct);
+            _logger.LogInformation("[TIMING] StartAsync via elevation completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             return;
         }
 
-        _logger.LogInformation("Starting service '{ServiceName}'...", ServiceName);
+        // Pre-check: if the service is in a transitional state (e.g. START_PENDING from a hung start),
+        // stop it first to reset, then start. sc.exe start fails with error 1056 if already START_PENDING.
+        _logger.LogInformation("[TIMING] Pre-checking service status before start (elapsed: {ElapsedMs:F0}ms)...", sw.Elapsed.TotalMilliseconds);
+        var preStatus = await GetStatusInternalAsync(ct);
+        _logger.LogInformation("[TIMING] Pre-start status: {Status} (elapsed: {ElapsedMs:F0}ms)", preStatus, sw.Elapsed.TotalMilliseconds);
+
+        if (preStatus == ServiceStatus.Unknown)
+        {
+            _logger.LogWarning("[TIMING] Service in transitional/unknown state ({Status}). Stopping first to reset state, then starting.", preStatus);
+            try
+            {
+                await RunScAsync($"stop {ServiceName}", ct);
+                _logger.LogInformation("[TIMING] Stop (pre-start reset) completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[TIMING] Stop (pre-start reset) failed — proceeding with start anyway");
+            }
+        }
+        else if (preStatus == ServiceStatus.Running)
+        {
+            _logger.LogInformation("[TIMING] Service is already running — nothing to do.");
+            return;
+        }
+
+        _logger.LogInformation("[TIMING] Starting service '{ServiceName}' via sc.exe (elapsed so far: {ElapsedMs:F0}ms)...", ServiceName, sw.Elapsed.TotalMilliseconds);
         await RunScAsync($"start {ServiceName}", ct);
-        _logger.LogInformation("Service '{ServiceName}' started successfully.", ServiceName);
+        _logger.LogInformation("[TIMING] Service '{ServiceName}' started successfully in {ElapsedMs:F0}ms", ServiceName, sw.Elapsed.TotalMilliseconds);
     }
 
     public async Task StopAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("WindowsServiceInstaller.StopAsync()");
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("[TIMING] WindowsServiceInstaller.StopAsync() — entering at {Timestamp:O}", DateTime.UtcNow);
         EnsureSupported();
 
         if (!IsElevated)
         {
-            _logger.LogInformation("Not elevated — launching helper process via UAC...");
+            _logger.LogInformation("Not elevated (IsElevated={IsElevated}) — launching helper process via UAC...", IsElevated);
             await RunElevatedAsync(new ElevatedRequest { Operation = "stop" }, ct);
+            _logger.LogInformation("[TIMING] StopAsync via elevation completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             return;
         }
 
-        _logger.LogInformation("Stopping service '{ServiceName}'...", ServiceName);
+        _logger.LogInformation("[TIMING] Stopping service '{ServiceName}' via sc.exe (elapsed so far: {ElapsedMs:F0}ms)...", ServiceName, sw.Elapsed.TotalMilliseconds);
         await RunScAsync($"stop {ServiceName}", ct);
-        _logger.LogInformation("Service '{ServiceName}' stopped successfully.", ServiceName);
+        _logger.LogInformation("[TIMING] Service '{ServiceName}' stopped successfully in {ElapsedMs:F0}ms", ServiceName, sw.Elapsed.TotalMilliseconds);
     }
 
     public async Task<ServiceStatus> GetStatusAsync(CancellationToken ct = default)
@@ -206,14 +248,25 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
     /// </summary>
     private async Task RunElevatedAsync(ElevatedRequest request, CancellationToken ct)
     {
+        var sw = Stopwatch.StartNew();
         var tempDir = Path.GetTempPath();
         var requestFile = Path.Combine(tempDir, $"adam-elevated-{Guid.NewGuid():N}.json");
+        var logFile = Path.Combine(tempDir, $"adam-elevated-{Path.GetFileNameWithoutExtension(requestFile)}.log");
+
+        _logger.LogInformation("[TIMING] RunElevatedAsync: operation={Operation}, requestFile={RequestFile}, logFile={LogFile}",
+            request.Operation, requestFile, logFile);
+        _logger.LogInformation("[DIAG] ProcessPath={ProcessPath}, IsElevated={IsElevated}, ElevatedProcessHandler={HandlerSet}",
+            ProcessPath, IsElevated, ElevatedProcessHandler != null ? "set" : "null");
+        _logger.LogInformation("[DIAG] TempDir={TempDir}, Request: Operation={Op}, BrokerPath={Bp}, Port={Port}",
+            tempDir, request.Operation, request.BrokerPath ?? "(null)", request.Port);
 
         try
         {
             // Serialize request to temp file
             var json = JsonSerializer.Serialize(request);
             await File.WriteAllTextAsync(requestFile, json, ct);
+            _logger.LogInformation("[TIMING] Request file written in {ElapsedMs:F0}ms ({Size} bytes)",
+                sw.Elapsed.TotalMilliseconds, json.Length);
 
             _logger.LogInformation("Launching elevated helper: {ProcessPath} --elevated {RequestFile}", ProcessPath, requestFile);
 
@@ -221,15 +274,18 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
             {
                 _logger.LogDebug("ElevatedProcessHandler is set — delegating instead of launching process.");
                 await ElevatedProcessHandler(requestFile, ct);
+                _logger.LogInformation("[TIMING] ElevatedProcessHandler completed in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             }
             else
             {
+                const int elevatedTimeoutMs = 60_000; // 1 minute — user selected
+
                 using var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = ProcessPath,
-                        Arguments = $"--elevated \"{requestFile}\"",
+                        Arguments = $"--elevated \"{requestFile}\" --log \"{logFile}\"",
                         UseShellExecute = true,
                         Verb = "runas",
                         // Note: with UseShellExecute = true, we cannot redirect output;
@@ -239,7 +295,88 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
                 };
 
                 process.Start();
-                await process.WaitForExitAsync(ct);
+                var pid = process.Id;
+                _logger.LogInformation("[TIMING] Elevated process started with PID={Pid} after {ElapsedMs:F0}ms — now waiting for exit (timeout={TimeoutMs}ms)...",
+                    pid, sw.Elapsed.TotalMilliseconds, elevatedTimeoutMs);
+
+                // Create a timeout CTS linked to the caller's token
+                var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(elevatedTimeoutMs);
+
+                // Log warnings at 20s and 40s (before the 60s timeout)
+                var warningTask = WarnIfSlowAsync(pid, sw, timeoutCts.Token, [20_000, 40_000]);
+
+                try
+                {
+                    await process.WaitForExitAsync(timeoutCts.Token);
+                    _logger.LogInformation("[TIMING] Elevated process (PID={Pid}) exited with code={ExitCode} after {ElapsedMs:F0}ms",
+                        pid, process.ExitCode, sw.Elapsed.TotalMilliseconds);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // Timeout expired — the user didn't cancel, the timeout triggered
+                    var elapsed = sw.Elapsed;
+                    _logger.LogCritical("[TIMEOUT] Elevated process (PID={Pid}) did not exit within {TimeoutMs}ms (elapsed={ElapsedMs:F0}ms). Killing process.",
+                        pid, elevatedTimeoutMs, elapsed.TotalMilliseconds);
+
+                    // Try to read whatever the elevated log has so far
+                    TryReadElevatedLog(logFile);
+
+                    // Kill the hung process
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                        var killSw = Stopwatch.StartNew();
+                        if (!process.WaitForExit(5000))
+                        {
+                            _logger.LogError("[TIMEOUT] Failed to kill elevated process (PID={Pid}) within 5s", pid);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("[TIMEOUT] Elevated process (PID={Pid}) killed in {KillMs:F0}ms", pid, killSw.Elapsed.TotalMilliseconds);
+                        }
+                    }
+                    catch (Exception killEx)
+                    {
+                        _logger.LogError(killEx, "[TIMEOUT] Exception while killing elevated process (PID={Pid})", pid);
+                    }
+
+                    var timeoutMsg = $"Elevated operation '{request.Operation}' timed out after {elapsed.TotalSeconds:F0}s. " +
+                        $"The elevated helper process (PID={pid}) did not respond within the {elevatedTimeoutMs / 1000}s timeout. " +
+                        "This may indicate the UAC prompt was dismissed, the helper process crashed, or a sc.exe/netsh command hung.";
+
+                    _logger.LogCritical("[TIMEOUT] {Message}", timeoutMsg);
+                    throw new TimeoutException(timeoutMsg);
+                }
+                finally
+                {
+                    await timeoutCts.CancelAsync();
+                    timeoutCts.Dispose();
+                }
+
+                // Read the elevated log file if it was written
+                if (File.Exists(logFile))
+                {
+                    try
+                    {
+                        var logContent = await File.ReadAllTextAsync(logFile, ct);
+                        _logger.LogInformation("[ELEVATED LOG] === Begin elevated process log ({Len} chars) ===", logContent.Length);
+                        foreach (var line in logContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                            _logger.LogInformation("[ELEVATED] {Line}", line.TrimEnd());
+                        _logger.LogInformation("[ELEVATED LOG] === End elevated process log ===");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to read elevated log file: {LogFile}", logFile);
+                    }
+
+                    // Clean up log file
+                    try { File.Delete(logFile); } catch { /* best-effort */ }
+                }
+                else
+                {
+                    _logger.LogWarning("Elevated process did not produce a log file at {LogFile}", logFile);
+                }
             }
 
             // Read result from temp file
@@ -250,7 +387,9 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
                 throw new InvalidOperationException(msg);
             }
 
+            _logger.LogInformation("[TIMING] Reading result file at {ElapsedMs:F0}ms...", sw.Elapsed.TotalMilliseconds);
             var resultJson = await File.ReadAllTextAsync(requestFile, ct);
+            _logger.LogInformation("[DIAG] Result file contents ({Len} bytes): {Json}", resultJson.Length, resultJson);
             var result = JsonSerializer.Deserialize<ElevatedResponse>(resultJson);
 
             if (result == null)
@@ -267,7 +406,8 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
                 throw new InvalidOperationException(errorMsg);
             }
 
-            _logger.LogInformation("Elevated operation completed successfully.");
+            _logger.LogInformation("[TIMING] Elevated operation '{Operation}' completed successfully in {ElapsedMs:F0}ms",
+                request.Operation, sw.Elapsed.TotalMilliseconds);
         }
         finally
         {
@@ -277,18 +417,65 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         }
     }
 
-    private async Task<ServiceStatus> GetStatusInternalAsync(CancellationToken ct)
+    /// <summary>
+    /// Logs a warning at each threshold if the process is still running.
+    /// Helps detect hangs before a hard timeout fires.
+    /// </summary>
+    private async Task WarnIfSlowAsync(int pid, Stopwatch sw, CancellationToken ct, int[]? thresholds = null)
     {
+        thresholds ??= [10_000, 30_000, 60_000, 120_000];
+        foreach (var thresholdMs in thresholds)
+        {
+            try
+            {
+                await Task.Delay(thresholdMs, ct);
+                if (ct.IsCancellationRequested) break;
+                _logger.LogWarning("[HANG WARNING] Process (PID={Pid}) still running after {ElapsedMs:F0}ms — threshold={ThresholdMs}ms",
+                    pid, sw.Elapsed.TotalMilliseconds, thresholdMs);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Best-effort read of the elevated log file. Called when the process times out
+    /// so we can capture any diagnostics it managed to write.
+    /// </summary>
+    private void TryReadElevatedLog(string logFile)
+    {
+        if (!File.Exists(logFile)) return;
         try
         {
+            var logContent = File.ReadAllText(logFile);
+            _logger.LogInformation("[ELEVATED LOG (before kill)] === Begin ({Len} chars) ===", logContent.Length);
+            foreach (var line in logContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                _logger.LogInformation("[ELEVATED (before kill)] {Line}", line.TrimEnd());
+            _logger.LogInformation("[ELEVATED LOG (before kill)] === End ===");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read elevated log file on timeout: {LogFile}", logFile);
+        }
+    }
+
+    private async Task<ServiceStatus> GetStatusInternalAsync(CancellationToken ct)
+    {
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            _logger.LogInformation("[TIMING] Querying service '{ServiceName}' status via sc.exe...", ServiceName);
             var output = await RunScRawAsync($"query {ServiceName}", ct);
+            _logger.LogInformation("[DIAG] Raw sc.exe query output:\n{Output}", output.TrimEnd());
             var status = ParseScQuery(output);
-            _logger.LogInformation("Service status: {Status}", status);
+            _logger.LogInformation("[TIMING] Service status queried in {ElapsedMs:F0}ms: {Status}", sw.Elapsed.TotalMilliseconds, status);
             return status;
         }
         catch (Exception ex) when (ex is not PlatformNotSupportedException && ex is not UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "GetStatusInternalAsync: service not found or not accessible");
+            _logger.LogWarning(ex, "GetStatusInternalAsync: service not found or not accessible (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             return ServiceStatus.NotInstalled;
         }
     }
@@ -301,8 +488,9 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
             if (!line.Contains("STATE", StringComparison.OrdinalIgnoreCase)) continue;
             var upper = line.ToUpperInvariant();
             if (upper.Contains("RUNNING")) return ServiceStatus.Running;
-            if (upper.Contains("STOPPED") || upper.Contains("STOP_PENDING")) return ServiceStatus.Stopped;
-            if (upper.Contains("START_PENDING")) return ServiceStatus.Stopped;
+            if (upper.Contains("STOPPED")) return ServiceStatus.Stopped;
+            if (upper.Contains("STOP_PENDING")) return ServiceStatus.Running;
+            if (upper.Contains("START_PENDING")) return ServiceStatus.Unknown;
             return ServiceStatus.Unknown;
         }
         return ServiceStatus.NotInstalled;
@@ -315,7 +503,8 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
 
     private async Task<string> RunScRawAsync(string arguments, CancellationToken ct)
     {
-        _logger.LogDebug("Running sc.exe {Arguments}", arguments);
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("[TIMING] Running: sc.exe {Arguments}", arguments);
 
         using var process = new Process
         {
@@ -331,27 +520,67 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
         };
 
         process.Start();
-        var output = await process.StandardOutput.ReadToEndAsync(ct);
-        var error = await process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
+        var pid = process.Id;
+        _logger.LogInformation("[TIMING] sc.exe started (PID={Pid}) at {Timestamp:O}", pid, DateTime.UtcNow);
 
-        // Log the terminal output for debugging purposes
-        if (!string.IsNullOrWhiteSpace(output))
-            _logger.LogDebug("sc.exe stdout: {Output}", output.TrimEnd());
-        if (!string.IsNullOrWhiteSpace(error))
-            _logger.LogWarning("sc.exe stderr: {Error}", error.TrimEnd());
+        // Use a timeout-aware approach: warn if sc.exe takes >15 seconds
+        var scTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var scWarningTask = WarnIfSlowAsync(pid, sw, scTimeoutCts.Token);
 
-        if (process.ExitCode != 0)
+        try
         {
-            var message = string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim();
-            _logger.LogError("sc.exe {Arguments} failed (exit code {ExitCode}): {Message}",
-                arguments, process.ExitCode, message);
-            throw new InvalidOperationException(
-                $"sc.exe {arguments} failed (exit code {process.ExitCode}): {message}");
-        }
+            var output = await process.StandardOutput.ReadToEndAsync(ct);
+            var error = await process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
 
-        _logger.LogDebug("sc.exe {Arguments} completed successfully (exit code 0)", arguments);
-        return output;
+            _logger.LogInformation("[TIMING] sc.exe (PID={Pid}) exited (code={ExitCode}) in {ElapsedMs:F0}ms",
+                pid, process.ExitCode, sw.Elapsed.TotalMilliseconds);
+
+            // Log the terminal output for debugging purposes
+            if (!string.IsNullOrWhiteSpace(output))
+                _logger.LogInformation("[DIAG] sc.exe stdout ({Len} chars): {Output}", output.Length, output.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(error))
+                _logger.LogWarning("[DIAG] sc.exe stderr ({Len} chars): {Error}", error.Length, error.TrimEnd());
+
+            if (process.ExitCode != 0)
+            {
+                var message = string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim();
+                _logger.LogError("sc.exe {Arguments} FAILED (exit code {ExitCode}, elapsed={ElapsedMs:F0}ms): {Message}",
+                    arguments, process.ExitCode, sw.Elapsed.TotalMilliseconds, message);
+                throw new InvalidOperationException(
+                    $"sc.exe {arguments} failed (exit code {process.ExitCode}): {message}");
+            }
+
+            _logger.LogInformation("[TIMING] sc.exe {Arguments} completed OK (PID={Pid}, elapsed={ElapsedMs:F0}ms)",
+                arguments, pid, sw.Elapsed.TotalMilliseconds);
+            return output;
+        }
+        finally
+        {
+            await scTimeoutCts.CancelAsync();
+            scTimeoutCts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Logs diagnostic state information before elevation to help debug issues.
+    /// </summary>
+    private void LogDiagnosticState()
+    {
+        try
+        {
+            _logger.LogInformation("[DIAG] ProcessPath exists: {Exists}, CWD: {Cwd}",
+                File.Exists(ProcessPath), Environment.CurrentDirectory);
+            _logger.LogInformation("[DIAG] OS: {Os}, User: {User}, Domain: {Domain}, Interactive: {Interactive}",
+                Environment.OSVersion, Environment.UserName, Environment.UserDomainName, Environment.UserInteractive);
+            _logger.LogInformation("[DIAG] CLR: {RuntimeVersion}, Process: {ProcessName} (PID={Pid})",
+                Environment.Version, Process.GetCurrentProcess().ProcessName,
+                Environment.ProcessId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[DIAG] Failed to capture diagnostic state");
+        }
     }
 
     private void EnsureSupported()
