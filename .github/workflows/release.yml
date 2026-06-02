@@ -57,6 +57,11 @@ jobs:
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService
         run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Publish ServiceManager
+        run: dotnet publish src/Adam.ServiceManager/Adam.ServiceManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/ServiceManager
+      - name: Stage ServiceManager alongside CatalogBrowser
+        shell: pwsh
+        run: Copy-Item -Path publish/ServiceManager/* -Destination publish/CatalogBrowser/ -Recurse -Force
       - name: Install WiX
         run: dotnet tool install --global wix --version 4.0.5
       - name: Build CatalogBrowser MSI
@@ -96,6 +101,11 @@ jobs:
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService
         run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Publish ServiceManager
+        run: dotnet publish src/Adam.ServiceManager/Adam.ServiceManager.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/ServiceManager
+      - name: Stage ServiceManager alongside CatalogBrowser
+        shell: bash
+        run: cp -r publish/ServiceManager/* publish/CatalogBrowser/
       - name: Create CatalogBrowser DMG
         run: |
           bash .github/installer/macos/create-dmg.sh \
@@ -145,6 +155,11 @@ jobs:
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService
         run: dotnet publish src/Adam.BrokerService/Adam.BrokerService.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/BrokerService
+      - name: Publish ServiceManager
+        run: dotnet publish src/Adam.ServiceManager/Adam.ServiceManager.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/ServiceManager
+      - name: Stage ServiceManager alongside CatalogBrowser
+        shell: bash
+        run: cp -r publish/ServiceManager/* publish/CatalogBrowser/
       - name: Build CatalogBrowser DEB
         run: |
           VERSION="${{ needs.validate.outputs.version }}"

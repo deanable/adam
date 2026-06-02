@@ -68,6 +68,10 @@ jobs:
             --self-contained true -p:PublishSingleFile=true \
             -o publish/ServiceManager
 
+      - name: Stage ServiceManager alongside CatalogBrowser
+        shell: bash
+        run: cp -r publish/ServiceManager/* publish/CatalogBrowser/
+
       - name: Create TAR.GZ
         shell: bash
         run: tar -czf "adam-ci-${{ matrix.rid }}.tar.gz" -C publish .

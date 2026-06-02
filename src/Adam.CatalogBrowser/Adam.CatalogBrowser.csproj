@@ -29,4 +29,20 @@
     <ProjectReference Include="..\Adam.Shared\Adam.Shared.csproj" />
   </ItemGroup>
 
+  <!-- Build the ServiceManager project and stage its executable alongside CatalogBrowser -->
+  <ItemGroup>
+    <ProjectReference Include="..\Adam.ServiceManager\Adam.ServiceManager.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="StageServiceManager" AfterTargets="AfterBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_ServiceManagerFiles Include="$(MSBuildProjectDirectory)\..\Adam.ServiceManager\bin\$(Configuration)\net10.0\Adam.ServiceManager.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ServiceManagerFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <Message Text="Staged ServiceManager executable in $(TargetDir)" Importance="low" />
+  </Target>
+
 </Project>

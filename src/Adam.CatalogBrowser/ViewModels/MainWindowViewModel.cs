@@ -1525,7 +1525,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     // ──────────────────────────────────────────────
 
     /// <summary>
-    /// Launches the Service Manager application as a separate process.
+    /// Launches the Service Manager application as a separate process with
+    /// administrator/elevated privileges (required for service installation
+    /// and management). On Windows this triggers a UAC prompt.
     /// Searches for the executable next to the current assembly or in
     /// common build output locations.
     /// </summary>
@@ -1546,6 +1548,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 UseShellExecute = true,
                 WorkingDirectory = Path.GetDirectoryName(path)!
             };
+
+            // Request administrator privileges on Windows (triggers UAC prompt)
+            if (OperatingSystem.IsWindows())
+            {
+                psi.Verb = "runas";
+            }
 
             Process.Start(psi);
             _logger.LogInformation("Launched Service Manager: {Path}", path);
