@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 var host = Host.CreateDefaultBuilder(args)
+    .UseWindowsService()
     .ConfigureServices((ctx, services) =>
     {
         var dbConfig = DbProviderConfig.FromConfiguration(ctx.Configuration);
