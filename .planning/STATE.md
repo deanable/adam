@@ -2,15 +2,15 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 3 — Multi-User Concurrency (planning)
-**Current Milestone:** v1.0 — Core DAM
+**Current Phase:** 6 — Database Provider Matrix (executed)
+**Current Milestone:** v1.1 — Management & Deployment
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Harden TCP broker, secure auth layer, complete client/server integration, enable shared catalog browsing
+**Current focus:** Full database provider support — SQLite, PostgreSQL, SQL Server with configuration-only swap
 
 ## Phase Progress
 
@@ -20,8 +20,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 2 | ✅ | 1/1 | 100% | Archived |
 | 3 | ✅ | 1/1 | 100% | Archived |
 | 4 | ✅ | 1/1 | 100% | Archived |
-| 5 | 🚧 | 0/0 | 0% | Current |
-| 6 | ○ | 0/0 | 0% |
+| 5 | ✅ | 1/1 | 100% | Archived |
+| 6 | ✅ | 1/1 | 100% | Current |
 | 7 | ○ | 0/0 | 0% |
 
 ## Active Decisions
@@ -125,10 +125,33 @@ None.
 - **T4.10:** 5 integration tests passing for metadata round-trip, sidecar creation, read-only guard, JPEG/TIFF export
 - All 117 tests pass (2 Docker-dependent skipped)
 
+## Phase 5 Completion Summary
+
+- **T5.1:** Created `AdminPanelViewModel` — consolidated dashboard with mode toggle (Standalone/Multi-User), service connection (host/port, connect/disconnect), service status (connected clients, uptime, traffic-light health), and embedded migration wizard
+- **T5.2:** Created `AdminPanelView.axaml` — dashboard layout with mode selection radio buttons, connection panel, service status cards, and collapsible migration wizard section
+- **T5.3-T5.4:** Linux systemd & macOS launchd service installers were already fully implemented (not stubs as originally thought)
+- **T5.5:** In-app service status display with traffic-light indicators, connected client count, uptime formatting, and auto-refresh every 10 seconds
+- **T5.6:** Admin navigation button in title bar, `ShowAdminPanelCommand` in `MainWindowViewModel`, DataTemplate registration, DI registration for `AdminPanelViewModel`
+- **T5.7:** Migration wizard polish — `BrowseSourceAsync` using `StorageProvider` file picker, `CancelMigration` with `CancellationTokenSource`, guard checks for empty source/missing service
+- **T5.8:** 47 new tests across 2 test files — `AdminPanelViewModelTests.cs` (33 tests: constructor, mode properties, service status, UI state, FormatUptime, PropertyChanged) and `MigrationWizardViewModelTests.cs` (14 tests: constructor, provider selection, command guards, PropertyChanged, cancel)
+- All **507 tests pass** (0 failed, 2 Docker-dependent skipped)
+- Grid.Row layout fix in MainWindow.axaml — 3-column layout moved from Row 1 to Row 2 to coexist with connection panel
+
+## Phase 6 Completion Summary
+
+- **T6.1:** Fixed `HasFilter("NOT IsDeleted")` in `AppDbContext.OnModelCreating` — now provider-aware via `Database.ProviderName`: SQLite → `NOT IsDeleted`, PostgreSQL → `"IsDeleted" = FALSE`, SQL Server → `[IsDeleted] = 0`
+- **T6.2:** Fixed raw SQL in `MigrationRunner.MigrateSchemaAsync` — introduced provider-aware `Col()` local function that generates correct ALTER TABLE syntax with proper quoting for SQLite (unquoted), PostgreSQL (double-quoted), and SQL Server (bracketed)
+- **T6.3:** No change needed — `ModeManager.ApplyMigrationsAsync` is standalone-only (always SQLite)
+- **T6.4:** Created `DockerAvailability` helper + `DockerFactAttribute` for conditional Testcontainers test skipping — PostgreSQL/SQL Server integration tests now run automatically when Docker is available and skip with "Requires Docker" when absent (vs. previously hard-skipped)
+- **T6.5:** Added `DbProvider: "sqlite"` and `DbConnection: "Data Source=catalog.db"` defaults to `appsettings.json`
+- **T6.6:** Added `DbProviderConfig_Configure_builds_options` theory test — verifies the correct EF Core provider extension (Sqlite/Npgsql/SqlServer) is registered for each provider string
+- All **510 tests pass** (3 new from T6.6, 2 Docker-dependent skipped)
+
 ## Next Actions
 
-1. Plan Phase 5: Advanced Search & Filtering
-2. Review `.planning/REQUIREMENTS.md` for Phase 5 scope
+1. Plan/execute Phase 7: User & Role Administration
+2. Review `.planning/REQUIREMENTS.md` for remaining scope
+3. Milestone v1.1 completion review (Phases 4-6)
 
 ---
-*State updated: 2026-05-23 after initialization*
+*State updated: 2026-06-03 after Phase 6 execution*

@@ -43,10 +43,40 @@ public sealed class MigrationRunner
 
     private static async Task MigrateSchemaAsync(AppDbContext db, DbProviderConfig dbConfig, ILogger logger, CancellationToken ct)
     {
+        var provider = dbConfig.Provider.ToLowerInvariant();
+
+        // Provider-aware ALTER TABLE helpers
+        string Col(string table, string column, string type, string? defaultVal = null)
+        {
+            var q = provider switch
+            {
+                "sqlite" => "",
+                "postgresql" or "postgres" => "\"",
+                _ => "[]"
+            };
+            var sql = provider switch
+            {
+                "sqlite" => $"ALTER TABLE {table} ADD COLUMN {column} {type}",
+                "postgresql" or "postgres" => $"ALTER TABLE {q}{table}{q} ADD COLUMN {q}{column}{q} {type}",
+                _ => $"ALTER TABLE [{table}] ADD [{column}] {type}"
+            };
+            if (defaultVal != null)
+            {
+                sql += provider switch
+                {
+                    "sqlite" => $" DEFAULT {defaultVal}",
+                    "postgresql" or "postgres" => $" DEFAULT {defaultVal}",
+                    _ => $" DEFAULT {defaultVal}"
+                };
+            }
+            return sql;
+        }
+
         try
         {
             await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE DigitalAssets ADD COLUMN OriginalPath TEXT DEFAULT ''", ct);
+                Col("DigitalAssets", "OriginalPath", provider == "sqlserver" ? "nvarchar(2000)" : "TEXT", provider == "sqlite" ? "''" : provider == "sqlserver" ? "N''" : "''"),
+                ct);
             logger.LogInformation("Applied migration: OriginalPath column on DigitalAssets");
         }
         catch
@@ -57,7 +87,8 @@ public sealed class MigrationRunner
         try
         {
             await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE MetadataProfiles ADD COLUMN Category TEXT", ct);
+                Col("MetadataProfiles", "Category", provider == "sqlserver" ? "nvarchar(1000)" : "TEXT"),
+                ct);
             logger.LogInformation("Applied migration: Category column on MetadataProfiles");
         }
         catch

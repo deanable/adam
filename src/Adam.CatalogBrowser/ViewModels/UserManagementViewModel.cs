@@ -264,6 +264,31 @@ public class UserManagementViewModel : INotifyPropertyChanged
 
     private async Task SaveUserAsync()
     {
+        // Input validation
+        if (string.IsNullOrWhiteSpace(EditUsername) || EditUsername.Length < 2)
+        {
+            StatusText = "Username is required (min 2 characters).";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(EditEmail) || !EditEmail.Contains('@') || !EditEmail.Contains('.'))
+        {
+            StatusText = "A valid email address is required.";
+            return;
+        }
+
+        if (_editUserId == Guid.Empty && string.IsNullOrWhiteSpace(EditPassword))
+        {
+            StatusText = "Password is required for new users.";
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(EditPassword) && EditPassword.Length < 4)
+        {
+            StatusText = "Password must be at least 4 characters.";
+            return;
+        }
+
         try
         {
             if (_editUserId == Guid.Empty)

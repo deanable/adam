@@ -219,6 +219,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         });
         ShowUserManagementCommand = new RelayCommand(_ => CurrentView = userManagement);
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
+        ShowAdminPanelCommand = new RelayCommand(_ =>
+        {
+            CurrentView = new AdminPanelViewModel(_modeManager);
+        });
         ExportCommand = new RelayCommand(_ => ShowExportDialog());
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
@@ -785,6 +789,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+    public ICommand ShowAdminPanelCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
@@ -813,7 +818,15 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public object? CurrentView
     {
         get => _currentView;
-        set { _currentView = value; OnPropertyChanged(); }
+        set
+        {
+            // Dispose the previous view if it implements IDisposable (e.g., AdminPanelViewModel timer cleanup)
+            if (_currentView is IDisposable oldDisposable && !ReferenceEquals(_currentView, value))
+                oldDisposable.Dispose();
+
+            _currentView = value;
+            OnPropertyChanged();
+        }
     }
 
     public string StatusText

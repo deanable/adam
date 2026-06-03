@@ -58,6 +58,7 @@ public partial class App : Application
             services.AddTransient<MetadataEditorViewModel>();
             services.AddTransient<UserManagementViewModel>();
             services.AddTransient<AuditLogViewModel>();
+            services.AddTransient<AdminPanelViewModel>();
 
             var provider = services.BuildServiceProvider();
 

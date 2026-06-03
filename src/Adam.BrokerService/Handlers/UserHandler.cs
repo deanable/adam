@@ -217,6 +217,11 @@ public sealed class UserHandler
 
         var deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
         var userId = Guid.Parse(deleteReq.UserId);
+        var callerId = _authHandler.GetUserId(request);
+
+        // Prevent self-deactivation: admin cannot deactivate their own account
+        if (userId == Guid.Parse(callerId))
+            return ErrorResponse(request, 7, "Cannot deactivate your own account");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -230,7 +235,6 @@ public sealed class UserHandler
         db.Users.Update(user);
         await db.SaveChangesAsync(ct);
 
-        var callerId = _authHandler.GetUserId(request);
         await _auditLogger.LogAsync(db, callerId, "Delete", "User", user.Id.ToString(),
             $"Deactivated user {user.Username}");
 

@@ -26,6 +26,9 @@
     <DataTemplate DataType="{x:Type vm:MigrationWizardViewModel}">
       <views:MigrationWizardView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AdminPanelViewModel}">
+      <views:AdminPanelView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Window.Styles>
@@ -55,42 +58,13 @@
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Users" Command="{Binding ShowUserManagementCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+          <Button Content="Admin" Command="{Binding ShowAdminPanelCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
         </StackPanel>
 
-        <!-- Service Manager button -->
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="4,0" VerticalAlignment="Center">
-          <Button Content="Open Service Manager"
-                  Command="{Binding OpenServiceManagerCommand}"
-                  FontSize="11" Foreground="White" Cursor="Hand" Padding="6,2"
-                  Background="#005A9E" BorderThickness="1" BorderBrush="#80BFFF" CornerRadius="3"
-                  ToolTip.Tip="Launch the Service Manager to install, start, and stop the broker service">
-            <Button.Styles>
-              <Style Selector="Button:pointerover">
-                <Setter Property="Background" Value="#1565C0" />
-              </Style>
-              <Style Selector="Button:pressed">
-                <Setter Property="Background" Value="#003D73" />
-              </Style>
-            </Button.Styles>
-          </Button>
-        </StackPanel>
-
-        <!-- Mode toggle -->
-        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="0" Margin="8,0" VerticalAlignment="Center">
-          <Button Content="Local" Command="{Binding ToggleLocalModeCommand}"
-                  FontSize="11" Foreground="White" Cursor="Hand" Padding="8,2"
-                  Background="{Binding IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
-                  BorderThickness="1" BorderBrush="#005A9E" CornerRadius="3,0,0,3" />
-          <Button Content="Service" Command="{Binding ToggleServiceModeCommand}"
-                  FontSize="11" Foreground="White" Cursor="Hand" Padding="8,2"
-                  Background="{Binding IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
-                  BorderThickness="1" BorderBrush="#005A9E" CornerRadius="0,3,3,0" />
-        </StackPanel>
-
-        <TextBlock Grid.Column="4" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
+        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
 
         <!-- Connection status indicator -->
-        <Ellipse Grid.Column="5" Width="8" Height="8" Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
+        <Ellipse Grid.Column="3" Width="8" Height="8" Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
                  VerticalAlignment="Center" Margin="2,0" />
       </Grid>
     </Border>
@@ -149,7 +123,7 @@
     </Border>
 
     <!-- 3-column layout -->
-    <Grid Grid.Row="1" ColumnDefinitions="1.5*,Auto,3*,Auto,1.5*" Background="White">
+    <Grid Grid.Row="2" ColumnDefinitions="1.5*,Auto,3*,Auto,1.5*" Background="White">
 
       <!-- Left sidebar -->
       <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0" MinWidth="180">

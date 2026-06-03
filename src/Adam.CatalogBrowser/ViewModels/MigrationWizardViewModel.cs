@@ -17,6 +17,7 @@ public class MigrationWizardViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private string _statusText = string.Empty;
     private int _progressValue;
+    private CancellationTokenSource? _migrationCts;
 
     public MigrationWizardViewModel(ModeManager modeManager, IDbMigrationService? migrationService = null)
     {
@@ -25,6 +26,8 @@ public class MigrationWizardViewModel : INotifyPropertyChanged
         SourcePath = modeManager.DbPath;
 
         StartMigrationCommand = new RelayCommand(async _ => await StartMigrationAsync(), _ => !IsBusy);
+        CancelMigrationCommand = new RelayCommand(_ => CancelMigration(), _ => IsBusy);
+        BrowseSourceCommand = new RelayCommand(async _ => await BrowseSourceAsync());
     }
 
     public ObservableCollection<MigrationLogEntry> Log { get; } = [];
@@ -68,6 +71,8 @@ public class MigrationWizardViewModel : INotifyPropertyChanged
     }
 
     public ICommand StartMigrationCommand { get; }
+    public ICommand CancelMigrationCommand { get; }
+    public ICommand BrowseSourceCommand { get; }
 
     private async Task StartMigrationAsync()
     {
@@ -101,8 +106,10 @@ public class MigrationWizardViewModel : INotifyPropertyChanged
                 return;
             }
 
+            _migrationCts?.Dispose();
+            _migrationCts = new CancellationTokenSource();
             _migrationService.Progress += OnMigrationProgress;
-            await _migrationService.MigrateAsync(SourcePath, SelectedTargetProvider, connString);
+            await _migrationService.MigrateAsync(SourcePath, SelectedTargetProvider, connString, _migrationCts.Token);
             _migrationService.Progress -= OnMigrationProgress;
 
             StatusText = "Migration completed successfully.";
@@ -115,6 +122,53 @@ public class MigrationWizardViewModel : INotifyPropertyChanged
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private void CancelMigration()
+    {
+        _migrationCts?.Cancel();
+        StatusText = "Migration cancelled.";
+    }
+
+    private async Task BrowseSourceAsync()
+    {
+        try
+        {
+            // Use StorageProvider API for file dialog
+            var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (mainWindow?.StorageProvider == null)
+            {
+                StatusText = "File dialog not available.";
+                return;
+            }
+
+            var result = await mainWindow.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Select SQLite Database",
+                FileTypeFilter =
+                [
+                    new Avalonia.Platform.Storage.FilePickerFileType("SQLite Databases")
+                    {
+                        Patterns = ["*.db", "*.sqlite", "*.sqlite3"]
+                    },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                    {
+                        Patterns = ["*"]
+                    }
+                ]
+            });
+
+            if (result?.Count > 0)
+            {
+                SourcePath = result[0].Path.LocalPath;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to browse: {ex.Message}";
         }
     }
 

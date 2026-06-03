@@ -30,11 +30,11 @@
 
 ### Metadata Management
 
-- [ ] **META-01**: User can edit asset title, description, keywords, ratings, labels, GPS, and copyright in the client
-- [ ] **META-02**: Metadata edits are written back to source file's embedded XMP metadata within 5 seconds
-- [ ] **META-03**: RAW files (CR2, NEF, ARW) receive XMP sidecar files for metadata write-back
-- [ ] **META-04**: Read-only files trigger a user notification when metadata save is attempted
-- [ ] **META-05**: Duplicate files are detected via SHA256 checksum and recorded without duplicate catalog entries
+- [x] **META-01**: User can edit asset title, description, keywords, ratings, labels, GPS, and copyright in the client
+- [x] **META-02**: Metadata edits are written back to source file's embedded XMP metadata within 5 seconds
+- [x] **META-03**: RAW files (CR2, NEF, ARW) receive XMP sidecar files for metadata write-back
+- [x] **META-04**: Read-only files trigger a user notification when metadata save is attempted
+- [x] **META-05**: Duplicate files are detected via SHA256 checksum and recorded without duplicate catalog entries
 
 ### Multi-User & Broker
 
@@ -46,10 +46,10 @@
 
 ### Basic Adjustments & Export
 
-- [ ] **EDIT-01**: User can rotate image 90, 180, 270 degrees clockwise/counter-clockwise
-- [ ] **EDIT-02**: User can flip image horizontally or vertically
-- [ ] **EDIT-03**: User can export selected assets to JPEG with configurable quality and resolution
-- [ ] **EDIT-04**: User can export selected assets to TIFF with configurable color space
+- [x] **EDIT-01**: User can rotate image 90, 180, 270 degrees clockwise/counter-clockwise
+- [x] **EDIT-02**: User can flip image horizontally or vertically
+- [x] **EDIT-03**: User can export selected assets to JPEG with configurable quality and resolution
+- [x] **EDIT-04**: User can export selected assets to TIFF with configurable color space
 
 ### Admin & Deployment
 
@@ -120,20 +120,20 @@
 | CATA-09 | Phase 1 | ✅ Complete |
 | CATA-10 | Phase 1 | ✅ Complete |
 | CATA-11 | Phase 1 | ✅ Complete |
-| META-01 | Phase 4 | 🚧 Current |
-| META-02 | Phase 4 | 🚧 Current |
-| META-03 | Phase 4 | 🚧 Current |
-| META-04 | Phase 4 | 🚧 Current |
+| META-01 | Phase 4 | ✅ Complete |
+| META-02 | Phase 4 | ✅ Complete |
+| META-03 | Phase 4 | ✅ Complete |
+| META-04 | Phase 4 | ✅ Complete |
 | META-05 | Phase 1 | ✅ Complete |
 | BROK-01 | Phase 2 | ✅ Complete |
 | BROK-02 | Phase 3 | ✅ Complete |
 | BROK-03 | Phase 3 | ✅ Complete |
 | BROK-04 | Phase 3 | ✅ Complete |
 | BROK-05 | Phase 2 | ✅ Complete |
-| EDIT-01 | Phase 4 | 🚧 Current |
-| EDIT-02 | Phase 4 | 🚧 Current |
-| EDIT-03 | Phase 4 | 🚧 Current |
-| EDIT-04 | Phase 4 | 🚧 Current |
+| EDIT-01 | Phase 4 | ✅ Complete |
+| EDIT-02 | Phase 4 | ✅ Complete |
+| EDIT-03 | Phase 4 | ✅ Complete |
+| EDIT-04 | Phase 4 | ✅ Complete |
 | ADMIN-01 | Phase 5 | Pending |
 | ADMIN-02 | Phase 5 | Pending |
 | ADMIN-03 | Phase 5 | Pending |
@@ -150,4 +150,4 @@
 
 ---
 *Requirements defined: 2026-05-23*
-*Last updated: 2026-05-23 after initial definition*
+*Last updated: 2026-06-03 after Phase 4 completion*

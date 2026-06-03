@@ -1,4 +1,5 @@
 using Adam.BrokerService.Configuration;
+using Adam.BrokerService.Tests.Infrastructure;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using FluentAssertions;
@@ -80,7 +81,7 @@ public sealed class DbProviderMatrixTests
         dbConfig.ConnectionString.Should().Be("Host=localhost;Database=adam_test");
     }
 
-    [Fact(Skip = "Requires Docker")]
+    [DockerFact]
     public async Task Can_use_postgresql_with_testcontainers()
     {
         await using var postgres = new PostgreSqlBuilder("postgres:16-alpine")
@@ -109,7 +110,7 @@ public sealed class DbProviderMatrixTests
         await postgres.StopAsync();
     }
 
-    [Fact(Skip = "Requires Docker")]
+    [DockerFact]
     public async Task Can_use_sqlserver_with_testcontainers()
     {
         await using var mssql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
@@ -150,7 +151,48 @@ public sealed class DbProviderMatrixTests
         var options = new DbContextOptionsBuilder<AppDbContext>();
         config.Configure(options);
 
-        var db = new AppDbContext(options.Options);
+        using var db = new AppDbContext(options.Options);
         db.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData("sqlite", "Data Source=:memory:")]
+    [InlineData("postgresql", "Host=localhost;Database=adam_test")]
+    [InlineData("sqlserver", "Server=localhost;Database=adam_test;Trusted_Connection=True;TrustServerCertificate=True")]
+    public void DbProviderConfig_Configure_builds_options(string provider, string connectionString)
+    {
+        // Act: configure options with any valid-looking connection string
+        var config = new DbProviderConfig
+        {
+            Provider = provider,
+            ConnectionString = connectionString
+        };
+
+        var options = new DbContextOptionsBuilder<AppDbContext>();
+        config.Configure(options);
+
+        // Assert: options are configured without throwing
+        var builtOptions = options.Options;
+        builtOptions.Should().NotBeNull();
+
+        // Verify the correct provider extension was registered
+        var extensionTypes = builtOptions.Extensions
+            .Select(e => e.GetType().Name)
+            .ToList();
+
+        switch (provider.ToLowerInvariant())
+        {
+            case "sqlite":
+                extensionTypes.Should().Contain(e => e.Contains("Sqlite"));
+                break;
+            case "postgresql":
+            case "postgres":
+                extensionTypes.Should().Contain(e => e.Contains("Npgsql"));
+                break;
+            case "sqlserver":
+            case "mssql":
+                extensionTypes.Should().Contain(e => e.Contains("SqlServer"));
+                break;
+        }
     }
 }
