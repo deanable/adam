@@ -567,6 +567,183 @@ public class MainWindowViewModelTests : IAsyncLifetime
     }
 
     // ──────────────────────────────────────────────
+    //  Mode toggle — initial connection state
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void MainWindowViewModel_InitialState_DefaultsToLocalMode()
+    {
+        _vm.IsServiceMode.Should().BeFalse();
+        _vm.IsLocalMode.Should().BeTrue();
+        _vm.IsConnectedToService.Should().BeFalse();
+        _vm.ServiceConnectionStatus.Should().Be("Disconnected");
+        _vm.ServiceHost.Should().Be("localhost");
+        _vm.ServicePort.Should().Be(9100);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_IsLocalMode_ReturnsOppositeOfIsServiceMode()
+    {
+        // Initially local mode
+        _vm.IsLocalMode.Should().BeTrue();
+        _vm.IsServiceMode.Should().BeFalse();
+
+        // Flip to service mode (setting the field directly to avoid SwitchToLocalAsync)
+        SetField("_isServiceMode", true);
+        _vm.IsLocalMode.Should().BeFalse();
+        _vm.IsServiceMode.Should().BeTrue();
+
+        // Flip back
+        SetField("_isServiceMode", false);
+        _vm.IsLocalMode.Should().BeTrue();
+        _vm.IsServiceMode.Should().BeFalse();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Mode toggle — PropertyChanged notifications
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void ServiceHost_Setter_RaisesPropertyChanged()
+    {
+        var changed = new List<string?>();
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        _vm.ServiceHost = "192.168.1.1";
+
+        changed.Should().Contain(nameof(MainWindowViewModel.ServiceHost));
+    }
+
+    [Fact]
+    public void ServicePort_Setter_RaisesPropertyChanged()
+    {
+        var changed = new List<string?>();
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        _vm.ServicePort = 8080;
+
+        changed.Should().Contain(nameof(MainWindowViewModel.ServicePort));
+    }
+
+    [Fact]
+    public void IsConnectedToService_Setter_RaisesPropertyChanged()
+    {
+        var changed = new List<string?>();
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        _vm.IsConnectedToService = true;
+
+        changed.Should().Contain(nameof(MainWindowViewModel.IsConnectedToService));
+    }
+
+    // ──────────────────────────────────────────────
+    //  Mode toggle — command CanExecute
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void ToggleLocalModeCommand_CanExecute_AlwaysReturnsTrue()
+    {
+        _vm.ToggleLocalModeCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ToggleServiceModeCommand_CanExecute_AlwaysReturnsTrue()
+    {
+        _vm.ToggleServiceModeCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ConnectToServiceCommand_CanExecute_WhenNotConnected_ReturnsTrue()
+    {
+        // Default state: _isConnectedToService is false
+        _vm.ConnectToServiceCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ConnectToServiceCommand_CanExecute_WhenConnected_ReturnsFalse()
+    {
+        SetField("_isConnectedToService", true);
+        _vm.ConnectToServiceCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void DisconnectFromServiceCommand_CanExecute_WhenNotConnected_ReturnsFalse()
+    {
+        // Default state: _isConnectedToService is false
+        _vm.DisconnectFromServiceCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void DisconnectFromServiceCommand_CanExecute_WhenConnected_ReturnsTrue()
+    {
+        SetField("_isConnectedToService", true);
+        _vm.DisconnectFromServiceCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Mode toggle — property round-trips
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void ServiceHost_SetAndGet_RoundTrips()
+    {
+        _vm.ServiceHost = "broker.example.com";
+        _vm.ServiceHost.Should().Be("broker.example.com");
+    }
+
+    [Fact]
+    public void ServicePort_SetAndGet_RoundTrips()
+    {
+        _vm.ServicePort = 8080;
+        _vm.ServicePort.Should().Be(8080);
+    }
+
+    [Fact]
+    public void ServiceConnectionStatus_SetAndGet_RoundTrips()
+    {
+        _vm.ServiceConnectionStatus = "Connected to localhost:9100";
+        _vm.ServiceConnectionStatus.Should().Be("Connected to localhost:9100");
+    }
+
+    // ──────────────────────────────────────────────
+    //  Mode toggle — command execution
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void ToggleLocalModeCommand_Execute_SetsIsServiceModeToFalseSynchronously()
+    {
+        // Start in service mode
+        SetField("_isServiceMode", true);
+        _vm.IsServiceMode.Should().BeTrue();
+
+        // Execute toggle to local — the setter sets _isServiceMode = false
+        // synchronously before firing SwitchToLocalAsync (fire-and-forget),
+        // so the property is immediately readable without awaiting the async method.
+        _vm.ToggleLocalModeCommand.Execute(null);
+
+        _vm.IsServiceMode.Should().BeFalse();
+        _vm.IsLocalMode.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DisconnectFromServiceCommand_Execute_DisconnectsSuccessfully()
+    {
+        // Start connected
+        SetField("_isConnectedToService", true);
+        _vm.IsConnectedToService.Should().BeTrue();
+
+        // Execute disconnect — runs DisconnectFromServiceAsync which checks
+        // BrokerClient (null → skip) and sets IsConnectedToService = false
+        _vm.DisconnectFromServiceCommand.Execute(null);
+
+        // Wait briefly for the fire-and-forget async method to complete
+        await Task.Delay(200);
+
+        _vm.IsConnectedToService.Should().BeFalse();
+        _vm.ServiceConnectionStatus.Should().Be("Disconnected");
+    }
+
+    // ──────────────────────────────────────────────
     //  HasSingleSelection / HasMultiSelection
     // ──────────────────────────────────────────────
 

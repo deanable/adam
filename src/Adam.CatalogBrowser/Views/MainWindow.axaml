@@ -42,24 +42,87 @@
 
     <!-- Title bar -->
     <Border Grid.Row="0" Background="#005A9E" Padding="8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
         <TextBlock Text="adam" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
-          <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
+          <!-- Navigation -->
+          <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+          <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+          <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+
+          <!-- Mode separator -->
+          <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center" />
+
+          <!-- Mode toggle -->
+          <TextBlock Text="Mode:" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <Button Content="Local" Command="{Binding ToggleLocalModeCommand}"
+                  Background="{Binding IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
+                  CornerRadius="3" Cursor="Hand" />
+          <Button Content="Service" Command="{Binding ToggleServiceModeCommand}"
+                  Background="{Binding IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
+                  CornerRadius="3" Cursor="Hand" />
         </StackPanel>
 
         <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
 
-        <!-- Connection status indicator -->
-        <Ellipse Grid.Column="3" Width="8" Height="8" Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
-                 VerticalAlignment="Center" Margin="2,0" />
+        <!-- Connection status indicator – green dot for local DB, green/gray for service -->
+        <Ellipse Grid.Column="3" Width="8" Height="8" Fill="LimeGreen"
+                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsLocalMode}">
+          <ToolTip.Tip>
+            <StackPanel Spacing="2">
+              <TextBlock Text="Local Database" FontSize="12" FontWeight="Bold" Foreground="#2E7D32" />
+              <TextBlock Text="Status: Connected" FontSize="11" Foreground="#555" />
+              <TextBlock FontSize="11" Foreground="#555">
+                <Run Text="Path: " />
+                <Run Text="{Binding ModeManager.DbPath}" />
+              </TextBlock>
+            </StackPanel>
+          </ToolTip.Tip>
+        </Ellipse>
+        <Ellipse Grid.Column="3" Width="8" Height="8"
+                 Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
+                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsServiceMode}">
+          <ToolTip.Tip>
+            <StackPanel Spacing="2">
+              <TextBlock Text="Service Connection" FontSize="12" FontWeight="Bold" Foreground="#1565C0" />
+              <TextBlock FontSize="11" Foreground="#555">
+                <Run Text="Status: " />
+                <Run Text="{Binding ServiceConnectionStatus}" />
+              </TextBlock>
+              <TextBlock FontSize="11" Foreground="#555">
+                <Run Text="Host: " />
+                <Run Text="{Binding ServiceHost}" />
+              </TextBlock>
+              <TextBlock FontSize="11" Foreground="#555">
+                <Run Text="Port: " />
+                <Run Text="{Binding ServicePort}" />
+              </TextBlock>
+            </StackPanel>
+          </ToolTip.Tip>
+        </Ellipse>
+        <TextBlock Grid.Column="4" Text="Local DB" FontSize="10" Foreground="#AAFFFFFF"
+                   VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsLocalMode}">
+          <ToolTip.Tip>
+            <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="11" Foreground="#555" />
+          </ToolTip.Tip>
+        </TextBlock>
+        <TextBlock Grid.Column="4" Text="{Binding ServiceConnectionStatus}" FontSize="10"
+                   Foreground="#AAFFFFFF" VerticalAlignment="Center" Margin="2,0"
+                   IsVisible="{Binding IsServiceMode}" />
       </Grid>
     </Border>
 
-    <!-- Connection panel (visible when Service mode is selected) -->
+    <!-- Connection panel – shows connection controls in Service mode, status in Local mode -->
+    <Border Grid.Row="1" Background="#E8F5E9" Padding="6,4" IsVisible="{Binding IsLocalMode}">
+      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+        <Ellipse Width="8" Height="8" Fill="#2E7D32" VerticalAlignment="Center" />
+        <TextBlock Text="Using local database" FontSize="11" Foreground="#2E7D32" VerticalAlignment="Center" FontWeight="Medium" />
+        <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="10" Foreground="#81C784" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
     <Border Grid.Row="1" Background="#E3F2FD" Padding="6,4" IsVisible="{Binding IsServiceMode}">
       <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
         <TextBlock Text="Host:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
