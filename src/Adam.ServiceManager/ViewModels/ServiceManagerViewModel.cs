@@ -32,14 +32,19 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
     private ObservableCollection<string> _logMessages = new();
     private readonly ObservableCollection<string> _serviceLogMessages;
     private readonly DispatcherTimer _autoRefreshTimer;
+    private object? _currentView;
+    private bool _isServiceTabSelected = true;
 
-    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null)
+    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null)
     {
         _logger = logger ?? NullLogger<ServiceManagerViewModel>.Instance;
         var installers = serviceInstallers.ToList();
         _serviceInstaller = installers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
         _logger.LogInformation("ServiceManagerViewModel: Selected service installer = {InstallerType} (IsSupported={IsSupported}, ServiceName='{ServiceName}')",
             _serviceInstaller.GetType().Name, _serviceInstaller.IsSupported, _serviceInstaller.ServiceName);
+
+        UserManagement = userManagement ?? throw new ArgumentNullException(nameof(userManagement));
+        _currentView = this; // Start with service view
 
         // Detect elevation state
         _isElevated = !OperatingSystem.IsWindows() ||
@@ -63,6 +68,19 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
 
         ClearLogCommand = new RelayCommand(_ => LogMessages.Clear());
         ClearServiceLogCommand = new RelayCommand(_ => ServiceLogMessages.Clear());
+
+        // Tab navigation commands
+        ShowServiceViewCommand = new RelayCommand(_ =>
+        {
+            IsServiceTabSelected = true;
+            CurrentView = this;
+        });
+        ShowUserManagementCommand = new RelayCommand(async _ =>
+        {
+            IsServiceTabSelected = false;
+            CurrentView = UserManagement;
+            await UserManagement.LoadUsersAsync();
+        });
 
         // Auto-refresh timer: polls service status every 5 seconds
         _autoRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
@@ -163,6 +181,33 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         }
     }
 
+    // ─── Tab Navigation ───────────────────────────────────────────────
+
+    public bool IsServiceTabSelected
+    {
+        get => _isServiceTabSelected;
+        set
+        {
+            _isServiceTabSelected = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsUserTabSelected));
+        }
+    }
+
+    public bool IsUserTabSelected => !_isServiceTabSelected;
+
+    public UserManagementViewModel UserManagement { get; }
+
+    public object? CurrentView
+    {
+        get => _currentView;
+        set
+        {
+            _currentView = value;
+            OnPropertyChanged();
+        }
+    }
+
     // ─── Commands ────────────────────────────────────────────────────
 
     public ICommand RefreshStatusCommand { get; }
@@ -173,6 +218,8 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
     public ICommand RelaunchAsAdminCommand { get; }
     public ICommand ClearLogCommand { get; }
     public ICommand ClearServiceLogCommand { get; }
+    public ICommand ShowServiceViewCommand { get; }
+    public ICommand ShowUserManagementCommand { get; }
 
     // ─── Configuration ───────────────────────────────────────────────
 

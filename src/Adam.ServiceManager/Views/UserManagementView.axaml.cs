@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Adam.CatalogBrowser.Views;
+namespace Adam.ServiceManager.Views;
 
 public partial class UserManagementView : UserControl
 {

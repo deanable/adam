@@ -51,14 +51,12 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
-        var userManagement = new UserManagementViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
-        var migrationWizard = new MigrationWizardViewModel(_modeManager);
 
         _vm = new MainWindowViewModel(
             _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
             ingestion, metadataEditor,
-            userManagement, auditLog, migrationWizard, _bulkQueue);
+            auditLog, _bulkQueue);
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false
         // dispatch (it would hang without a pumping dispatcher).

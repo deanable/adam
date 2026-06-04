@@ -53,12 +53,9 @@ public partial class App : Application
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>();
-            services.AddTransient<MigrationWizardViewModel>();
             services.AddTransient<IngestionViewModel>();
             services.AddTransient<MetadataEditorViewModel>();
-            services.AddTransient<UserManagementViewModel>();
             services.AddTransient<AuditLogViewModel>();
-            services.AddTransient<AdminPanelViewModel>();
 
             var provider = services.BuildServiceProvider();
 

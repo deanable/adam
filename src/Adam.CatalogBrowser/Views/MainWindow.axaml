@@ -17,18 +17,10 @@
     <DataTemplate DataType="{x:Type vm:MetadataEditorViewModel}">
       <views:MetadataEditorView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
-      <views:UserManagementView />
-    </DataTemplate>
     <DataTemplate DataType="{x:Type vm:AuditLogViewModel}">
       <views:AuditLogView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:MigrationWizardViewModel}">
-      <views:MigrationWizardView />
-    </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:AdminPanelViewModel}">
-      <views:AdminPanelView />
-    </DataTemplate>
+
   </Window.DataTemplates>
 
   <Window.Styles>
@@ -56,9 +48,7 @@
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Users" Command="{Binding ShowUserManagementCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
-          <Button Content="Admin" Command="{Binding ShowAdminPanelCommand}" Foreground="White" Background="Transparent" BorderThickness="0" />
         </StackPanel>
 
         <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />

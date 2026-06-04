@@ -46,9 +46,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         _gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
-        var userManagement = new UserManagementViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
-        var migrationWizard = new MigrationWizardViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
 
         // Construct the ViewModel with startUp: false to avoid the background
@@ -58,7 +56,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         _vm = new MainWindowViewModel(
             _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
             ingestion, metadataEditor,
-            userManagement, auditLog, migrationWizard, bulkQueue,
+            auditLog, bulkQueue,
             startUp: false);
 
         // Open a DB connection for seeding/verifying test data
@@ -776,9 +774,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             gallery,
             new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
             new MetadataEditorViewModel(_modeManager),
-            new UserManagementViewModel(_modeManager),
             new AuditLogViewModel(_modeManager),
-            new MigrationWizardViewModel(_modeManager),
             new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>()),
             startUp: false);
 

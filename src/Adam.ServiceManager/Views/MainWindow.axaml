@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Adam.ServiceManager.ViewModels"
         xmlns:views="clr-namespace:Adam.ServiceManager.Views"
+        xmlns:local="clr-namespace:Adam.ServiceManager.Views"
         x:Class="Adam.ServiceManager.Views.MainWindow"
         Title="Adam Service Manager"
         Width="800"
@@ -11,9 +12,12 @@
     <DataTemplate DataType="{x:Type vm:ServiceManagerViewModel}">
       <views:ServiceManagerView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
+      <views:UserManagementView />
+    </DataTemplate>
   </Window.DataTemplates>
 
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,Auto,*">
     <!-- Title bar -->
     <Border Grid.Row="0" Background="#005A9E" Padding="8">
       <Grid ColumnDefinitions="Auto,*">
@@ -27,7 +31,27 @@
       </Grid>
     </Border>
 
+    <!-- Tab navigation -->
+    <Border Grid.Row="1" Background="#1565C0" Padding="0">
+      <StackPanel Orientation="Horizontal" Spacing="0" Margin="8,0,0,0">
+        <Button Content="Service"
+                Command="{Binding ShowServiceViewCommand}"
+                Foreground="White" Background="{Binding IsServiceTabSelected, Converter={x:Static local:TabBgConverter.Instance}}"
+                BorderThickness="0"
+                Padding="16,6"
+                FontSize="12"
+                Cursor="Hand" />
+        <Button Content="Users"
+                Command="{Binding ShowUserManagementCommand}"
+                Foreground="White" Background="{Binding IsUserTabSelected, Converter={x:Static local:TabBgConverter.Instance}}"
+                BorderThickness="0"
+                Padding="16,6"
+                FontSize="12"
+                Cursor="Hand" />
+      </StackPanel>
+    </Border>
+
     <!-- Content -->
-    <ContentControl Grid.Row="1" Content="{Binding}" Background="Transparent" />
+    <ContentControl Grid.Row="2" Content="{Binding CurrentView}" Background="Transparent" />
   </Grid>
 </Window>

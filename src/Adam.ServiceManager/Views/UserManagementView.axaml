@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
-             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
-             x:Class="Adam.CatalogBrowser.Views.UserManagementView"
+             xmlns:controls="clr-namespace:Adam.ServiceManager.Controls"
+             xmlns:local="clr-namespace:Adam.ServiceManager.Views"
+             x:Class="Adam.ServiceManager.Views.UserManagementView"
              x:CompileBindings="False">
   <Grid>
   <ScrollViewer>

@@ -9,7 +9,6 @@ using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
-using System.Diagnostics;
 using RelayCommand = Adam.Shared.Services.RelayCommand;
 using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
@@ -82,7 +81,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBulkOperationActive;
     private double _bulkProgressPercentage;
 
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, UserManagementViewModel userManagement, AuditLogViewModel auditLog, MigrationWizardViewModel migrationWizard, BulkOperationQueue bulkQueue, bool startUp = true)
+    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, AuditLogViewModel auditLog, BulkOperationQueue bulkQueue, bool startUp = true)
     {
         _logger = logger;
         _modeManager = modeManager;
@@ -93,9 +92,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AssetGallery = assetGallery;
         Ingestion = ingestion;
         MetadataEditor = metadataEditor;
-        UserManagement = userManagement;
         AuditLog = auditLog;
-        MigrationWizard = migrationWizard;
         _currentView = assetGallery;
 
         // Wire up bulk queue progress
@@ -124,9 +121,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             // never be attached without this explicit wiring.
             SelectedAssetTags = _selectedAssetTags;
             SelectedAssetCategories = _selectedAssetCategories;
-
-        // Service Manager launch command
-        OpenServiceManagerCommand = new RelayCommand(_ => OpenServiceManager());
 
         // Mode toggle commands
         ToggleLocalModeCommand = new RelayCommand(_ => IsServiceMode = false);
@@ -217,12 +211,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 await metadataEditor.LoadAssetAsync(_selectedAsset.Id);
             CurrentView = metadataEditor;
         });
-        ShowUserManagementCommand = new RelayCommand(_ => CurrentView = userManagement);
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
-        ShowAdminPanelCommand = new RelayCommand(_ =>
-        {
-            CurrentView = new AdminPanelViewModel(_modeManager);
-        });
         ExportCommand = new RelayCommand(_ => ShowExportDialog());
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
@@ -469,9 +458,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public AssetGalleryViewModel AssetGallery { get; }
     public IngestionViewModel Ingestion { get; }
     public MetadataEditorViewModel MetadataEditor { get; }
-    public UserManagementViewModel UserManagement { get; }
     public AuditLogViewModel AuditLog { get; }
-    public MigrationWizardViewModel MigrationWizard { get; }
 
     public AssetListItem? SelectedAsset => _selectedAsset;
 
@@ -775,8 +762,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         set { _serviceConnectionStatus = value; OnPropertyChanged(); }
     }
 
-    public RelayCommand OpenServiceManagerCommand { get; }
-
     public RelayCommand ToggleLocalModeCommand { get; }
     public RelayCommand ToggleServiceModeCommand { get; }
     public RelayCommand ConnectToServiceCommand { get; }
@@ -787,9 +772,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowIngestionCommand { get; }
     public ICommand ShowMetadataEditorCommand { get; }
-    public ICommand ShowUserManagementCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
-    public ICommand ShowAdminPanelCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
@@ -1531,107 +1514,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _logger.LogWarning(ex, "Failed to rotate/flip asset {AssetId}", _selectedAsset.Id);
         }
-    }
-
-    // ──────────────────────────────────────────────
-    //  Service Manager launcher
-    // ──────────────────────────────────────────────
-
-    /// <summary>
-    /// Launches the Service Manager application as a separate process with
-    /// administrator/elevated privileges (required for service installation
-    /// and management). On Windows this triggers a UAC prompt.
-    /// Searches for the executable next to the current assembly or in
-    /// common build output locations.
-    /// </summary>
-    private void OpenServiceManager()
-    {
-        try
-        {
-            var path = ResolveServiceManagerPath();
-            if (string.IsNullOrEmpty(path))
-            {
-                StatusText = "Service Manager executable not found.";
-                return;
-            }
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true,
-                WorkingDirectory = Path.GetDirectoryName(path)!
-            };
-
-            // Request administrator privileges on Windows (triggers UAC prompt)
-            if (OperatingSystem.IsWindows())
-            {
-                psi.Verb = "runas";
-            }
-
-            Process.Start(psi);
-            _logger.LogInformation("Launched Service Manager: {Path}", path);
-            StatusText = "Service Manager opened";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to launch Service Manager");
-            StatusText = $"Failed to launch Service Manager: {ex.Message}";
-        }
-    }
-
-    private static string ResolveServiceManagerPath()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        var extensions = OperatingSystem.IsWindows() ? new[] { ".exe", ".dll" } : new[] { "", ".dll" };
-
-        // Check same directory
-        foreach (var ext in extensions)
-        {
-            var path = Path.Combine(baseDir, $"Adam.ServiceManager{ext}");
-            if (File.Exists(path))
-                return path;
-        }
-
-        // Check sibling directory (publish layout)
-        var siblingDir = Path.GetFullPath(Path.Combine(baseDir, "..", "ServiceManager"));
-        foreach (var ext in extensions)
-        {
-            var path = Path.Combine(siblingDir, $"Adam.ServiceManager{ext}");
-            if (File.Exists(path))
-                return path;
-        }
-
-        // Walk up to find repo root and check build output
-        var dir = new DirectoryInfo(baseDir);
-        while (dir != null)
-        {
-            var hasGit = Directory.Exists(Path.Combine(dir.FullName, ".git"));
-            var hasSln = dir.GetFiles("*.sln*").Length > 0;
-
-            if (hasGit || hasSln)
-            {
-                foreach (var config in new[] { "Release", "Debug" })
-                {
-                    var candidate = Path.Combine(
-                        dir.FullName, "src", "Adam.ServiceManager",
-                        "bin", config, "net10.0", "Adam.ServiceManager.exe");
-
-                    if (File.Exists(candidate))
-                        return candidate;
-
-                    var dllCandidate = Path.Combine(
-                        dir.FullName, "src", "Adam.ServiceManager",
-                        "bin", config, "net10.0", "Adam.ServiceManager.dll");
-
-                    if (File.Exists(dllCandidate))
-                        return dllCandidate;
-                }
-                break;
-            }
-            dir = dir.Parent;
-        }
-
-        return string.Empty;
     }
 
     // ──────────────────────────────────────────────

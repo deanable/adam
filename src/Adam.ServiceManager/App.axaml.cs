@@ -44,14 +44,24 @@ public partial class App : Application
             services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
             services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();
 
+            // Register ModeManager for database access (standalone mode for server management)
+            var modeManager = new ModeManager(basePath);
+            services.AddSingleton(modeManager);
+
+            services.AddTransient<UserManagementViewModel>();
+
             services.AddSingleton<ServiceManagerViewModel>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<ServiceManagerViewModel>>();
                 var installers = sp.GetServices<IServiceInstaller>();
-                return new ServiceManagerViewModel(installers, logger, serviceLogCapture);
+                var userManagement = sp.GetRequiredService<UserManagementViewModel>();
+                return new ServiceManagerViewModel(installers, logger, serviceLogCapture, userManagement);
             });
 
             var provider = services.BuildServiceProvider();
+
+            // Initialize the database
+            modeManager.InitializeAsync().GetAwaiter().GetResult();
 
             var vm = provider.GetRequiredService<ServiceManagerViewModel>();
             desktop.MainWindow = new MainWindow
