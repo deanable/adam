@@ -31,6 +31,18 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 
 ## Project-Specific Guidance
 
+### Application Boundary: Client vs Server Panel
+
+There is a strict separation between the **client** and the **server panel**:
+
+- **CatalogBrowser** (`Adam.CatalogBrowser`) — The client. Only handles asset browsing, metadata editing, ingestion, and **connecting to** the service. All server administration (user management, service installation, server setup) has been removed. The connection bar in the title bar provides host/port, connect, disconnect, login, and logout functionality.
+
+- **ServiceManager** (`Adam.ServiceManager`) — The server panel. Handles all server-side functionality: service installation/uninstallation, start/stop, port configuration, and **user management** (add/edit/deactivate users, role assignment). Requires administrator/elevated privileges for service management operations.
+
+- **BrokerService** (`Adam.BrokerService`) — The TCP broker that mediates multi-user access to the shared database.
+
+**Rule of thumb**: If it manages users, installs services, or configures the server process — it belongs in `Adam.ServiceManager`. If it browses assets, edits metadata, or connects to an existing service — it belongs in `Adam.CatalogBrowser`.
+
 ### Dual-Mode Architecture
 Always consider both operational modes when implementing features:
 - **Standalone**: Direct SQLite access via `AppDbContext`, no external process
@@ -45,7 +57,7 @@ Shared logic belongs in `Adam.Shared`. Mode-specific logic stays in the respecti
 All multi-user communication uses raw TCP with length-prefixed protobuf framing (`TcpFrame`). No HTTP/REST/gRPC. Message types are in `Adam.Shared/Contracts/` with manual protobuf serialization.
 
 ### Critical Known Issues
-- ~~Port mismatch~~ **RESOLVED**: `BrokerClient` now receives host/port from `AdamConfig` (configurable via AdminPanel UI / `settings.json`). No longer hardcoded.
+- ~~Port mismatch~~ **RESOLVED**: `BrokerClient` now receives host/port from `AdamConfig` (configurable via connection bar UI / `settings.json`). No longer hardcoded.
 - **Static JWT key**: `AuthHandler._signingKey` is static mutable — potential race condition
 - See `.planning/codebase/CONCERNS.md` for full list
 
@@ -57,7 +69,7 @@ All multi-user communication uses raw TCP with length-prefixed protobuf framing 
   - `IsPortFree(int port)` / `IsPortInUse(int port)` — checks via `TcpListener(IPAddress.Any, port)`
   - `FindFreePort(int preferredPort, int maxAttempts)` — scans sequentially, returns first free port
 - **TcpListenerHostedService** reads `Broker:Port` from `IConfiguration` at startup
-- **AdminPanelView** in CatalogBrowser exposes a `NumericUpDown` (1-65535) bound to `ServicePort` for user configuration
+- **ServiceManager** provides a `NumericUpDown` (1-65535) bound to `ServicePort` for server-side configuration
 - **AdamConfig** persists `ServiceHost`/`ServicePort` to `%LOCALAPPDATA%/Adam/CatalogBrowser/settings.json` (Windows) or `~/.local/share/Adam/CatalogBrowser/settings.json` (Linux)
 
 #### Service Installers
@@ -94,6 +106,9 @@ dotnet test
 Run specific test suites:
 ```bash
 dotnet test tests/Adam.BrokerService.Tests
+dotnet test tests/Adam.CatalogBrowser.Tests
+dotnet test tests/Adam.ServiceManager.Tests
+dotnet test tests/Adam.Shared.Tests
 ```
 
 Run BrokerService tests by category (filter by test name):
@@ -108,7 +123,108 @@ Run CatalogBrowser headless tests (uses Avalonia.Headless):
 dotnet test tests/Adam.CatalogBrowser.Tests
 ```
 
+Run ServiceManager tests:
+```bash
+dotnet test tests/Adam.ServiceManager.Tests
+```
+
 Integration tests use Testcontainers for database provider matrix testing. 2 tests are skipped when Docker is unavailable.
+
+### Testing ServiceManager ViewModels
+
+The `UserManagementViewModel` (and other ViewModels that interact with `Dispatcher.UIThread`) requires special test infrastructure to avoid hangs in test context.
+
+#### IUiDispatcher Pattern
+
+ViewModels that dispatch work to the UI thread should accept an optional `IUiDispatcher` parameter (defaulting to `AvaloniaUiDispatcher`). Tests provide a `SyncUiDispatcher` that runs actions synchronously:
+
+```csharp
+internal sealed class SyncUiDispatcher : IUiDispatcher
+{
+    public Task InvokeAsync(Action action)
+    {
+        action();
+        return Task.CompletedTask;
+    }
+    public void Post(Action action) => action();
+    public bool CheckAccess() => true;
+}
+```
+
+The ViewModel constructor pattern:
+```csharp
+public MyViewModel(..., IUiDispatcher? dispatcher = null)
+{
+    _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
+}
+```
+
+#### Seeded Roles
+
+`AppDbContext.SeedData()` seeds 3 default roles on `EnsureCreatedAsync()`. All SQLite databases include these roles from the start:
+
+| Id | Name | Permissions |
+|-----|------|-------------|
+| `...0001` | Viewer | `asset:read`, `collection:read` |
+| `...0002` | Editor | `asset:read`, `asset:create`, `asset:update`, `collection:read`, `collection:update` |
+| `...0003` | Administrator | `asset:*`, `collection:*`, `user:*`, `role:*`, `audit:read` |
+
+**Test implications**:
+- `LoadUsersAsync()` on a fresh database always returns 3 roles and 0 users.
+- Use unique role names (e.g., `"Operator"`, `"Analyst"`) when calling `SeedRoleAsync()` in tests to avoid `UNIQUE constraint` violations.
+- Existing role names like `"Admin"` are safe (≠ `"Administrator"`), but `"Viewer"` and `"Editor"` conflict with seeded data.
+
+#### Isolated Database Per Test
+
+Each test gets its own SQLite database at a unique temp path:
+```csharp
+_basePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+_modeManager = new ModeManager(_basePath);
+await _modeManager.InitializeAsync(); // → creates DB at {basePath}/.adam/catalog.db
+```
+
+Cleanup via `IDisposable`:
+```csharp
+public void Dispose()
+{
+    SqliteConnection.ClearAllPools();
+    Directory.Delete(_basePath, recursive: true); // catches IOException
+}
+```
+
+#### Testing Private Async Methods
+
+Use reflection helpers when methods are `private` (not `public`):
+```csharp
+private async Task InvokeSaveUserAsync()
+{
+    var method = typeof(UserManagementViewModel)
+        .GetMethod("SaveUserAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    await (Task)method.Invoke(_vm, null)!;
+}
+```
+
+Internal VM state (fields like `_editUserId`) is set via reflection:
+```csharp
+private void SetField(string fieldName, object? value)
+{
+    var field = typeof(UserManagementViewModel)
+        .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!;
+    field.SetValue(_vm, value);
+}
+```
+
+#### Test Coverage Expectations
+
+New ViewModel tests should cover:
+- Constructor state (commands, initial values, log entries)
+- Property round-trips and `PropertyChanged` notifications
+- Command `CanExecute` logic
+- `BeginAddUser` / `BeginEditUser` / `CancelEdit` editing state transitions
+- Async operations via `SyncUiDispatcher` (load, save, delete)
+- Validation rules (empty fields, invalid formats, minimum lengths)
+- Database round-trips (verify data persisted via direct `AppDbContext` queries)
+- Log message generation during operations
 
 ## Workflow Preferences
 

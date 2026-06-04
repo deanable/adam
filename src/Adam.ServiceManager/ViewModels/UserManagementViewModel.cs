@@ -11,6 +11,48 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.ServiceManager.ViewModels;
 
+/// <summary>
+/// Abstraction for Avalonia's dispatcher, allowing unit tests to provide
+/// a synchronous dispatcher stub that avoids hanging on Dispatcher.UIThread.
+/// </summary>
+public interface IUiDispatcher
+{
+    Task InvokeAsync(Action action);
+    void Post(Action action);
+    bool CheckAccess();
+}
+
+/// <summary>
+/// Default dispatcher that delegates to <see cref="Dispatcher.UIThread"/>.
+/// </summary>
+public sealed class AvaloniaUiDispatcher : IUiDispatcher
+{
+    public Task InvokeAsync(Action action)
+    {
+        var tcs = new TaskCompletionSource();
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                action();
+                tcs.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                tcs.TrySetException(ex);
+            }
+        });
+        return tcs.Task;
+    }
+
+    public void Post(Action action)
+    {
+        Dispatcher.UIThread.Post(action);
+    }
+
+    public bool CheckAccess() => Dispatcher.UIThread.CheckAccess();
+}
+
 public class UserItem : INotifyPropertyChanged
 {
     public Guid Id { get; set; }
@@ -35,6 +77,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
 {
     private readonly ILogger<UserManagementViewModel> _logger;
     private readonly ModeManager _modeManager;
+    private readonly IUiDispatcher _dispatcher;
     private string _statusText = string.Empty;
     private bool _isLoading;
     private UserItem? _selectedUser;
@@ -48,10 +91,18 @@ public class UserManagementViewModel : INotifyPropertyChanged
     private ObservableCollection<string> _logMessages = [];
     private Guid _editUserId;
 
-    public UserManagementViewModel(ModeManager modeManager, ILogger<UserManagementViewModel>? logger = null)
+    /// <summary>
+    /// Creates a new UserManagementViewModel.
+    /// </summary>
+    /// <param name="modeManager">The ModeManager for database access.</param>
+    /// <param name="logger">Optional logger.</param>
+    /// <param name="dispatcher">Optional UI dispatcher. Defaults to <see cref="Dispatcher.UIThread"/>.
+    /// Provide a synchronous stub in unit tests to avoid hanging on InvokeAsync.</param>
+    public UserManagementViewModel(ModeManager modeManager, ILogger<UserManagementViewModel>? logger = null, IUiDispatcher? dispatcher = null)
     {
         _logger = logger ?? NullLogger<UserManagementViewModel>.Instance;
         _modeManager = modeManager ?? throw new ArgumentNullException(nameof(modeManager));
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
 
         RefreshCommand = new RelayCommand(async _ => await LoadUsersAsync());
         AddUserCommand = new RelayCommand(_ => BeginAddUser());
@@ -109,13 +160,13 @@ public class UserManagementViewModel : INotifyPropertyChanged
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         var entry = $"[{timestamp}] {message}";
 
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_dispatcher.CheckAccess())
         {
             AddLogEntry(entry);
         }
         else
         {
-            Dispatcher.UIThread.Post(() => AddLogEntry(entry));
+            _dispatcher.Post(() => AddLogEntry(entry));
         }
     }
 
@@ -129,7 +180,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
     public async Task LoadUsersAsync()
     {
         AddLog("Loading users...");
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await _dispatcher.InvokeAsync(() =>
         {
             IsLoading = true;
             Users.Clear();
@@ -162,7 +213,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
                 roleItems = roles.Select(r => new RoleItem { Id = r.Id, Name = r.Name }).ToList();
             }
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _dispatcher.InvokeAsync(() =>
             {
                 foreach (var u in userItems)
                     Users.Add(u);
@@ -175,11 +226,11 @@ public class UserManagementViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to load users");
             AddLog($"ERROR loading users: {ex.GetType().Name}: {ex.Message}");
-            await Dispatcher.UIThread.InvokeAsync(() => StatusText = $"Error: {ex.Message}");
+            await _dispatcher.InvokeAsync(() => StatusText = $"Error: {ex.Message}");
         }
         finally
         {
-            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
+            await _dispatcher.InvokeAsync(() => IsLoading = false);
         }
     }
 
