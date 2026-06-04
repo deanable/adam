@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using System.ComponentModel;
 using System.Globalization;
 
 namespace Adam.ServiceManager.Views;
@@ -10,6 +11,20 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Intercept window close — minimize to tray instead of exiting
+        // when the setting is enabled.
+        Closing += OnClosing;
+    }
+
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (DataContext is ViewModels.ServiceManagerViewModel vm && vm.MinimizeToTrayOnClose)
+        {
+            e.Cancel = true;
+            WindowState = WindowState.Minimized;
+            // The minimize-to-tray handler in App.axaml.cs will hide the window
+        }
     }
 }
 

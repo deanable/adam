@@ -17,12 +17,12 @@ public enum ServiceHealth
     Green   // Running
 }
 
-public class ServiceManagerViewModel : INotifyPropertyChanged
+public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly ILogger<ServiceManagerViewModel> _logger;
     private readonly IServiceInstaller _serviceInstaller;
     private string _statusMessage = string.Empty;
-    private bool _isBusy;
+    private volatile bool _isBusy;
     private string _serviceStatusText = "Unknown";
     private bool _isServiceInstalled;
     private bool _isServiceRunning;
@@ -31,9 +31,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
     private int _servicePort = 9100;
     private ObservableCollection<string> _logMessages = new();
     private readonly ObservableCollection<string> _serviceLogMessages;
-    private readonly DispatcherTimer _autoRefreshTimer;
+    private Timer? _pollTimer;
     private object? _currentView;
     private bool _isServiceTabSelected = true;
+    private bool _disposed;
+    private int _pollingIntervalSeconds;
 
     public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null)
     {
@@ -56,6 +58,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         var config = App.Config;
         _serviceHost = config.ServiceHost;
         _servicePort = config.ServicePort;
+        _pollingIntervalSeconds = Math.Clamp(config.PollingIntervalSeconds, 1, 300);
 
         // Commands
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshStatusAsync());
@@ -82,15 +85,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
             await UserManagement.LoadUsersAsync();
         });
 
-        // Auto-refresh timer: polls service status every 5 seconds
-        _autoRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _autoRefreshTimer.Tick += async (_, _) =>
-        {
-            if (_isBusy) return;
-            try { await RefreshStatusAsync(); }
-            catch { /* logged inside */ }
-        };
-        _autoRefreshTimer.Start();
+        // Auto-refresh timer: polls service status on a background thread.
+        // Uses System.Threading.Timer with async void callback so the status polling
+        // does not block or flicker the UI thread. Log and property-change dispatch back
+        // to the UI thread automatically via AddLog and OnPropertyChanged.
+        _pollTimer = CreateTimer(_pollingIntervalSeconds);
 
         _logMessages.Add($"[{DateTime.Now:HH:mm:ss.fff}] Service manager initialized");
         _logMessages.Add($"[{DateTime.Now:HH:mm:ss.fff}] Running as: {AdministratorAccount} {(IsElevated ? "(Administrator)" : "(Standard user)")}");
@@ -236,6 +235,43 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         {
             if (value < 1 || value > 65535) return;
             _servicePort = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Auto-refresh polling interval in seconds (1–300).
+    /// When changed, the timer is restarted immediately and the new value
+    /// is persisted to disk via <see cref="App.Config"/>.
+    /// </summary>
+    public int PollingIntervalSeconds
+    {
+        get => _pollingIntervalSeconds;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 300);
+            if (_pollingIntervalSeconds == clamped) return;
+            _pollingIntervalSeconds = clamped;
+            App.Config.PollingIntervalSeconds = clamped;
+            App.Config.Save();
+            OnPropertyChanged();
+            RestartPollTimer();
+            AddLog($"Polling interval changed to {clamped}s");
+        }
+    }
+
+    /// <summary>
+    /// When true, closing the window minimizes to tray instead of exiting.
+    /// Changes are persisted immediately to disk via <see cref="App.Config"/>.
+    /// </summary>
+    public bool MinimizeToTrayOnClose
+    {
+        get => App.Config.MinimizeToTrayOnClose;
+        set
+        {
+            if (App.Config.MinimizeToTrayOnClose == value) return;
+            App.Config.MinimizeToTrayOnClose = value;
+            App.Config.Save();
             OnPropertyChanged();
         }
     }
@@ -601,6 +637,48 @@ public class ServiceManagerViewModel : INotifyPropertyChanged
         return ts.TotalDays >= 1
             ? $"{ts.Days}d {ts.Hours}h {ts.Minutes}m"
             : $"{ts.Hours}h {ts.Minutes}m {ts.Seconds}s";
+    }
+
+    /// <summary>
+    /// Creates a <see cref="System.Threading.Timer"/> that calls <see cref="RefreshStatusAsync"/>
+    /// at the specified interval on a background thread pool thread.
+    /// </summary>
+    private Timer CreateTimer(int intervalSeconds)
+    {
+        return new Timer(
+            async _ =>
+            {
+                if (_disposed || _isBusy) return;
+                try
+                {
+                    await RefreshStatusAsync().ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Exception details are logged inside RefreshStatusAsync
+                }
+            },
+            null,
+            TimeSpan.FromSeconds(intervalSeconds),
+            TimeSpan.FromSeconds(intervalSeconds));
+    }
+
+    /// <summary>
+    /// Disposes the current polling timer and creates a new one with the
+    /// configured <see cref="PollingIntervalSeconds"/>.
+    /// </summary>
+    private void RestartPollTimer()
+    {
+        _pollTimer?.Dispose();
+        _pollTimer = CreateTimer(_pollingIntervalSeconds);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _pollTimer?.Dispose();
+        _pollTimer = null;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

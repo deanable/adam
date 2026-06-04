@@ -3,6 +3,7 @@ using Adam.ServiceManager.ViewModels;
 using Adam.ServiceManager.Views;
 using Adam.Shared.Services;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,11 @@ public partial class App : Application
     /// Global config instance, loaded once at startup and saved on changes.
     /// </summary>
     internal static ServiceManagerConfig Config { get; private set; } = ServiceManagerConfig.Load();
+
+    /// <summary>
+    /// Tray icon service — kept alive for the lifetime of the application.
+    /// </summary>
+    internal static TrayIconService? TrayIcon { get; private set; }
 
     public override void Initialize()
     {
@@ -64,9 +70,29 @@ public partial class App : Application
             modeManager.InitializeAsync().GetAwaiter().GetResult();
 
             var vm = provider.GetRequiredService<ServiceManagerViewModel>();
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow
             {
                 DataContext = vm
+            };
+            desktop.MainWindow = mainWindow;
+
+            // Create the system tray icon
+            TrayIcon = new TrayIconService(mainWindow);
+
+            // Minimize to tray instead of taskbar
+            mainWindow.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == Window.WindowStateProperty && mainWindow.WindowState == WindowState.Minimized)
+                {
+                    mainWindow.Hide();
+                }
+            };
+
+            // Dispose the tray icon on exit to clean up native resources
+            desktop.Exit += (_, _) =>
+            {
+                TrayIcon?.Dispose();
+                (provider as IDisposable)?.Dispose();
             };
         }
 

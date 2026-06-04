@@ -98,6 +98,26 @@
           </Grid>
           <TextBlock Text="Restart the app after changing host/port for the new settings to take effect."
                      FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+
+          <Separator Margin="0,4" />
+
+          <!-- Polling interval -->
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Grid.Column="0" Text="Poll interval:" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+              <NumericUpDown Value="{Binding PollingIntervalSeconds}" Minimum="1" Maximum="300" FormatString="#0" Width="100" />
+              <TextBlock Text="seconds (1–300)" VerticalAlignment="Center" Foreground="Gray" FontSize="11" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Text="How often the service status is checked in the background. Changes take effect immediately."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+          <!-- Minimize to tray on close -->
+          <CheckBox IsChecked="{Binding MinimizeToTrayOnClose}"
+                    Content="Minimize to tray on close"
+                    FontSize="12" />
+          <TextBlock Text="When enabled, closing the window minimizes to the system tray instead of exiting the application."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="24,0,0,0" />
         </StackPanel>
       </Border>
 
