@@ -2,15 +2,15 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 6 — Database Provider Matrix (executed)
-**Current Milestone:** v1.1 — Management & Deployment
+**Current Phase:** 5 — Server Management Tooling (in progress)
+**Current Milestone:** v1.1 — Server Maturity
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Full database provider support — SQLite, PostgreSQL, SQL Server with configuration-only swap
+**Current focus:** Maturing the standalone ServiceManager tool for user and service administration
 
 ## Phase Progress
 
@@ -20,9 +20,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 2 | ✅ | 1/1 | 100% | Archived |
 | 3 | ✅ | 1/1 | 100% | Archived |
 | 4 | ✅ | 1/1 | 100% | Archived |
-| 5 | ✅ | 1/1 | 100% | Archived |
-| 6 | ✅ | 1/1 | 100% | Current |
-| 7 | ○ | 0/0 | 0% |
+| 5 | 🚧 | 0/1 | 0% | Current |
+| 6 | ○ | 0/1 | 0% |
+| 7 | ○ | 0/1 | 0% |
+| 8 | ○ | 0/1 | 0% |
+| 9 | ○ | 0/1 | 0% |
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 9 added (2026-06-07): AI Image Tagging — integrate in-repo `LiquidVision.Core` (LFM2-VL ONNX) for local image auto-tagging. Triggers: opt-in during ingest, per-asset Auto-tag button, bulk re-tag. Auto-apply/union/no-provenance; status-bar download progress; Q4F16/CPU defaults.
 
 ## Active Decisions
 
@@ -149,9 +156,10 @@ None.
 
 ## Next Actions
 
-1. Plan/execute Phase 7: User & Role Administration
-2. Review `.planning/REQUIREMENTS.md` for remaining scope
-3. Milestone v1.1 completion review (Phases 4-6)
+1. **Research Phase 5**: Verify current `ServiceManager` implementation state (Linux/macOS installers).
+2. **Implement User Lifecycle**: Complete Add/Edit/Deactivate UI in `ServiceManager`.
+3. **Audit Log Overview**: Add high-level audit view to `ServiceManager`.
 
 ---
-*State updated: 2026-06-03 after Phase 6 execution*
+*State updated: 2026-06-05 after roadmap re-alignment for client/server separation*
+

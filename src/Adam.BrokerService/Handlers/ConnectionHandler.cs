@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
+using Adam.Shared.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
@@ -43,46 +45,117 @@ public sealed class ConnectionHandler : IConnectionHandler
 
     public async Task<Envelope> HandleAsync(Envelope request, CancellationToken ct = default)
     {
+        var sw = Stopwatch.StartNew();
+        ConnectionDebugLogger.Trace($"[DISPATCH] conn={request.ConnectionId}, type={request.MessageType}, corrId={request.CorrelationId}");
+
         try
         {
-            return request.MessageType switch
+            Envelope response;
+            switch (request.MessageType)
             {
-                MessageTypeCode.LoginRequest => await _authHandler.LoginAsync(request, ct),
-                MessageTypeCode.ValidateTokenRequest => _authHandler.ValidateToken(request),
-                MessageTypeCode.ListAssetsRequest => await _assetHandler.ListAssetsAsync(request, ct),
-                MessageTypeCode.GetFileRequest => await _assetHandler.GetFileAsync(request, ct),
-                MessageTypeCode.GetFileChunkRequest => await _assetHandler.GetFileChunkAsync(request, ct),
-                MessageTypeCode.GetAssetRequest => await _assetHandler.GetAssetAsync(request, ct),
-                MessageTypeCode.CreateAssetRequest => await _assetHandler.CreateAssetAsync(request, ct),
-                MessageTypeCode.UpdateAssetRequest => await _assetHandler.UpdateAssetAsync(request, ct),
-                MessageTypeCode.DeleteAssetRequest => await _assetHandler.DeleteAssetAsync(request, ct),
-                MessageTypeCode.CreateCollectionRequest => await _collectionHandler.CreateCollectionAsync(request, ct),
-                MessageTypeCode.ListCollectionsRequest => await _collectionHandler.ListCollectionsAsync(request, ct),
-                MessageTypeCode.GetChangesRequest => await _changeHandler.GetChangesAsync(request, ct),
-                MessageTypeCode.ListUsersRequest => await _userHandler.ListUsersAsync(request, ct),
-                MessageTypeCode.ListRolesRequest => await _userHandler.ListRolesAsync(request, ct),
-                MessageTypeCode.CreateUserRequest => await _userHandler.CreateUserAsync(request, ct),
-                MessageTypeCode.UpdateUserRequest => await _userHandler.UpdateUserAsync(request, ct),
-                MessageTypeCode.DeleteUserRequest => await _userHandler.DeleteUserAsync(request, ct),
-                MessageTypeCode.ListAuditLogsRequest => await _auditLogHandler.ListAuditLogsAsync(request, ct),
-                MessageTypeCode.GetServiceStatusRequest => await _statusHandler.GetStatusAsync(request, ct),
-                MessageTypeCode.StartServiceRequest => await _statusHandler.StartServiceAsync(request, ct),
-                MessageTypeCode.StopServiceRequest => await _statusHandler.StopServiceAsync(request, ct),
-                MessageTypeCode.ListFoldersRequest => await _sidebarHandler.ListFoldersAsync(request, ct),
-                MessageTypeCode.ListKeywordsRequest => await _sidebarHandler.ListKeywordsAsync(request, ct),
-                MessageTypeCode.ListMediaFormatCountsRequest => await _sidebarHandler.ListMediaFormatCountsAsync(request, ct),
-                MessageTypeCode.ListMetadataCategoriesRequest => await _sidebarHandler.ListMetadataCategoriesAsync(request, ct),
-                MessageTypeCode.ListDateTakenTreeRequest => await _sidebarHandler.ListDateTakenTreeAsync(request, ct),
-                MessageTypeCode.ListWatchedFoldersRequest => await _watchedFolderHandler.ListAsync(request, ct),
-                MessageTypeCode.CreateWatchedFolderRequest => await _watchedFolderHandler.CreateAsync(request, ct),
-                MessageTypeCode.UpdateWatchedFolderRequest => await _watchedFolderHandler.UpdateAsync(request, ct),
-                MessageTypeCode.DeleteWatchedFolderRequest => await _watchedFolderHandler.DeleteAsync(request, ct),
-                _ => CreateErrorResponse(request, 3, $"Unknown message type: {request.MessageType}")
-            };
+                case MessageTypeCode.LoginRequest:
+                    ConnectionDebugLogger.Info($"[DISPATCH] LoginRequest from conn={request.ConnectionId}");
+                    response = await _authHandler.LoginAsync(request, ct);
+                    break;
+                case MessageTypeCode.ValidateTokenRequest:
+                    response = _authHandler.ValidateToken(request);
+                    break;
+                case MessageTypeCode.ListAssetsRequest:
+                    response = await _assetHandler.ListAssetsAsync(request, ct);
+                    break;
+                case MessageTypeCode.GetFileRequest:
+                    response = await _assetHandler.GetFileAsync(request, ct);
+                    break;
+                case MessageTypeCode.GetFileChunkRequest:
+                    response = await _assetHandler.GetFileChunkAsync(request, ct);
+                    break;
+                case MessageTypeCode.GetAssetRequest:
+                    response = await _assetHandler.GetAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateAssetRequest:
+                    response = await _assetHandler.CreateAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateAssetRequest:
+                    response = await _assetHandler.UpdateAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteAssetRequest:
+                    response = await _assetHandler.DeleteAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateCollectionRequest:
+                    response = await _collectionHandler.CreateCollectionAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListCollectionsRequest:
+                    response = await _collectionHandler.ListCollectionsAsync(request, ct);
+                    break;
+                case MessageTypeCode.GetChangesRequest:
+                    response = await _changeHandler.GetChangesAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListUsersRequest:
+                    response = await _userHandler.ListUsersAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListRolesRequest:
+                    response = await _userHandler.ListRolesAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateUserRequest:
+                    response = await _userHandler.CreateUserAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateUserRequest:
+                    response = await _userHandler.UpdateUserAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteUserRequest:
+                    response = await _userHandler.DeleteUserAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListAuditLogsRequest:
+                    response = await _auditLogHandler.ListAuditLogsAsync(request, ct);
+                    break;
+                case MessageTypeCode.GetServiceStatusRequest:
+                    response = await _statusHandler.GetStatusAsync(request, ct);
+                    break;
+                case MessageTypeCode.StartServiceRequest:
+                    response = await _statusHandler.StartServiceAsync(request, ct);
+                    break;
+                case MessageTypeCode.StopServiceRequest:
+                    response = await _statusHandler.StopServiceAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListFoldersRequest:
+                    response = await _sidebarHandler.ListFoldersAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListKeywordsRequest:
+                    response = await _sidebarHandler.ListKeywordsAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListMediaFormatCountsRequest:
+                    response = await _sidebarHandler.ListMediaFormatCountsAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListMetadataCategoriesRequest:
+                    response = await _sidebarHandler.ListMetadataCategoriesAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListDateTakenTreeRequest:
+                    response = await _sidebarHandler.ListDateTakenTreeAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListWatchedFoldersRequest:
+                    response = await _watchedFolderHandler.ListAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateWatchedFolderRequest:
+                    response = await _watchedFolderHandler.CreateAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateWatchedFolderRequest:
+                    response = await _watchedFolderHandler.UpdateAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteWatchedFolderRequest:
+                    response = await _watchedFolderHandler.DeleteAsync(request, ct);
+                    break;
+                default:
+                    ConnectionDebugLogger.Warn($"[DISPATCH] Unknown message type: {request.MessageType} from conn={request.ConnectionId}");
+                    return CreateErrorResponse(request, 3, $"Unknown message type: {request.MessageType}");
+            }
+
+            ConnectionDebugLogger.Trace($"[DISPATCH] type={request.MessageType} completed in {sw.Elapsed.TotalMilliseconds:F1}ms (status={response.StatusCode})");
+            return response;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling {MessageType}", request.MessageType);
+            ConnectionDebugLogger.Error(ex, $"[DISPATCH] Error handling {request.MessageType} from conn={request.ConnectionId} after {sw.Elapsed.TotalMilliseconds:F0}ms");
             return CreateErrorResponse(request, 13, "Internal server error");
         }
     }

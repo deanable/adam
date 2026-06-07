@@ -2,56 +2,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Adam.ServiceManager.Services;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
-using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.ServiceManager.ViewModels;
-
-/// <summary>
-/// Abstraction for Avalonia's dispatcher, allowing unit tests to provide
-/// a synchronous dispatcher stub that avoids hanging on Dispatcher.UIThread.
-/// </summary>
-public interface IUiDispatcher
-{
-    Task InvokeAsync(Action action);
-    void Post(Action action);
-    bool CheckAccess();
-}
-
-/// <summary>
-/// Default dispatcher that delegates to <see cref="Dispatcher.UIThread"/>.
-/// </summary>
-public sealed class AvaloniaUiDispatcher : IUiDispatcher
-{
-    public Task InvokeAsync(Action action)
-    {
-        var tcs = new TaskCompletionSource();
-        Dispatcher.UIThread.Post(() =>
-        {
-            try
-            {
-                action();
-                tcs.TrySetResult();
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-            }
-        });
-        return tcs.Task;
-    }
-
-    public void Post(Action action)
-    {
-        Dispatcher.UIThread.Post(action);
-    }
-
-    public bool CheckAccess() => Dispatcher.UIThread.CheckAccess();
-}
 
 public class UserItem : INotifyPropertyChanged
 {
@@ -87,6 +45,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
     private string _editRoleId = string.Empty;
     private bool _editIsActive = true;
     private bool _isEditing;
+    private bool _isUsernameReadOnly;
     private RoleItem? _selectedRole;
     private ObservableCollection<string> _logMessages = [];
     private Guid _editUserId;
@@ -142,6 +101,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
     }
 
     public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
+    public bool IsUsernameReadOnly { get => _isUsernameReadOnly; set { _isUsernameReadOnly = value; OnPropertyChanged(); } }
     public string EditUsername { get => _editUsername; set { _editUsername = value; OnPropertyChanged(); } }
     public string EditEmail { get => _editEmail; set { _editEmail = value; OnPropertyChanged(); } }
     public string EditPassword { get => _editPassword; set { _editPassword = value; OnPropertyChanged(); } }
@@ -239,6 +199,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
         AddLog("Opening Add User form...");
         _editUserId = Guid.Empty;
         EditUsername = "";
+        IsUsernameReadOnly = false;
         EditEmail = "";
         EditPassword = "";
         EditRoleId = Roles.FirstOrDefault()?.Id.ToString() ?? "";
@@ -252,6 +213,7 @@ public class UserManagementViewModel : INotifyPropertyChanged
         AddLog($"Editing user '{SelectedUser.Username}' (ID={SelectedUser.Id})...");
         _editUserId = SelectedUser.Id;
         EditUsername = SelectedUser.Username;
+        IsUsernameReadOnly = true;
         EditEmail = SelectedUser.Email;
         EditPassword = "";
         EditRoleId = Roles.FirstOrDefault(r => r.Name == SelectedUser.RoleName)?.Id.ToString() ?? "";

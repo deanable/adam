@@ -34,8 +34,8 @@
   </Window.Styles>
 
   <Window.KeyBindings>
-    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveTagsCommand}" />
-    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveTagsCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding PropertyInspector.SaveTagsCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding PropertyInspector.SaveTagsCommand}" />
   </Window.KeyBindings>
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
@@ -51,26 +51,39 @@
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
 
+          <!-- Admin / Service Manager separator -->
+          <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center" />
+          <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"
+                  Foreground="#CCFFCC" Background="#004D40" BorderThickness="0"
+                  FontSize="11" Padding="8,2" CornerRadius="3" Margin="0,0,8,0"
+                  Cursor="Hand">
+            <Button.Styles>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="#00695C" />
+              </Style>
+            </Button.Styles>
+          </Button>
+
           <!-- Mode separator -->
           <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center" />
 
           <!-- Mode toggle -->
           <TextBlock Text="Mode:" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,4,0" />
-          <Button Content="Local" Command="{Binding ToggleLocalModeCommand}"
-                  Background="{Binding IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+          <Button Content="Local" Command="{Binding Connection.ToggleLocalModeCommand}"
+                  Background="{Binding Connection.IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
                   Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
                   CornerRadius="3" Cursor="Hand" />
-          <Button Content="Service" Command="{Binding ToggleServiceModeCommand}"
-                  Background="{Binding IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+          <Button Content="Service" Command="{Binding Connection.ToggleServiceModeCommand}"
+                  Background="{Binding Connection.IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
                   Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
                   CornerRadius="3" Cursor="Hand" />
         </StackPanel>
 
-        <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
+        <TextBlock Grid.Column="2" Text="{Binding StatusBar.StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
 
         <!-- Connection status indicator – green dot for local DB, green/gray for service -->
         <Ellipse Grid.Column="3" Width="8" Height="8" Fill="LimeGreen"
-                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsLocalMode}">
+                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
           <ToolTip.Tip>
             <StackPanel Spacing="2">
               <TextBlock Text="Local Database" FontSize="12" FontWeight="Bold" Foreground="#2E7D32" />
@@ -83,58 +96,58 @@
           </ToolTip.Tip>
         </Ellipse>
         <Ellipse Grid.Column="3" Width="8" Height="8"
-                 Fill="{Binding IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
-                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsServiceMode}">
+                 Fill="{Binding Connection.IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
+                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsServiceMode}">
           <ToolTip.Tip>
             <StackPanel Spacing="2">
               <TextBlock Text="Service Connection" FontSize="12" FontWeight="Bold" Foreground="#1565C0" />
               <TextBlock FontSize="11" Foreground="#555">
                 <Run Text="Status: " />
-                <Run Text="{Binding ServiceConnectionStatus}" />
+                <Run Text="{Binding Connection.ServiceConnectionStatus}" />
               </TextBlock>
               <TextBlock FontSize="11" Foreground="#555">
                 <Run Text="Host: " />
-                <Run Text="{Binding ServiceHost}" />
+                <Run Text="{Binding Connection.ServiceHost}" />
               </TextBlock>
               <TextBlock FontSize="11" Foreground="#555">
                 <Run Text="Port: " />
-                <Run Text="{Binding ServicePort}" />
+                <Run Text="{Binding Connection.ServicePort}" />
               </TextBlock>
             </StackPanel>
           </ToolTip.Tip>
         </Ellipse>
         <TextBlock Grid.Column="4" Text="Local DB" FontSize="10" Foreground="#AAFFFFFF"
-                   VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding IsLocalMode}">
+                   VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
           <ToolTip.Tip>
             <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="11" Foreground="#555" />
           </ToolTip.Tip>
         </TextBlock>
-        <TextBlock Grid.Column="4" Text="{Binding ServiceConnectionStatus}" FontSize="10"
+        <TextBlock Grid.Column="4" Text="{Binding Connection.ServiceConnectionStatus}" FontSize="10"
                    Foreground="#AAFFFFFF" VerticalAlignment="Center" Margin="2,0"
-                   IsVisible="{Binding IsServiceMode}" />
+                   IsVisible="{Binding Connection.IsServiceMode}" />
       </Grid>
     </Border>
 
     <!-- Connection panel – shows connection controls in Service mode, status in Local mode -->
-    <Border Grid.Row="1" Background="#E8F5E9" Padding="6,4" IsVisible="{Binding IsLocalMode}">
+    <Border Grid.Row="1" Background="#E8F5E9" Padding="6,4" IsVisible="{Binding Connection.IsLocalMode}">
       <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
         <Ellipse Width="8" Height="8" Fill="#2E7D32" VerticalAlignment="Center" />
         <TextBlock Text="Using local database" FontSize="11" Foreground="#2E7D32" VerticalAlignment="Center" FontWeight="Medium" />
         <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="10" Foreground="#81C784" VerticalAlignment="Center" />
       </StackPanel>
     </Border>
-    <Border Grid.Row="1" Background="#E3F2FD" Padding="6,4" IsVisible="{Binding IsServiceMode}">
+    <Border Grid.Row="1" Background="#E3F2FD" Padding="6,4" IsVisible="{Binding Connection.IsServiceMode}">
       <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
         <TextBlock Text="Host:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
-        <TextBox Text="{Binding ServiceHost}" Width="120" FontSize="11" Padding="2,1"
-                 IsEnabled="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+        <TextBox Text="{Binding Connection.ServiceHost}" Width="120" FontSize="11" Padding="2,1"
+                 IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
         <TextBlock Text="Port:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
-        <NumericUpDown Value="{Binding ServicePort}" Minimum="1" Maximum="65535" Increment="1"
+        <NumericUpDown Value="{Binding Connection.ServicePort}" Minimum="1" Maximum="65535" Increment="1"
                         Width="100" FontSize="11"
-                        IsEnabled="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
-        <Button Content="Connect" Command="{Binding ConnectToServiceCommand}" FontSize="11" Padding="8,2"
+                        IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+        <Button Content="Connect" Command="{Binding Connection.ConnectToServiceCommand}" FontSize="11" Padding="8,2"
                 Background="#388E3C" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                IsVisible="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}"
                 Cursor="Hand">
           <Button.Styles>
             <Style Selector="Button:disabled">
@@ -145,9 +158,9 @@
             </Style>
           </Button.Styles>
         </Button>
-        <Button Content="Logout" Command="{Binding LogoutCommand}" FontSize="11" Padding="8,2"
+        <Button Content="Logout" Command="{Binding Connection.LogoutCommand}" FontSize="11" Padding="8,2"
                 Background="#E65100" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding IsConnectedToService}"
+                IsVisible="{Binding Connection.IsConnectedToService}"
                 Cursor="Hand">
           <Button.Styles>
             <Style Selector="Button:disabled">
@@ -158,9 +171,9 @@
             </Style>
           </Button.Styles>
         </Button>
-        <Button Content="Disconnect" Command="{Binding DisconnectFromServiceCommand}" FontSize="11" Padding="8,2"
+        <Button Content="Disconnect" Command="{Binding Connection.DisconnectFromServiceCommand}" FontSize="11" Padding="8,2"
                 Background="#D32F2F" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding IsConnectedToService}"
+                IsVisible="{Binding Connection.IsConnectedToService}"
                 Cursor="Hand">
           <Button.Styles>
             <Style Selector="Button:disabled">
@@ -171,7 +184,7 @@
             </Style>
           </Button.Styles>
         </Button>
-        <TextBlock Text="{Binding ServiceConnectionStatus}" FontSize="11" Foreground="#1565C0" VerticalAlignment="Center" Margin="4,0,0,0" />
+        <TextBlock Text="{Binding Connection.ServiceConnectionStatus}" FontSize="11" Foreground="#1565C0" VerticalAlignment="Center" Margin="4,0,0,0" />
       </StackPanel>
     </Border>
 
@@ -271,13 +284,12 @@
                     Cursor="SizeWestEast" />
 
       <!-- Center content -->
-      <!-- Center content -->
       <Grid Grid.Column="2" Background="White">
         <Border Padding="0">
           <ContentControl Content="{Binding CurrentView}" Background="Transparent" />
         </Border>
         <!-- Startup loading overlay -->
-        <Border Background="#CCFFFFFF" IsVisible="{Binding IsInitialLoading}"
+        <Border Background="#CCFFFFFF" IsVisible="{Binding StatusBar.IsInitialLoading}"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
           <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="12">
             <controls:LoadingSpinner Grid.Row="0" Width="48" Height="48" Foreground="#1976D2"
@@ -302,9 +314,9 @@
             <!-- Metadata (single asset) -->
             <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0">
-                <ItemsControl ItemsSource="{Binding SelectedAssetMetadata}"
-                              IsVisible="{Binding HasSelectedAsset}"
-                              Background="Transparent">
+                <ItemsControl ItemsSource="{Binding PropertyInspector.SelectedAssetMetadata}"
+                               IsVisible="{Binding PropertyInspector.HasSelectedAsset}"
+                               Background="Transparent">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Grid ColumnDefinitions="Auto,*" Margin="0,1">
@@ -315,7 +327,7 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <TextBlock Text="No selection" FontSize="11" Foreground="#999" Margin="0,4,0,0"
-                           IsVisible="{Binding HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                           IsVisible="{Binding PropertyInspector.HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}"
                            HorizontalAlignment="Center" />
               </StackPanel>
             </Expander>
@@ -325,9 +337,9 @@
               <StackPanel Margin="0,4,0,0" Spacing="6">
 
                 <!-- Description (single-asset mode only) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Description:" FontSize="10" Foreground="#666" />
-                  <TextBox Text="{Binding SelectedAssetDescription}"
+                  <TextBox Text="{Binding PropertyInspector.SelectedAssetDescription}"
                            AcceptsReturn="True"
                            MinHeight="40"
                            MaxHeight="60"
@@ -339,9 +351,9 @@
                 </StackPanel>
 
                 <!-- Date taken (single-asset mode only) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Date taken:" FontSize="10" Foreground="#666" />
-                  <DatePicker SelectedDate="{Binding SelectedAssetDateTaken}"
+                  <DatePicker SelectedDate="{Binding PropertyInspector.SelectedAssetDateTaken}"
                               FontSize="11"
                               BorderThickness="1"
                               BorderBrush="#D0D0D0"
@@ -349,26 +361,26 @@
                 </StackPanel>
 
                 <!-- Categories (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
                   <controls:TagEditorControl
-                    Tags="{Binding SelectedAssetCategories}"
-                    AutoCompleteSource="{Binding CategoryAutoCompleteSource}"
+                    Tags="{Binding PropertyInspector.SelectedAssetCategories}"
+                    AutoCompleteSource="{Binding PropertyInspector.CategoryAutoCompleteSource}"
                     PlaceholderText="Add category..." />
                 </StackPanel>
 
                 <!-- Keywords - single-asset mode: editable tag chips -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
                   <controls:TagEditorControl
-                    Tags="{Binding SelectedAssetTags}"
-                    AutoCompleteSource="{Binding TagAutoCompleteSource}" />
+                    Tags="{Binding PropertyInspector.SelectedAssetTags}"
+                    AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}" />
                 </StackPanel>
 
                 <!-- Rating (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Rating:" FontSize="10" Foreground="#666" />
-                  <ComboBox SelectedIndex="{Binding SelectedAssetRating}"
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetRating}"
                             FontSize="11"
                             BorderThickness="1"
                             BorderBrush="#D0D0D0"
@@ -383,9 +395,9 @@
                 </StackPanel>
 
                 <!-- Color Label (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Label:" FontSize="10" Foreground="#666" />
-                  <ComboBox SelectedIndex="{Binding SelectedAssetLabel}"
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetLabel}"
                             FontSize="11"
                             BorderThickness="1"
                             BorderBrush="#D0D0D0"
@@ -400,9 +412,9 @@
                 </StackPanel>
 
                 <!-- Flag (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Flag:" FontSize="10" Foreground="#666" />
-                  <ComboBox SelectedIndex="{Binding SelectedAssetFlag}"
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetFlag}"
                             FontSize="11"
                             BorderThickness="1"
                             BorderBrush="#D0D0D0"
@@ -414,9 +426,9 @@
                 </StackPanel>
 
                 <!-- Copyright (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="Copyright:" FontSize="10" Foreground="#666" />
-                  <TextBox Text="{Binding SelectedAssetCopyright}"
+                  <TextBox Text="{Binding PropertyInspector.SelectedAssetCopyright}"
                            FontSize="11"
                            BorderThickness="1"
                            BorderBrush="#D0D0D0"
@@ -425,17 +437,17 @@
                 </StackPanel>
 
                 <!-- GPS (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
                   <TextBlock Text="GPS:" FontSize="10" Foreground="#666" />
                   <Grid ColumnDefinitions="*,4,*">
-                    <TextBox Grid.Column="0" Text="{Binding SelectedAssetGpsLatitude}"
+                    <TextBox Grid.Column="0" Text="{Binding PropertyInspector.SelectedAssetGpsLatitude}"
                              PlaceholderText="Latitude"
                              FontSize="11"
                              BorderThickness="1"
                              BorderBrush="#D0D0D0"
                              CornerRadius="4"
                              Padding="4,2" />
-                    <TextBox Grid.Column="2" Text="{Binding SelectedAssetGpsLongitude}"
+                    <TextBox Grid.Column="2" Text="{Binding PropertyInspector.SelectedAssetGpsLongitude}"
                              PlaceholderText="Longitude"
                              FontSize="11"
                              BorderThickness="1"
@@ -446,7 +458,7 @@
                 </StackPanel>
 
                 <!-- Rotate / Flip controls (single-asset mode) -->
-                <StackPanel IsVisible="{Binding HasSingleSelection}" Spacing="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="4" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Button Content="↻ 90°" Command="{Binding RotateClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
                   <Button Content="↺ 90°" Command="{Binding RotateCounterClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
                   <Button Content="⇄" Command="{Binding FlipHorizontalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
@@ -456,7 +468,7 @@
                 <!-- Export button (single-asset mode) -->
                 <Button Content="Export..."
                         Command="{Binding ExportCommand}"
-                        IsVisible="{Binding HasSingleSelection}"
+                        IsVisible="{Binding PropertyInspector.HasSingleSelection}"
                         HorizontalAlignment="Right"
                         Margin="0,4,0,0"
                         Padding="12,4"
@@ -478,8 +490,8 @@
 
                 <!-- Save button (single-asset mode) -->
                 <Button Content="Save Changes"
-                        Command="{Binding SaveTagsCommand}"
-                        IsVisible="{Binding HasSingleSelection}"
+                        Command="{Binding PropertyInspector.SaveTagsCommand}"
+                        IsVisible="{Binding PropertyInspector.HasSingleSelection}"
                         HorizontalAlignment="Right"
                         Margin="0,4,0,0"
                         Padding="12,4"
@@ -504,45 +516,35 @@
                 </Button>
 
                 <!-- Multi-asset mode: aggregated categories -->
-                <StackPanel IsVisible="{Binding HasMultiSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
                   <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
                   <controls:TagEditorControl
-                    TagOccurrences="{Binding AggregatedCategories}"
-                    AutoCompleteSource="{Binding CategoryAutoCompleteSource}"
+                    TagOccurrences="{Binding PropertyInspector.AggregatedCategories}"
+                    AutoCompleteSource="{Binding PropertyInspector.CategoryAutoCompleteSource}"
                     IsMultiAsset="True" />
                 </StackPanel>
 
                 <!-- Multi-asset mode: aggregated keyword occurrences -->
-                <StackPanel IsVisible="{Binding HasMultiSelection}" Spacing="2">
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
                   <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
                   <controls:TagEditorControl
-                    TagOccurrences="{Binding AggregatedTags}"
-                    AutoCompleteSource="{Binding TagAutoCompleteSource}"
+                    TagOccurrences="{Binding PropertyInspector.AggregatedTags}"
+                    AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}"
                     IsMultiAsset="True" />
                 </StackPanel>
 
                 <TextBlock Text="Select an asset to edit its metadata"
                            FontSize="11" Foreground="#999"
                            HorizontalAlignment="Center"
-                           IsVisible="{Binding HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+                           IsVisible="{Binding PropertyInspector.HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
 
-                <!-- Save-toast notification -->
-                <Border IsVisible="{Binding ShowSaveToast}"
-                        Background="#323232"
-                        CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,4,0,0"
-                        HorizontalAlignment="Center"
-                        Opacity="0.95">
-                  <TextBlock Text="{Binding SaveToastText}" FontSize="12" Foreground="White" HorizontalAlignment="Center" />
-                </Border>
               </StackPanel>
             </Expander>
 
           </StackPanel>
         </ScrollViewer>
         <!-- Property inspector loading overlay -->
-        <Border Background="#CCF5F5F5" IsVisible="{Binding IsPropertyInspectorLoading}"
+        <Border Background="#CCF5F5F5" IsVisible="{Binding PropertyInspector.IsPropertyInspectorLoading}"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
           <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
             <controls:LoadingSpinner Grid.Row="0" Width="32" Height="32" Foreground="#1976D2"
@@ -558,17 +560,17 @@
     <!-- Status bar -->
     <Border Grid.Row="3" Background="#F0F0F0" Padding="4,2">
       <Grid ColumnDefinitions="*,Auto,Auto">
-        <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#666" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding StatusBar.StatusText}" FontSize="10" Foreground="#666" VerticalAlignment="Center" />
 
         <!-- Bulk operation progress -->
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="8,0"
-                    IsVisible="{Binding IsBulkOperationActive}">
-          <ProgressBar Value="{Binding BulkProgressPercentage}"
+                    IsVisible="{Binding StatusBar.IsBulkOperationActive}">
+          <ProgressBar Value="{Binding StatusBar.BulkProgressPercentage}"
                        Minimum="0" Maximum="100"
                        Width="60" Height="12"
                        Foreground="#1976D2"
                        Background="#E0E0E0" />
-          <TextBlock Text="{Binding BulkProgressText}"
+          <TextBlock Text="{Binding StatusBar.BulkProgressText}"
                      FontSize="10"
                      Foreground="#1976D2"
                      VerticalAlignment="Center" />

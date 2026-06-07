@@ -19,6 +19,18 @@ public sealed class AdamConfig
     public int ServicePort { get; set; } = 9100;
 
     /// <summary>
+    /// Whether to connect to the broker over TLS. Sourced from the registry
+    /// settings published by the Service Manager.
+    /// </summary>
+    public bool UseTls { get; set; }
+
+    /// <summary>
+    /// Whether to accept the broker's self-signed certificate (only relevant when
+    /// <see cref="UseTls"/> is enabled).
+    /// </summary>
+    public bool AllowSelfSigned { get; set; } = true;
+
+    /// <summary>
     /// Last-entered username, pre-filled in the login dialog.
     /// Password is never persisted for security reasons.
     /// </summary>

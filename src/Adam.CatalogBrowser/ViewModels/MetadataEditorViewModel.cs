@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using LiquidVision.Core;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.CatalogBrowser.ViewModels;
@@ -13,6 +14,8 @@ namespace Adam.CatalogBrowser.ViewModels;
 public class MetadataEditorViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly AiTaggingService? _aiTaggingService;
     private DigitalAsset? _asset;
     private MetadataProfile? _profile;
     private string _title = string.Empty;
@@ -23,6 +26,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     private bool _isDirty;
     private bool _hasAsset;
     private bool _isLoading;
+    private bool _isAiTagging;
     private string _statusText = string.Empty;
 
     private string _cameraMake = string.Empty;
@@ -40,9 +44,11 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     private string _headline = string.Empty;
     private string _fileName = string.Empty;
 
-    public MetadataEditorViewModel(ModeManager modeManager)
+    public MetadataEditorViewModel(ModeManager modeManager, IUiDispatcher? dispatcher = null, AiTaggingService? aiTaggingService = null)
     {
         _modeManager = modeManager;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
+        _aiTaggingService = aiTaggingService;
         SaveCommand = new RelayCommand(async _ => await SaveAsync(), _ => IsDirty && HasAsset);
         SetRatingCommand = new RelayCommand(param =>
         {
@@ -51,15 +57,22 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                 Rating = r;
             }
         });
+        AutoTagCommand = new RelayCommand(async _ => await AutoTagAsync(), _ => HasAsset && !IsLoading && !IsAiTagging);
     }
 
     public ICommand SaveCommand { get; }
     public ICommand SetRatingCommand { get; }
+    public ICommand AutoTagCommand { get; }
 
     public bool IsLoading
     {
         get => _isLoading;
-        set { _isLoading = value; OnPropertyChanged(); }
+        set
+        {
+            _isLoading = value;
+            OnPropertyChanged();
+            (AutoTagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
     }
 
     public bool HasAsset
@@ -116,6 +129,20 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     public string Copyright { get => _copyright; set { _copyright = value; OnPropertyChanged(); } }
     public string Headline { get => _headline; set { _headline = value; OnPropertyChanged(); } }
     public string FileName { get => _fileName; set { _fileName = value; OnPropertyChanged(); } }
+    public bool IsAiTagging
+    {
+        get => _isAiTagging;
+        set
+        {
+            _isAiTagging = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CanAutoTag));
+            (AutoTagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool CanAutoTag => HasAsset && !IsLoading && !IsAiTagging;
+
     public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
     public bool IsDirty { get => _isDirty; set { _isDirty = value; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
 
@@ -131,13 +158,21 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SaveCommand));
     }
 
+    private async Task RunOnUiThreadAsync(Action action)
+    {
+        if (_dispatcher.CheckAccess())
+            action();
+        else
+            await _dispatcher.InvokeAsync(action);
+    }
+
     /// <summary>
     /// Loads a single asset's metadata and populates the tag collection.
     /// Also loads the system-wide keyword list for autocomplete.
     /// </summary>
     public async Task LoadAssetAsync(Guid assetId, CancellationToken ct = default)
     {
-        IsLoading = true;
+        await RunOnUiThreadAsync(() => IsLoading = true);
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
@@ -148,41 +183,45 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
 
             if (_asset == null)
             {
-                HasAsset = false;
+                await RunOnUiThreadAsync(() => HasAsset = false);
                 return;
             }
 
             _profile = _asset.MetadataProfile;
-            HasAsset = true;
-        FileName = _asset.FileName;
-        Title = _asset.Title;
-        Description = _asset.Description;
-        Tags = new ObservableCollection<string>(_asset.Keywords.Select(k => k.Name));
-        Rating = _profile?.Rating ?? 0;
 
-        CameraMake = _profile?.CameraMake ?? "";
-        CameraModel = _profile?.CameraModel ?? "";
-        LensModel = _profile?.LensModel ?? "";
-        FocalLength = _profile?.FocalLength?.ToString("F1") ?? "";
-        Aperture = _profile?.Aperture is double a ? $"f/{a:F1}" : "";
-        ExposureTime = _profile?.ExposureTime ?? "";
-        Iso = _profile?.Iso?.ToString() ?? "";
-        DateTaken = _profile?.DateTaken?.ToString("g") ?? "";
-        Flash = _profile?.Flash == true ? "Yes" : _profile?.Flash == false ? "No" : "";
-        Gps = _profile?.GpsLatitude is double lat && _profile?.GpsLongitude is double lng
-            ? $"{lat:F5}, {lng:F5}" : "";
-        Creator = _profile?.Creator ?? "";
-        Copyright = _profile?.Copyright ?? "";
-        Headline = _profile?.Headline ?? "";
+            // Load keyword suggestions for autocomplete
+            await LoadAutoCompleteSourceAsync(db);
 
-        // Load keyword suggestions for autocomplete
-        await LoadAutoCompleteSourceAsync(db);
+            await RunOnUiThreadAsync(() =>
+            {
+                HasAsset = true;
+                FileName = _asset.FileName;
+                Title = _asset.Title;
+                Description = _asset.Description;
+                Tags = new ObservableCollection<string>(_asset.Keywords.Select(k => k.Name));
+                Rating = _profile?.Rating ?? 0;
 
-        IsDirty = false;
+                CameraMake = _profile?.CameraMake ?? "";
+                CameraModel = _profile?.CameraModel ?? "";
+                LensModel = _profile?.LensModel ?? "";
+                FocalLength = _profile?.FocalLength?.ToString("F1") ?? "";
+                Aperture = _profile?.Aperture is double a ? $"f/{a:F1}" : "";
+                ExposureTime = _profile?.ExposureTime ?? "";
+                Iso = _profile?.Iso?.ToString() ?? "";
+                DateTaken = _profile?.DateTaken?.ToString("g") ?? "";
+                Flash = _profile?.Flash == true ? "Yes" : _profile?.Flash == false ? "No" : "";
+                Gps = _profile?.GpsLatitude is double lat && _profile?.GpsLongitude is double lng
+                    ? $"{lat:F5}, {lng:F5}" : "";
+                Creator = _profile?.Creator ?? "";
+                Copyright = _profile?.Copyright ?? "";
+                Headline = _profile?.Headline ?? "";
+
+                IsDirty = false;
+            });
         }
         finally
         {
-            IsLoading = false;
+            await RunOnUiThreadAsync(() => IsLoading = false);
         }
     }
 
@@ -193,15 +232,16 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     {
         try
         {
-            AutoCompleteSource = await db.Keywords
+            var names = await db.Keywords
                 .Select(k => k.Name)
                 .Distinct()
                 .OrderBy(n => n)
                 .ToListAsync(ct);
+            await RunOnUiThreadAsync(() => AutoCompleteSource = names);
         }
         catch
         {
-            AutoCompleteSource = null;
+            await RunOnUiThreadAsync(() => AutoCompleteSource = null);
         }
     }
 
@@ -235,9 +275,60 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        IsDirty = false;
-        StatusText = "Saved.";
-        SaveCompleted?.Invoke();
+        await RunOnUiThreadAsync(() =>
+        {
+            IsDirty = false;
+            StatusText = "Saved.";
+            SaveCompleted?.Invoke();
+        });
+    }
+
+    /// <summary>
+    /// Trigger B: Analyzes the loaded image with AI and unions results into the editable tags.
+    /// Categories are applied directly to the database (D-12a: categories not surfaced in editor UI).
+    /// </summary>
+    private async Task AutoTagAsync()
+    {
+        if (_asset is null || _aiTaggingService is null || _asset.Type != AssetType.Image) return;
+
+        IsAiTagging = true;
+        StatusText = "AI tagging…";
+        try
+        {
+            var result = await _aiTaggingService.AnalyzeAssetAsync(_asset.Id);
+
+            // Union keywords into the editable Tags collection (rides existing dirty/Save flow)
+            foreach (var kw in result.Keywords)
+            {
+                if (!Tags.Contains(kw, StringComparer.OrdinalIgnoreCase))
+                    Tags.Add(kw);
+            }
+
+            // Fill description only when empty (D-06)
+            if (string.IsNullOrWhiteSpace(Description) && !string.IsNullOrWhiteSpace(result.Description))
+                Description = result.Description;
+
+            // Apply categories directly to the DB (D-12a: no category UI in editor)
+            await using var db = await _modeManager.CreateDbContextAsync();
+            var asset = await db.DigitalAssets
+                .Include(a => a.Categories)
+                .FirstOrDefaultAsync(a => a.Id == _asset.Id);
+            if (asset != null && result.Categories.Count > 0)
+            {
+                await db.AssociateCategoriesAsync(asset, result.Categories);
+                await db.SaveChangesAsync();
+            }
+
+            StatusText = $"AI tags applied ({result.Keywords.Count} keywords, {result.Categories.Count} categories)";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"AI tagging failed: {ex.Message}";
+        }
+        finally
+        {
+            IsAiTagging = false;
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

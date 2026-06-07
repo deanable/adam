@@ -1,192 +1,82 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using System.Threading;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
-using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
-using RelayCommand = Adam.Shared.Services.RelayCommand;
 using Avalonia.Threading;
+using LiquidVision.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.ViewModels;
-
-public class MetadataEntry
-{
-    public string Label { get; set; } = string.Empty;
-    public string Value { get; set; } = string.Empty;
-}
 
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly ModeManager _modeManager;
     private readonly MetadataWritebackService _writeback;
-    private object? _currentView;
-    private string _statusText = "Ready";
-    private bool _isBusy;
-    private bool _isInitialLoading;
-    private AssetListItem? _selectedAsset;
-    private readonly List<AssetListItem> _selectedAssets = [];
-    private bool _isPropertyInspectorLoading;
-    private ObservableCollection<MetadataEntry> _selectedAssetMetadata = [];
-    private ObservableCollection<TagOccurrence>? _aggregatedTags;
-    private ObservableCollection<TagOccurrence>? _aggregatedCategories;
-    private List<string>? _tagAutoCompleteSource;
-    private ObservableCollection<string> _selectedAssetTags = [];
-    private bool _tagsDirty;
-
-    // Mode toggle & service connection
-    private bool _isServiceMode;
-    private string _serviceHost = "localhost";
-    private int _servicePort = 9100;
-    private bool _isConnectedToService;
-    private string _serviceConnectionStatus = "Disconnected";
-
-    // Editable fields in the property inspector panel
-    private string? _selectedAssetDescription;
-    private bool _descriptionDirty;
-    private ObservableCollection<string> _selectedAssetCategories = [];
-    private bool _categoriesDirty;
-    private IEnumerable<string>? _categoryAutoCompleteSource;
-    private DateTimeOffset? _selectedAssetDateTaken;
-    private bool _dateTakenDirty;
-    private int _selectedAssetRating;
-    private bool _ratingDirty;
-    private int _selectedAssetLabel;
-    private bool _labelDirty;
-    private int _selectedAssetFlag;
-    private bool _flagDirty;
-    private string? _selectedAssetCopyright;
-    private bool _copyrightDirty;
-    private string? _selectedAssetGpsLatitude;
-    private string? _selectedAssetGpsLongitude;
-    private bool _gpsDirty;
-    private bool _showSaveToast;
-    private string _saveToastText = "Changes saved";
-    private string _connectionStatusText = "Disconnected";
-    private bool _showConnectionStatus;
-
-    // Bulk operation queue
+    private readonly AiTaggingService? _aiTaggingService;
     private readonly BulkOperationQueue _bulkQueue;
-    private string _bulkProgressText = string.Empty;
+    private object? _currentView;
 
-    // Cancellation source for metadata loads — cancels stale loads when the user rapidly clicks assets
-    private CancellationTokenSource? _metadataCts;
-    private bool _isBulkOperationActive;
-    private double _bulkProgressPercentage;
-
-    public MainWindowViewModel(ILogger<MainWindowViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, SidebarViewModel sidebar, AssetGalleryViewModel assetGallery, IngestionViewModel ingestion, MetadataEditorViewModel metadataEditor, AuditLogViewModel auditLog, BulkOperationQueue bulkQueue, bool startUp = true)
+    public MainWindowViewModel(
+        ILogger<MainWindowViewModel> logger,
+        ModeManager modeManager,
+        MetadataWritebackService writeback,
+        SidebarViewModel sidebar,
+        AssetGalleryViewModel assetGallery,
+        IngestionViewModel ingestion,
+        MetadataEditorViewModel metadataEditor,
+        AuditLogViewModel auditLog,
+        BulkOperationQueue bulkQueue,
+        PropertyInspectorViewModel propertyInspector,
+        ConnectionViewModel connection,
+        StatusBarViewModel statusBar,
+        AiTaggingService? aiTaggingService = null,
+        bool startUp = true)
     {
         _logger = logger;
         _modeManager = modeManager;
         _writeback = writeback;
         _bulkQueue = bulkQueue;
-        ModeManager = modeManager;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
         MetadataEditor = metadataEditor;
         AuditLog = auditLog;
+        PropertyInspector = propertyInspector;
+        Connection = connection;
+        StatusBar = statusBar;
         _currentView = assetGallery;
 
-        // Wire up bulk queue progress
-        _bulkQueue.ProgressChanged += (_, progress) =>
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                BulkProgressPercentage = progress.Percentage;
-                IsBulkOperationActive = progress.IsActive;
-                BulkProgressText = progress.IsActive
-                    ? $"Applying {progress.CurrentOperation}... ({progress.Completed}/{progress.Total})"
-                    : string.Empty;
-                if (!progress.IsActive && progress.Total > 0)
-                {
-                    StatusText = progress.Failed > 0
-                        ? $"Bulk update complete: {progress.Completed} applied, {progress.Failed} failed"
-                        : $"Bulk update complete: {progress.Completed} applied";
-                }
-            });
-        };
-
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
-        AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);            // Wire up CollectionChanged handlers for the initial tag and category collections.
-            // The property setters normally do this, but during construction the collections
-            // are field-initialized (the setter is never called), so these handlers would
-            // never be attached without this explicit wiring.
-            SelectedAssetTags = _selectedAssetTags;
-            SelectedAssetCategories = _selectedAssetCategories;
+        AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
+        _aiTaggingService = aiTaggingService;
 
-        // Mode toggle commands
-        ToggleLocalModeCommand = new RelayCommand(_ => IsServiceMode = false);
-        ToggleServiceModeCommand = new RelayCommand(async _ => await ShowLoginAndConnectAsync());
-        ConnectToServiceCommand = new RelayCommand(async _ => await ConnectToServiceAsync(), _ => !_isConnectedToService);
-        DisconnectFromServiceCommand = new RelayCommand(async _ => await DisconnectFromServiceAsync(), _ => _isConnectedToService);
-        LogoutCommand = new RelayCommand(async _ => await LogoutAsync(), _ => _isConnectedToService && _modeManager.AuthSession?.IsLoggedIn == true);
+        // Trigger C: AI tag selected assets
+        AiTagSelectedCommand = new RelayCommand(async _ => await AiTagSelectedAssetsAsync(),
+            _ => _aiTaggingService != null && AssetGallery.SelectedAssets.Count > 0);
 
-        // Wire up broker connection status and change notifications for multi-user mode
-        if (modeManager.BrokerClient != null)
+        // Wire model-download progress to status bar (D-14)
+        if (aiTaggingService != null)
         {
-            modeManager.BrokerClient.StatusChanged += (_, status) =>
-            {
-                var (text, show) = status switch
-                {
-                    ConnectionStatus.Connected => ("Connected", true),
-                    ConnectionStatus.Reconnecting => ("Reconnecting...", true),
-                    ConnectionStatus.Connecting => ("Connecting...", true),
-                    _ => ("Disconnected", true)
-                };
-                Dispatcher.UIThread.Post(() =>
-                {
-                    ConnectionStatusText = text;
-                    ShowConnectionStatus = show;
-                });
-            };
-
-            modeManager.BrokerClient.NotificationReceived += (_, notification) =>
-            {
-                _logger.LogInformation("Change notification received: {Action} for asset {EntityId}", notification.Action, notification.EntityId);
-                Dispatcher.UIThread.Post(async () =>
-                {
-                    StatusText = $"Asset {notification.Action}d by another user";
-                    // Refresh gallery to reflect remote changes
-                    try
-                    {
-                        if (CurrentView == AssetGallery)
-                            await AssetGallery.LoadAssetsAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to refresh gallery after notification");
-                    }
-                });
-            };
+            SubscribeToDownloadProgress(aiTaggingService);
         }
 
-        SaveTagsCommand = new RelayCommand(
-            async _ => await AutoSaveTagsAsync(),
-            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty));
-
-        ReconnectCommand = new RelayCommand(async _ =>
+        // Update AiTagSelectedCommand can-execute when selection changes
+        assetGallery.MultiSelectionChanged += _ =>
         {
-            try
-            {
-                if (modeManager.BrokerClient != null)
-                {
-                    await modeManager.BrokerClient.ConnectAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to reconnect to broker");
-                StatusText = $"Reconnection failed: {ex.Message}";
-            }
-        });
+            (AiTagSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        };
+        assetGallery.SelectionChanged += _ =>
+        {
+            (AiTagSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        };
 
         ShowGalleryCommand = new RelayCommand(async _ =>
         {
@@ -200,18 +90,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogError(ex, "Failed to load gallery");
             }
         });
+
         ShowIngestionCommand = new RelayCommand(async _ =>
         {
             CurrentView = ingestion;
             await ingestion.LoadIngestedFoldersAsync();
         });
+
         ShowMetadataEditorCommand = new RelayCommand(async _ =>
         {
-            if (_selectedAsset != null)
-                await metadataEditor.LoadAssetAsync(_selectedAsset.Id);
+            if (PropertyInspector.SelectedAsset != null)
+                await metadataEditor.LoadAssetAsync(PropertyInspector.SelectedAsset.Id);
             CurrentView = metadataEditor;
         });
+
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
+        ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager());
         ExportCommand = new RelayCommand(_ => ShowExportDialog());
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
@@ -226,7 +120,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var keywordIds = GetDescendantKeywordIds(sidebar.SelectedKeyword);
             var categoryIds = GetDescendantCategoryIds(sidebar.SelectedMetadataCategory);
 
-            // Date taken filter from sidebar tree
             DateTime? dateFrom = null;
             DateTime? dateTo = null;
             var selectedDate = sidebar.SelectedDateTaken;
@@ -234,13 +127,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 if (selectedDate.Month.HasValue)
                 {
-                    // Month-level: filter to that specific month
                     dateFrom = new DateTime(selectedDate.Year.Value, selectedDate.Month.Value, 1);
                     dateTo = dateFrom.Value.AddMonths(1);
                 }
                 else
                 {
-                    // Year-level: filter to that full year
                     dateFrom = new DateTime(selectedDate.Year.Value, 1, 1);
                     dateTo = dateFrom.Value.AddYears(1);
                 }
@@ -258,178 +149,114 @@ public class MainWindowViewModel : INotifyPropertyChanged
             });
         };
 
-        // When metadata editor saves changes, refresh the catalog
         metadataEditor.SaveCompleted += () =>
         {
             _ = Task.Run(async () =>
             {
                 await Sidebar.LoadAsync();
                 await AssetGallery.LoadAssetsAsync();
-                // Reload the selected asset's tags in the property inspector
-                if (_selectedAsset != null)
-                    await LoadSelectedAssetMetadataAsync();
+                if (PropertyInspector.SelectedAsset != null)
+                    await PropertyInspector.LoadSelectedAssetMetadataAsync();
             });
         };
 
-        // Track edits in the property inspector for auto-save + manual save.
-        // Subscriptions are managed by the SelectedAssetTags and
-        // SelectedAssetCategories setters so that replacing the collection
-        // (on metadata load) properly rewires event handlers.
-        // (Intentionally no direct subscription on the field here.)
-
         assetGallery.SelectionChanged += asset =>
         {
-            _ = Task.Run(async () =>
-            {
-                // Save any pending tag edits before switching assets
-                await AutoSaveTagsAsync();
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _selectedAsset = asset;
-                    OnPropertyChanged(nameof(SelectedAsset));
-                    SaveTagsCommand.RaiseCanExecuteChanged();
-                });
-                await LoadSelectedAssetMetadataAsync();
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    OnPropertyChanged(nameof(HasSelectedAsset));
-                    OnPropertyChanged(nameof(HasSingleSelection));
-                });
-            });
+            PropertyInspector.SelectedAsset = asset;
         };
 
         assetGallery.MultiSelectionChanged += assets =>
         {
-            _ = Task.Run(async () =>
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _selectedAssets.Clear();
-                    _selectedAssets.AddRange(assets);
-                });
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    OnPropertyChanged(nameof(HasMultiSelection));
-                    OnPropertyChanged(nameof(HasSingleSelection));
-                });
-                await ComputeAggregatedTagsAsync();
-                await ComputeAggregatedCategoriesAsync();
-            });
+            PropertyInspector.SetMultiSelection(assets);
+        };
+
+        Connection.RequestLogin += async (auth, host, port) => await TryShowLoginDialogAsync(auth, host, port);
+        Connection.RequestLocalSwitch += async () =>
+        {
+            await _modeManager.InitializeAsync();
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+            App.Config.Mode = "Standalone";
+            App.Config.Save();
+        };
+        // After a successful two-stage connect (server + authentication), switch into
+        // multi-user mode and reload so data is served from the broker, not the local DB.
+        Connection.ServiceConnected += async () =>
+        {
+            await _modeManager.InitializeMultiUserAsync(Connection.ServiceHost, Connection.ServicePort);
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+            App.Config.Mode = "MultiUser";
+            App.Config.Save();
         };
 
         if (startUp)
         {
-            IsInitialLoading = true;
-
-            // Run the entire startup pipeline on a background thread so the UI
-            // thread stays free to paint the window, handle input, and show the
-            // loading overlay.
+            ConnectionDebugLogger.Info("[STARTUP] MainWindowViewModel startup sequence beginning");
+            StatusBar.IsInitialLoading = true;
             _ = Task.Run(async () =>
             {
                 try
                 {
                     var config = App.Config;
+                    ConnectionDebugLogger.Info($"[STARTUP] Config mode={config.Mode}, host={config.ServiceHost}:{config.ServicePort}");
 
                     if (config.Mode == "MultiUser")
                     {
-                        _logger.LogInformation("[Startup] Initializing in MultiUser mode (connect to {Host}:{Port})...", config.ServiceHost, config.ServicePort);
-                        await modeManager.InitializeMultiUserAsync(config.ServiceHost, config.ServicePort);
-                        _logger.LogInformation("[Startup] Database initialized");
-
+                        ConnectionDebugLogger.Info($"[STARTUP] Initializing multi-user mode (host={config.ServiceHost}:{config.ServicePort})");
+                        await _modeManager.InitializeMultiUserAsync(config.ServiceHost, config.ServicePort);
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            _isServiceMode = true;
-                            _serviceHost = config.ServiceHost;
-                            _servicePort = config.ServicePort;
-                            OnPropertyChanged(nameof(IsServiceMode));
-                            OnPropertyChanged(nameof(IsLocalMode));
-                            OnPropertyChanged(nameof(ServiceHost));
-                            OnPropertyChanged(nameof(ServicePort));
+                            Connection.IsServiceMode = true;
+                            Connection.ServiceHost = config.ServiceHost;
+                            Connection.ServicePort = config.ServicePort;
                         });
 
-                        // Connect to broker and authenticate
-                        try
+                        if (_modeManager.BrokerClient != null && _modeManager.AuthSession != null)
                         {
-                            await Dispatcher.UIThread.InvokeAsync(() =>
-                            {
-                                ServiceConnectionStatus = "Connecting...";
-                                ConnectToServiceCommand.RaiseCanExecuteChanged();
-                            });
+                            ConnectionDebugLogger.Info("[STARTUP] Auto-connecting to broker...");
+                            await _modeManager.BrokerClient.ConnectAsync();
+                            var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
+                                TryShowLoginDialogAsync(_modeManager.AuthSession, config.ServiceHost, config.ServicePort));
 
-                            if (modeManager.BrokerClient == null || modeManager.AuthSession == null)
+                            if (authenticated)
                             {
-                                _logger.LogWarning("[Startup] Broker client or auth session not available");
+                                ConnectionDebugLogger.Info("[STARTUP] Auto-connect succeeded, authenticated");
+                                await Dispatcher.UIThread.InvokeAsync(() =>
+                                {
+                                    Connection.IsConnectedToService = true;
+                                    Connection.ServiceConnectionStatus = $"Connected to {config.ServiceHost}:{config.ServicePort}";
+                                });
                             }
                             else
                             {
-                                await modeManager.BrokerClient.ConnectAsync();
-
-                                // Show login dialog on UI thread
-                                var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
-                                    TryShowLoginDialogAsync(modeManager.AuthSession, config.ServiceHost, config.ServicePort));
-
-                                if (authenticated)
-                                {
-                                    await Dispatcher.UIThread.InvokeAsync(() =>
-                                    {
-                                        _isConnectedToService = true;
-                                        ServiceConnectionStatus = $"Connected to {config.ServiceHost}:{config.ServicePort}";
-                                        OnPropertyChanged(nameof(IsConnectedToService));
-                                        DisconnectFromServiceCommand.RaiseCanExecuteChanged();
-                                    });
-
-                                    _logger.LogInformation("[Startup] Connected to broker at {Host}:{Port}", config.ServiceHost, config.ServicePort);
-                                }
-                                else
-                                {
-                                    // Login cancelled or failed — disconnect broker
-                                    await modeManager.BrokerClient.DisconnectAsync();
-
-                                    await Dispatcher.UIThread.InvokeAsync(() =>
-                                    {
-                                        ServiceConnectionStatus = "Login cancelled — connect manually";
-                                    });
-
-                                    _logger.LogInformation("[Startup] Login cancelled by user");
-                                }
+                                ConnectionDebugLogger.Warn("[STARTUP] Auto-connect succeeded but authentication cancelled/failed");
+                                await _modeManager.BrokerClient.DisconnectAsync();
+                                await Dispatcher.UIThread.InvokeAsync(() => Connection.ServiceConnectionStatus = "Login cancelled — connect manually");
                             }
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            _logger.LogWarning(ex, "[Startup] Auto-connect to broker failed — user can connect manually");
-                            await Dispatcher.UIThread.InvokeAsync(() =>
-                            {
-                                ServiceConnectionStatus = $"Connection failed: {ex.Message}";
-                            });
+                            ConnectionDebugLogger.Error("[STARTUP] BrokerClient or AuthSession is null after InitializeMultiUserAsync");
                         }
                     }
                     else
                     {
-                        _logger.LogInformation("[Startup] Initializing database...");
-                        await modeManager.InitializeAsync();
-                        _logger.LogInformation("[Startup] Database initialized");
+                        ConnectionDebugLogger.Info("[STARTUP] Initializing standalone/local mode");
+                        await _modeManager.InitializeAsync();
                     }
 
-                    _logger.LogInformation("[Startup] Beginning Sidebar.LoadAsync()...");
                     await Sidebar.LoadAsync();
-                    _logger.LogInformation("[Startup] Sidebar.LoadAsync() completed");
-
-                    _logger.LogInformation("[Startup] Beginning AssetGallery.LoadAssetsAsync()...");
                     await AssetGallery.LoadAssetsAsync();
-                    _logger.LogInformation("[Startup] AssetGallery.LoadAssetsAsync() completed");
-
-                    // Pre-load keyword names for tag autocomplete
-                    await LoadTagAutoCompleteSourceAsync();
-                    _logger.LogInformation("[Startup] TagAutoCompleteSource loaded with {Count} entries", _tagAutoCompleteSource?.Count ?? 0);
+                    await PropertyInspector.LoadTagAutoCompleteSourceAsync();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery on startup. Exception type={ExType}, Message={Message}", ex.GetType().Name, ex.Message);
+                    _logger.LogError(ex, "[Startup] FAILED to load sidebar and gallery");
                 }
                 finally
                 {
-                    Dispatcher.UIThread.Post(() => IsInitialLoading = false);
+                    Dispatcher.UIThread.Post(() => StatusBar.IsInitialLoading = false);
                 }
             });
         }
@@ -453,1266 +280,141 @@ public class MainWindowViewModel : INotifyPropertyChanged
         return result;
     }
 
-    public ModeManager ModeManager { get; }
     public SidebarViewModel Sidebar { get; }
     public AssetGalleryViewModel AssetGallery { get; }
     public IngestionViewModel Ingestion { get; }
     public MetadataEditorViewModel MetadataEditor { get; }
     public AuditLogViewModel AuditLog { get; }
+    public PropertyInspectorViewModel PropertyInspector { get; }
+    public ConnectionViewModel Connection { get; }
+    public StatusBarViewModel StatusBar { get; }
 
-    public AssetListItem? SelectedAsset => _selectedAsset;
-
-    public ObservableCollection<MetadataEntry> SelectedAssetMetadata
-    {
-        get => _selectedAssetMetadata;
-        set { _selectedAssetMetadata = value; OnPropertyChanged(); }
-    }
-
-    public bool HasSelectedAsset => _selectedAsset != null;
-
-    /// <summary>
-    /// True when exactly one asset is selected (not multi-selection).
-    /// </summary>
-    public bool HasSingleSelection => !HasMultiSelection && HasSelectedAsset;
-
-    /// <summary>
-    /// True when multiple assets are selected in the gallery.
-    /// </summary>
-    public bool HasMultiSelection => _selectedAssets.Count > 1;
-
-    /// <summary>
-    /// Aggregated tag occurrences across all selected assets.
-    /// Each <see cref="TagOccurrence"/> carries a level indicating whether the
-    /// tag is present in all, some, or exactly one of the selected assets.
-    /// </summary>
-    public ObservableCollection<TagOccurrence>? AggregatedTags
-    {
-        get => _aggregatedTags;
-        set { _aggregatedTags = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Aggregated category occurrences across all selected assets.
-    /// Each <see cref="TagOccurrence"/> carries a level indicating whether the
-    /// category is present in all, some, or exactly one of the selected assets.
-    /// </summary>
-    public ObservableCollection<TagOccurrence>? AggregatedCategories
-    {
-        get => _aggregatedCategories;
-        set { _aggregatedCategories = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// All keywords in the system, used as autocomplete suggestions.
-    /// </summary>
-    public IEnumerable<string>? TagAutoCompleteSource
-    {
-        get => _tagAutoCompleteSource;
-        set { _tagAutoCompleteSource = value?.ToList(); OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Tags for the currently selected asset, shown in the property
-    /// inspector&#39;s Tags section.  Changes are tracked and auto-saved
-    /// when&#160;a different asset is selected.
-    /// </summary>
-    public ObservableCollection<string> SelectedAssetTags
-    {
-        get => _selectedAssetTags;
-        set
-        {
-            if (_selectedAssetTags != null)
-                _selectedAssetTags.CollectionChanged -= (_, _) =>
-                {
-                    _tagsDirty = true;
-                    SaveTagsCommand.RaiseCanExecuteChanged();
-                };
-            _selectedAssetTags = value ?? [];
-            _selectedAssetTags.CollectionChanged += (_, _) =>
-            {
-                _tagsDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-            };
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>
-    /// Editable description for the currently selected single asset.
-    /// </summary>
-    public string? SelectedAssetDescription
-    {
-        get => _selectedAssetDescription;
-        set
-        {
-            if (_selectedAssetDescription != value)
-            {
-                _selectedAssetDescription = value;
-                _descriptionDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Editable date taken for the currently selected single asset.
-    /// Bound to a DatePicker in the property inspector. Changes are tracked
-    /// and auto-saved when a different asset is selected.
-    /// </summary>
-    public DateTimeOffset? SelectedAssetDateTaken
-    {
-        get => _selectedAssetDateTaken;
-        set
-        {
-            if (_selectedAssetDateTaken != value)
-            {
-                _selectedAssetDateTaken = value;
-                _dateTakenDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Editable categories for the currently selected asset (single-asset mode).
-    /// Each string is a category name. Changes are auto-saved on selection switch.
-    /// </summary>
-    public int SelectedAssetRating
-    {
-        get => _selectedAssetRating;
-        set
-        {
-            if (_selectedAssetRating != value)
-            {
-                _selectedAssetRating = value;
-                _ratingDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public int SelectedAssetLabel
-    {
-        get => _selectedAssetLabel;
-        set
-        {
-            if (_selectedAssetLabel != value)
-            {
-                _selectedAssetLabel = value;
-                _labelDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public int SelectedAssetFlag
-    {
-        get => _selectedAssetFlag;
-        set
-        {
-            if (_selectedAssetFlag != value)
-            {
-                _selectedAssetFlag = value;
-                _flagDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public string? SelectedAssetCopyright
-    {
-        get => _selectedAssetCopyright;
-        set
-        {
-            if (_selectedAssetCopyright != value)
-            {
-                _selectedAssetCopyright = value;
-                _copyrightDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public string? SelectedAssetGpsLatitude
-    {
-        get => _selectedAssetGpsLatitude;
-        set
-        {
-            if (_selectedAssetGpsLatitude != value)
-            {
-                _selectedAssetGpsLatitude = value;
-                _gpsDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public string? SelectedAssetGpsLongitude
-    {
-        get => _selectedAssetGpsLongitude;
-        set
-        {
-            if (_selectedAssetGpsLongitude != value)
-            {
-                _selectedAssetGpsLongitude = value;
-                _gpsDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public ObservableCollection<string> SelectedAssetCategories
-    {
-        get => _selectedAssetCategories;
-        set
-        {
-            if (_selectedAssetCategories != null)
-                _selectedAssetCategories.CollectionChanged -= (_, _) =>
-                {
-                    _categoriesDirty = true;
-                    SaveTagsCommand.RaiseCanExecuteChanged();
-                };
-            _selectedAssetCategories = value ?? [];
-            _selectedAssetCategories.CollectionChanged += (_, _) =>
-            {
-                _categoriesDirty = true;
-                SaveTagsCommand.RaiseCanExecuteChanged();
-            };
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>
-    /// All category names in the system, used as autocomplete suggestions
-    /// for the category editor.
-    /// </summary>
-    public IEnumerable<string>? CategoryAutoCompleteSource
-    {
-        get => _categoryAutoCompleteSource;
-        set { _categoryAutoCompleteSource = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Command to manually save pending description/categories/keywords edits.
-    /// Enabled only when an asset is selected and at least one field is dirty.
-    /// </summary>
-    public RelayCommand SaveTagsCommand { get; }
-
-    public string ConnectionStatusText
-    {
-        get => _connectionStatusText;
-        set { _connectionStatusText = value; OnPropertyChanged(); }
-    }
-
-    public bool ShowConnectionStatus
-    {
-        get => _showConnectionStatus;
-        set { _showConnectionStatus = value; OnPropertyChanged(); }
-    }
-
-    // Mode & connection properties
-    public bool IsServiceMode
-    {
-        get => _isServiceMode;
-        set
-        {
-            if (_isServiceMode == value) return;
-            _isServiceMode = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(IsLocalMode));
-            if (!value)
-            {
-                // Switching to local — disconnect and re-init
-                _ = SwitchToLocalAsync();
-            }
-        }
-    }
-
-    public bool IsLocalMode => !_isServiceMode;
-
-    public string ServiceHost
-    {
-        get => _serviceHost;
-        set { _serviceHost = value; OnPropertyChanged(); }
-    }
-
-    public int ServicePort
-    {
-        get => _servicePort;
-        set { _servicePort = value; OnPropertyChanged(); }
-    }
-
-    public bool IsConnectedToService
-    {
-        get => _isConnectedToService;
-        set { _isConnectedToService = value; OnPropertyChanged(); }
-    }
-
-    public string ServiceConnectionStatus
-    {
-        get => _serviceConnectionStatus;
-        set { _serviceConnectionStatus = value; OnPropertyChanged(); }
-    }
-
-    public RelayCommand ToggleLocalModeCommand { get; }
-    public RelayCommand ToggleServiceModeCommand { get; }
-    public RelayCommand ConnectToServiceCommand { get; }
-    public RelayCommand DisconnectFromServiceCommand { get; }
-    public RelayCommand LogoutCommand { get; }
-
-    public ICommand ReconnectCommand { get; }
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowIngestionCommand { get; }
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+    public ICommand ShowServiceManagerCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
     public ICommand FlipHorizontalCommand { get; }
     public ICommand FlipVerticalCommand { get; }
-
-    /// <summary>
-    /// Command fired when assets are dropped on a keyword node in the sidebar.
-    /// The parameter is a <see cref="DropPayload"/> containing the target node
-    /// and asset IDs.
-    /// </summary>
     public ICommand AssignKeywordDropCommand { get; }
-
-    /// <summary>
-    /// Command fired when assets are dropped on a category node in the sidebar.
-    /// The parameter is a <see cref="DropPayload"/> containing the target node
-    /// and asset IDs.
-    /// </summary>
     public ICommand AssignCategoryDropCommand { get; }
-
-    /// <summary>
-    /// Bulk operation queue for processing background metadata updates.
-    /// </summary>
-    public BulkOperationQueue BulkQueue => _bulkQueue;
+    public ICommand AiTagSelectedCommand { get; }
 
     public object? CurrentView
     {
         get => _currentView;
         set
         {
-            // Dispose the previous view if it implements IDisposable (e.g., AdminPanelViewModel timer cleanup)
             if (_currentView is IDisposable oldDisposable && !ReferenceEquals(_currentView, value))
                 oldDisposable.Dispose();
-
             _currentView = value;
             OnPropertyChanged();
         }
     }
 
-    public string StatusText
-    {
-        get => _statusText;
-        set { _statusText = value; OnPropertyChanged(); }
-    }
-
-    public bool IsBusy
-    {
-        get => _isBusy;
-        set { _isBusy = value; OnPropertyChanged(); }
-    }
-
-    public bool IsInitialLoading
-    {
-        get => _isInitialLoading;
-        set { _isInitialLoading = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// True while the property inspector is loading metadata for the
-    /// currently selected asset.
-    /// </summary>
-    public bool IsPropertyInspectorLoading
-    {
-        get => _isPropertyInspectorLoading;
-        set { _isPropertyInspectorLoading = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// True when the save-toast notification should be visible.
-    /// </summary>
-    public bool ShowSaveToast
-    {
-        get => _showSaveToast;
-        set { _showSaveToast = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Text displayed in the save-toast notification.
-    /// </summary>
-    public string SaveToastText
-    {
-        get => _saveToastText;
-        set { _saveToastText = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Progress text for the bulk operation queue, shown in the status bar.
-    /// </summary>
-    public string BulkProgressText
-    {
-        get => _bulkProgressText;
-        set { _bulkProgressText = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Whether a bulk operation is currently active.
-    /// </summary>
-    public bool IsBulkOperationActive
-    {
-        get => _isBulkOperationActive;
-        set { _isBulkOperationActive = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Bulk operation progress percentage (0–100).
-    /// </summary>
-    public double BulkProgressPercentage
-    {
-        get => _bulkProgressPercentage;
-        set { _bulkProgressPercentage = value; OnPropertyChanged(); }
-    }
-
-    private async Task LoadSelectedAssetMetadataAsync()
-    {
-        // Cancel any stale metadata load still in progress (e.g. user rapidly clicked another asset)
-        CancellationToken ct;
-        var thisCts = new CancellationTokenSource();
-        var oldCts = Interlocked.Exchange(ref _metadataCts, thisCts);
-        oldCts?.Cancel();
-        oldCts?.Dispose();
-        ct = thisCts.Token;
-
-        // Capture the asset reference once so concurrent selection changes
-        // don't cause a NullReferenceException halfway through loading.
-        var currentSelectedAsset = _selectedAsset;
-
-        await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = true);
-        ct.ThrowIfCancellationRequested();
-
-        try
-        {
-            if (currentSelectedAsset == null)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    SelectedAssetMetadata = [];
-                });
-                return;
-            }
-
-            var entries = new List<MetadataEntry>();
-
-            // File info
-            entries.Add(new MetadataEntry { Label = "File name:", Value = currentSelectedAsset.FileName });
-            entries.Add(new MetadataEntry { Label = "Title:", Value = currentSelectedAsset.Title });
-
-            // Load full asset + profile from DB for remaining fields
-            if (_modeManager.IsStandalone)
-            {
-                try
-                {
-                    await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-                    ct.ThrowIfCancellationRequested();
-
-                    var asset = await db.DigitalAssets
-                        .Include(a => a.Keywords)
-                        .Include(a => a.Categories)
-                        .Include(a => a.MetadataProfile)
-                        .FirstOrDefaultAsync(a => a.Id == currentSelectedAsset.Id, ct).ConfigureAwait(false);
-                    ct.ThrowIfCancellationRequested();
-
-                    if (asset != null)
-                    {
-                        AddIfValue(entries, "Type:", asset.MimeType);
-                        AddIfValue(entries, "Dimensions:", asset.Width.HasValue && asset.Height.HasValue
-                            ? $"{asset.Width} x {asset.Height}" : null);
-                        AddIfValue(entries, "Size:", FormatFileSize(asset.FileSize));
-                        AddIfValue(entries, "Duration:", asset.Duration.HasValue
-                            ? $"{asset.Duration.Value:F2} s" : null);
-                        AddIfValue(entries, "Date added:", asset.CreatedAt.ToLocalTime().ToString("g"));
-                        AddIfValue(entries, "Date modified:", asset.ModifiedAt.ToLocalTime().ToString("g"));
-                        AddIfValue(entries, "Version:", asset.Version.ToString());
-                        AddIfValue(entries, "Checksum (SHA-256):", asset.ChecksumSha256);
-                        AddIfValue(entries, "Storage path:", asset.StoragePath);
-
-                        // Populate the editable tag collection for the property inspector
-                        var tagNames = asset.Keywords.Select(k => k.Name).ToList();
-                        var categoryNames = asset.Categories.Select(c => c.Name).ToList();
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            SelectedAssetTags = new ObservableCollection<string>(tagNames);
-                            _tagsDirty = false;
-
-                            SelectedAssetCategories = new ObservableCollection<string>(categoryNames);
-                            _categoriesDirty = false;
-
-                            SelectedAssetDescription = asset.Description;
-                            _descriptionDirty = false;
-
-                            SelectedAssetDateTaken = asset.MetadataProfile?.DateTaken.HasValue == true
-                                ? new DateTimeOffset(asset.MetadataProfile.DateTaken.Value)
-                                : null;
-                            _dateTakenDirty = false;
-
-                            SelectedAssetRating = asset.Rating;
-                            _ratingDirty = false;
-                            SelectedAssetLabel = (int)asset.Label;
-                            _labelDirty = false;
-                            SelectedAssetFlag = (int)asset.Flag;
-                            _flagDirty = false;
-                            SelectedAssetCopyright = asset.Copyright;
-                            _copyrightDirty = false;
-                            SelectedAssetGpsLatitude = asset.GpsLatitude?.ToString();
-                            SelectedAssetGpsLongitude = asset.GpsLongitude?.ToString();
-                            _gpsDirty = false;
-
-                            SaveTagsCommand.RaiseCanExecuteChanged();
-                        });
-                        ct.ThrowIfCancellationRequested();
-
-                        // Load category names for autocomplete
-                        try
-                        {
-                            var catNames = await db.Categories
-                                .Select(c => c.Name)
-                                .Distinct()
-                                .OrderBy(n => n)
-                                .ToListAsync(ct).ConfigureAwait(false);
-                            ct.ThrowIfCancellationRequested();
-                            await Dispatcher.UIThread.InvokeAsync(() => CategoryAutoCompleteSource = catNames);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to load category autocomplete source");
-                        }
-
-                        if (asset.MetadataProfile != null)
-                        {
-                            var p = asset.MetadataProfile;
-                            AddIfValue(entries, "Camera make:", p.CameraMake);
-                            AddIfValue(entries, "Camera model:", p.CameraModel);
-                            AddIfValue(entries, "Lens model:", p.LensModel);
-                            AddIfValue(entries, "Focal length:", p.FocalLength.HasValue ? $"{p.FocalLength.Value:F1} mm" : null);
-                            AddIfValue(entries, "Aperture:", p.Aperture.HasValue ? $"f/{p.Aperture.Value:F1}" : null);
-                            AddIfValue(entries, "Exposure time:", p.ExposureTime);
-                            AddIfValue(entries, "ISO:", p.Iso?.ToString());
-                            AddIfValue(entries, "Flash:", p.Flash.HasValue ? (p.Flash.Value ? "Yes" : "No") : null);
-                            AddIfValue(entries, "Orientation:", p.Orientation);
-                            AddIfValue(entries, "Date taken:", p.DateTaken?.ToString("g"));
-                            AddIfValue(entries, "GPS latitude:", p.GpsLatitude?.ToString("F6"));
-                            AddIfValue(entries, "GPS longitude:", p.GpsLongitude?.ToString("F6"));
-                            AddIfValue(entries, "GPS altitude:", p.GpsAltitude?.ToString("F1"));
-                            AddIfValue(entries, "Rating:", p.Rating?.ToString());
-                            AddIfValue(entries, "Creator:", p.Creator);
-                            AddIfValue(entries, "Copyright:", p.Copyright);
-                            AddIfValue(entries, "Usage terms:", p.UsageTerms);
-                            AddIfValue(entries, "Contact info:", p.ContactInfo);
-                            AddIfValue(entries, "City:", p.City);
-                            AddIfValue(entries, "State:", p.State);
-                            AddIfValue(entries, "Country:", p.Country);
-                            AddIfValue(entries, "Headline:", p.Headline);
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load metadata for selected asset");
-                }
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                ct.ThrowIfCancellationRequested();
-                SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected when the user rapidly clicks through assets — swallow
-        }
-        finally
-        {
-            // Only clean up our CTS if no newer request has replaced it
-            if (Interlocked.CompareExchange(ref _metadataCts, null, thisCts) == thisCts)
-            {
-                thisCts.Dispose();
-                await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = false);
-            }
-        }
-    }
-
-    private static void AddIfValue(List<MetadataEntry> entries, string label, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-            entries.Add(new MetadataEntry { Label = label, Value = value });
-    }
-
-    private static string FormatFileSize(long bytes)
-    {
-        const long kb = 1024;
-        const long mb = kb * 1024;
-        const long gb = mb * 1024;
-        return bytes >= gb ? $"{bytes / (double)gb:F2} GB"
-            : bytes >= mb ? $"{bytes / (double)mb:F2} MB"
-            : bytes >= kb ? $"{bytes / (double)kb:F2} KB"
-            : $"{bytes} B";
-    }
-
-    // ──────────────────────────────────────────────
-    //  Multi-asset tag aggregation
-    // ──────────────────────────────────────────────
-
-    /// <summary>
-    /// Loads all keyword names from the database for autocomplete suggestions.
-    /// </summary>
-    private async Task LoadTagAutoCompleteSourceAsync()
-    {
-        try
-        {
-            if (_modeManager.IsStandalone)
-            {
-                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-                var names = await db.Keywords
-                    .Select(k => k.Name)
-                    .Distinct()
-                    .OrderBy(n => n)
-                    .ToListAsync().ConfigureAwait(false);
-                await Dispatcher.UIThread.InvokeAsync(() => TagAutoCompleteSource = names);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load tag autocomplete source");
-        }
-    }
-
-    /// <summary>
-    /// Computes aggregated <see cref="TagOccurrence"/> levels across all
-    /// currently selected assets. Tags present in all assets get
-    /// <see cref="OccurrenceLevel.All"/> (green), some get
-    /// <see cref="OccurrenceLevel.Some"/> (orange), and tags in exactly
-    /// one asset get <see cref="OccurrenceLevel.One"/> (red).
-    /// </summary>
-    private async Task ComputeAggregatedTagsAsync()
-    {
-        if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
-        {
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
-            return;
-        }
-
-        try
-        {
-            List<(string name, OccurrenceLevel level)> aggregated;
-
-            await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
-            {
-                var assetIds = _selectedAssets.Select(a => a.Id).ToList();
-                var total = assetIds.Count;
-
-                var assets = await db.DigitalAssets
-                    .Include(a => a.Keywords)
-                    .Where(a => assetIds.Contains(a.Id))
-                    .ToListAsync().ConfigureAwait(false);
-
-                // Count occurrences of each keyword name across all selected assets
-                var occurrenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                foreach (var asset in assets)
-                {
-                    foreach (var kw in asset.Keywords)
-                    {
-                        occurrenceCounts[kw.Name] = occurrenceCounts.GetValueOrDefault(kw.Name) + 1;
-                    }
-                }
-
-                aggregated = occurrenceCounts
-                    .OrderBy(kv => kv.Key)
-                    .Select(kvp =>
-                    {
-                        var level = kvp.Value == total ? OccurrenceLevel.All
-                                  : kvp.Value == 1 ? OccurrenceLevel.One
-                                  : OccurrenceLevel.Some;
-                        return (kvp.Key, level);
-                    })
-                    .ToList();
-
-                _logger.LogInformation("[AggregatedTags] Computed {Count} aggregated tags across {AssetCount} assets", aggregated.Count, total);
-            }
-
-            // Marshal to UI thread
-            var tags = new ObservableCollection<TagOccurrence>();
-            foreach (var (name, level) in aggregated)
-                tags.Add(new TagOccurrence { Name = name, Level = level });
-
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = tags);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to compute aggregated tags");
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
-        }
-    }
-
-    /// <summary>
-    /// Computes aggregated <see cref="TagOccurrence"/> levels across all
-    /// currently selected assets for categories. Works identically to
-    /// <see cref="ComputeAggregatedTagsAsync"/> but operates on category names.
-    /// </summary>
-    private async Task ComputeAggregatedCategoriesAsync()
-    {
-        if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
-        {
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = null);
-            return;
-        }
-
-        try
-        {
-            List<(string name, OccurrenceLevel level)> aggregated;
-
-            await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
-            {
-                var assetIds = _selectedAssets.Select(a => a.Id).ToList();
-                var total = assetIds.Count;
-
-                var assets = await db.DigitalAssets
-                    .Include(a => a.Categories)
-                    .Where(a => assetIds.Contains(a.Id))
-                    .ToListAsync().ConfigureAwait(false);
-
-                // Count occurrences of each category name across all selected assets
-                var occurrenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                foreach (var asset in assets)
-                {
-                    foreach (var cat in asset.Categories)
-                    {
-                        occurrenceCounts[cat.Name] = occurrenceCounts.GetValueOrDefault(cat.Name) + 1;
-                    }
-                }
-
-                aggregated = occurrenceCounts
-                    .OrderBy(kv => kv.Key)
-                    .Select(kvp =>
-                    {
-                        var level = kvp.Value == total ? OccurrenceLevel.All
-                                  : kvp.Value == 1 ? OccurrenceLevel.One
-                                  : OccurrenceLevel.Some;
-                        return (kvp.Key, level);
-                    })
-                    .ToList();
-
-                _logger.LogInformation("[AggregatedCategories] Computed {Count} aggregated categories across {AssetCount} assets", aggregated.Count, total);
-            }
-
-            // Marshal to UI thread
-            var cats = new ObservableCollection<TagOccurrence>();
-            foreach (var (name, level) in aggregated)
-                cats.Add(new TagOccurrence { Name = name, Level = level });
-
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = cats);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to compute aggregated categories");
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = null);
-        }
-    }
-
-    /// <summary>
-    /// Persists any pending tag edits in <see cref="SelectedAssetTags"/> to
-    /// the database for the currently selected asset.  Called automatically
-    /// before switching to a different asset.
-    /// </summary>
-    // ──────────────────────────────────────────────
-    //  Drag-drop handlers (bulk assign keywords/categories)
-    // ──────────────────────────────────────────────
-
-    /// <summary>
-    /// Fired when assets are dropped on a keyword tree node.
-    /// Enqueues a <see cref="BulkOperation"/> to assign the keyword to all
-    /// dragged assets.
-    /// </summary>
     private void OnAssignKeywordDrop(object? parameter)
     {
-        if (parameter is not DropPayload payload) return;
-
-        var targetNode = payload.TargetNode;
-        if (targetNode is not KeywordNode kw || kw.KeywordId == Guid.Empty)
-            return;
-
+        if (parameter is not DropPayload payload || payload.TargetNode is not KeywordNode kw || kw.KeywordId == Guid.Empty) return;
         var assetIds = ParseAssetIds(payload.AssetIdsCsv);
-        if (assetIds.Count == 0) return;
-
-        // If the user dropped on a non-leaf keyword, assign to all descendant
-        // assets that have this keyword or any child keyword. But for simplicity
-        // we assign the dropped keyword directly.
-        _bulkQueue.Enqueue(new BulkOperation
-        {
-            AssetIds = assetIds,
-            Name = kw.Name,
-            IsKeyword = true
-        });
+        if (assetIds.Count > 0)
+            _bulkQueue.Enqueue(new BulkOperation { AssetIds = assetIds, Name = kw.Name, IsKeyword = true });
     }
 
-    /// <summary>
-    /// Fired when assets are dropped on a category tree node.
-    /// Enqueues a <see cref="BulkOperation"/> to assign the category to all
-    /// dragged assets.
-    /// </summary>
     private void OnAssignCategoryDrop(object? parameter)
     {
-        if (parameter is not DropPayload payload) return;
-
-        var targetNode = payload.TargetNode;
-        if (targetNode is not CategoryNode cat || cat.CategoryId == Guid.Empty)
-            return;
-
+        if (parameter is not DropPayload payload || payload.TargetNode is not CategoryNode cat || cat.CategoryId == Guid.Empty) return;
         var assetIds = ParseAssetIds(payload.AssetIdsCsv);
-        if (assetIds.Count == 0) return;
-
-        _bulkQueue.Enqueue(new BulkOperation
-        {
-            AssetIds = assetIds,
-            Name = cat.Name,
-            IsKeyword = false
-        });
+        if (assetIds.Count > 0)
+            _bulkQueue.Enqueue(new BulkOperation { AssetIds = assetIds, Name = cat.Name, IsKeyword = false });
     }
 
     private static List<Guid> ParseAssetIds(string csv)
     {
-        try
-        {
-            return csv
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(Guid.Parse)
-                .Distinct()
-                .ToList();
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    // ──────────────────────────────────────────────
-    //  Auto-save tags
-    // ──────────────────────────────────────────────
-
-    private async Task AutoSaveTagsAsync()
-    {
-        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty && !_dateTakenDirty && !_ratingDirty && !_labelDirty && !_flagDirty && !_copyrightDirty && !_gpsDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
-            return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var asset = await db.DigitalAssets
-                .Include(a => a.Keywords)
-                .Include(a => a.Categories)
-                .Include(a => a.MetadataProfile)
-                .FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
-
-            if (asset == null)
-                return;
-
-            // Save description if dirty
-            if (_descriptionDirty)
-            {
-                asset.Description = SelectedAssetDescription;
-            }
-
-            // Clear and reassociate keywords (only if the tag collection was dirtied)
-            if (_tagsDirty)
-            {
-                asset.Keywords.Clear();
-                var tagNames = _selectedAssetTags.ToArray();
-                if (tagNames.Length > 0)
-                {
-                    await db.AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
-                }
-            }
-
-            // Clear and reassociate categories (only if the categories collection was dirtied)
-            if (_categoriesDirty)
-            {
-                asset.Categories.Clear();
-                var categoryNames = _selectedAssetCategories.ToArray();
-                if (categoryNames.Length > 0)
-                {
-                    await db.AssociateCategoriesAsync(asset, categoryNames).ConfigureAwait(false);
-                }
-            }
-
-            // Save date taken if dirty
-            if (_dateTakenDirty)
-            {
-                // Ensure MetadataProfile exists
-                if (asset.MetadataProfile == null)
-                {
-                    asset.MetadataProfile = new MetadataProfile
-                    {
-                        Id = Guid.NewGuid(),
-                        DigitalAssetId = asset.Id
-                    };
-                }
-                asset.MetadataProfile.DateTaken = SelectedAssetDateTaken?.DateTime;
-            }
-
-            // Save new metadata fields
-            if (_ratingDirty)
-                asset.Rating = SelectedAssetRating;
-            if (_labelDirty)
-                asset.Label = (AssetLabel)SelectedAssetLabel;
-            if (_flagDirty)
-                asset.Flag = (AssetFlag)SelectedAssetFlag;
-            if (_copyrightDirty)
-                asset.Copyright = SelectedAssetCopyright;
-            if (_gpsDirty)
-            {
-                asset.GpsLatitude = double.TryParse(SelectedAssetGpsLatitude, out var lat) ? lat : null;
-                asset.GpsLongitude = double.TryParse(SelectedAssetGpsLongitude, out var lon) ? lon : null;
-            }
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-            _logger.LogInformation("[AutoSaveTags] Saved metadata for asset {Id}",
-                _selectedAsset.Id);
-            _tagsDirty = false;
-            _categoriesDirty = false;
-            _descriptionDirty = false;
-            _dateTakenDirty = false;
-            _ratingDirty = false;
-            _labelDirty = false;
-            _flagDirty = false;
-            _copyrightDirty = false;
-            _gpsDirty = false;
-            SaveTagsCommand.RaiseCanExecuteChanged();
-
-            // Write metadata back to source file (best-effort; failures don't fail the save)
-            try
-            {
-                var filePath = asset.StoragePath;
-                if (_writeback.IsRawFile(filePath))
-                    await _writeback.WriteSidecarXmpAsync(filePath, asset).ConfigureAwait(false);
-                else if (_writeback.SupportsEmbeddedMetadata(filePath))
-                    await _writeback.WriteMetadataAsync(filePath, asset).ConfigureAwait(false);
-            }
-            catch (MetadataWritebackService.ReadOnlyFileException)
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    SaveToastText = "Saved to catalog, but file is read-only";
-                    ShowSaveToast = true;
-                });
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(2500).ConfigureAwait(false);
-                    await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = false);
-                });
-                return;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
-            }
-
-            // Show the save-toast notification
-            Dispatcher.UIThread.Post(() => ShowSaveToast = true);
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(2500).ConfigureAwait(false);
-                await Dispatcher.UIThread.InvokeAsync(() => ShowSaveToast = false);
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to auto-save tags for selected asset");
-        }
+        try { return csv.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).Distinct().ToList(); }
+        catch { return []; }
     }
 
     private async void ShowExportDialog()
     {
         var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0)
-            return;
-
+        if (selected.Count == 0) return;
         var dialog = new Views.ExportDialog();
-        if (dialog.DataContext is ExportDialogViewModel vm)
-        {
-            vm.SelectedAssets = selected;
-        }
-
+        if (dialog.DataContext is ExportDialogViewModel vm) vm.SelectedAssets = selected;
         if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
-        {
             await dialog.ShowDialog(desktop.MainWindow);
-        }
     }
 
     private async Task RotateAsync(Func<ImageOrientation, ImageOrientation> transform)
     {
-        if (_selectedAsset == null || !_modeManager.IsStandalone)
-            return;
-
+        if (PropertyInspector.SelectedAsset == null || !_modeManager.IsStandalone) return;
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == _selectedAsset.Id).ConfigureAwait(false);
-            if (asset == null)
-                return;
+            var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == PropertyInspector.SelectedAsset.Id).ConfigureAwait(false);
+            if (asset == null) return;
 
             var newOrientation = transform(asset.Orientation);
             asset.Orientation = newOrientation;
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            // Delete cached thumbnail and regenerate with new orientation
             var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
             var thumbnailDir = Path.Combine(dbDir, "thumbnails");
             var thumbnailService = new ThumbnailService();
             var thumbnailPath = thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
 
-            if (File.Exists(thumbnailPath))
-                File.Delete(thumbnailPath);
-
+            if (File.Exists(thumbnailPath)) File.Delete(thumbnailPath);
             await thumbnailService.GenerateThumbnailAsync(asset.StoragePath, thumbnailDir, newOrientation).ConfigureAwait(false);
 
-            // Refresh the gallery item thumbnail
-            var item = AssetGallery.Assets.FirstOrDefault(a => a.Id == _selectedAsset.Id);
+            var item = AssetGallery.Assets.FirstOrDefault(a => a.Id == PropertyInspector.SelectedAsset.Id);
             if (item != null)
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    item.ThumbnailPath = thumbnailPath;
-                });
+                await Dispatcher.UIThread.InvokeAsync(() => item.ThumbnailPath = thumbnailPath);
                 await item.LoadThumbnailAsync().ConfigureAwait(false);
             }
-
-            _logger.LogInformation("Applied orientation {Orientation} to asset {AssetId}", newOrientation, asset.Id);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to rotate/flip asset {AssetId}", _selectedAsset.Id);
-        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to rotate/flip asset"); }
     }
 
-    // ──────────────────────────────────────────────
-    //  Service mode login flow
-    // ──────────────────────────────────────────────
-
-    /// <summary>
-    /// Shows the login dialog with editable host, port, username, and password.
-    /// The dialog handles authentication inline via an <see cref="LoginDialogViewModel.AuthenticateAsync"/>
-    /// delegate. On failure the dialog stays open so the user can retry.
-    /// On success the dialog closes and multi-user mode is activated.
-    /// If cancelled, stays in Local mode.
-    /// </summary>
-    private async Task ShowLoginAndConnectAsync()
-    {
-        var cfg = App.Config;
-        var recentHosts = new ObservableCollection<string>(cfg.RecentHosts);
-        var loginVm = new LoginDialogViewModel
-        {
-            ServiceHost = cfg.ServiceHost,
-            ServicePort = cfg.ServicePort,
-            Username = cfg.LastUsername,
-            RecentHosts = recentHosts,
-            TestConnectionAsync = async (host, port) =>
-            {
-                try
-                {
-                    using var client = new System.Net.Sockets.TcpClient();
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                    await client.ConnectAsync(host, port, cts.Token);
-                    return null; // reachable
-                }
-                catch (Exception ex)
-                {
-                    return ex.Message;
-                }
-            },
-            ClearCredentialsAsync = () =>
-            {
-                cfg.ServiceHost = "localhost";
-                cfg.ServicePort = 9100;
-                cfg.LastUsername = string.Empty;
-                cfg.RecentHosts.Clear();
-                cfg.Save();
-                return Task.CompletedTask;
-            },
-            AuthenticateAsync = async (host, port, username, password) =>
-            {
-                try
-                {
-                    StatusText = "Connecting to service...";
-
-                    // Initialize multi-user mode with the latest host/port
-                    await _modeManager.InitializeMultiUserAsync(host, port);
-
-                    if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
-                        return "Broker client is not available.";
-
-                    await _modeManager.BrokerClient.ConnectAsync();
-
-                    var ok = await _modeManager.AuthSession.LoginAsync(username, password);
-                    if (!ok)
-                    {
-                        // Auth failed — disconnect so the next attempt starts fresh
-                        await _modeManager.BrokerClient.DisconnectAsync();
-                        return "Authentication failed. Check your username and password.";
-                    }
-
-                    // Persist host/port, username, and recent hosts
-                    cfg.ServiceHost = host;
-                    cfg.ServicePort = port;
-                    cfg.LastUsername = username;
-                    cfg.PushRecentHost(host, port);
-                    cfg.Save();
-
-                    // Update the live collection so the dropdown reflects the new entry
-                    recentHosts.Clear();
-                    foreach (var h in cfg.RecentHosts)
-                        recentHosts.Add(h);
-
-                    return null; // success
-                }
-                catch (Exception ex)
-                {
-                    // Clean up on failure so retry starts clean
-                    try
-                    {
-                        if (_modeManager.BrokerClient?.IsConnected == true)
-                            await _modeManager.BrokerClient.DisconnectAsync();
-                    }
-                    catch { /* best-effort */ }
-
-                    return ex.Message;
-                }
-            }
-        };
-
-        var loginDialog = new Views.LoginDialog(loginVm);
-        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
-
-        if (mainWindow == null)
-        {
-            IsServiceMode = false;
-            return;
-        }
-
-        var loginResult = await loginDialog.ShowDialog<bool?>(mainWindow);
-
-        if (loginResult == true)
-        {
-            // Authentication succeeded inside the dialog — broker is already connected and authenticated
-            _serviceHost = loginVm.ServiceHost;
-            _servicePort = loginVm.ServicePort;
-            _isServiceMode = true;
-            OnPropertyChanged(nameof(IsServiceMode));
-            OnPropertyChanged(nameof(IsLocalMode));
-            OnPropertyChanged(nameof(ServiceHost));
-            OnPropertyChanged(nameof(ServicePort));
-
-            IsConnectedToService = true;
-            ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort}";
-            ConnectToServiceCommand.RaiseCanExecuteChanged();
-            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
-
-            try
-            {
-                await Sidebar.LoadAsync();
-                await AssetGallery.LoadAssetsAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to reload data after connecting to service");
-            }
-
-            App.Config.Mode = "MultiUser";
-            App.Config.Save();
-
-            StatusText = $"Connected to {_serviceHost}:{_servicePort}";
-        }
-        else
-        {
-            // User cancelled the login dialog — stay in Local mode
-            _isServiceMode = false;
-            OnPropertyChanged(nameof(IsServiceMode));
-            OnPropertyChanged(nameof(IsLocalMode));
-            IsConnectedToService = false;
-            ServiceConnectionStatus = "Login cancelled";
-            StatusText = "Cancelled connecting to service";
-        }
-    }
-
-    // ──────────────────────────────────────────────
-    //  Mode toggle & service connection
-    // ──────────────────────────────────────────────
-
-    private async Task SwitchToLocalAsync()
+    private void LaunchServiceManager()
     {
         try
         {
-            StatusText = "Switching to local mode...";
+            var exeDir = AppContext.BaseDirectory;
+            var solutionRoot = Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "..", "..", "src"));
+            var serviceManagerPath = Path.GetFullPath(Path.Combine(solutionRoot, "Adam.ServiceManager", "bin", "Debug", "net10.0", "Adam.ServiceManager.exe"));
 
-            // Disconnect broker if connected
-            if (_modeManager.BrokerClient?.IsConnected == true)
+            if (!File.Exists(serviceManagerPath))
             {
-                await _modeManager.BrokerClient.DisconnectAsync();
+                serviceManagerPath = Path.GetFullPath(Path.Combine(solutionRoot, "Adam.ServiceManager", "bin", "Release", "net10.0", "Adam.ServiceManager.exe"));
             }
 
-            await _modeManager.InitializeAsync();
+            if (!File.Exists(serviceManagerPath))
+            {
+                // Fallback: try alongside the current executable (published layout)
+                serviceManagerPath = Path.Combine(exeDir, "Adam.ServiceManager.exe");
+            }
 
-            IsConnectedToService = false;
-            ServiceConnectionStatus = "Disconnected";
-            ConnectToServiceCommand.RaiseCanExecuteChanged();
-            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
-
-            // Reload data
-            await Sidebar.LoadAsync();
-            await AssetGallery.LoadAssetsAsync();
-
-            // Persist mode
-            App.Config.Mode = "Standalone";
-            App.Config.Save();
-
-            StatusText = "Switched to local mode";
+            if (File.Exists(serviceManagerPath))
+            {
+                _logger.LogInformation("Launching ServiceManager from {Path}", serviceManagerPath);
+                Process.Start(new ProcessStartInfo(serviceManagerPath) { UseShellExecute = true });
+            }
+            else
+            {
+                _logger.LogWarning("Could not find ServiceManager executable at any expected location.");
+                StatusBar.StatusText = "ServiceManager not found";
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to switch to local mode");
-            StatusText = $"Failed to switch: {ex.Message}";
+            _logger.LogWarning(ex, "Failed to launch ServiceManager");
+            StatusBar.StatusText = "Failed to launch ServiceManager";
         }
     }
 
-    /// <summary>
-    /// Creates and shows the login dialog modally on the UI thread.
-    /// The dialog collects host, port, username, and password and authenticates
-    /// inline. On failure the dialog stays open so the user can retry.
-    /// </summary>
-    /// <returns>True if authentication succeeded.</returns>
     private static async Task<bool> TryShowLoginDialogAsync(IAuthSession authSession, string host, int port)
     {
         var cfg = App.Config;
@@ -1725,53 +427,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
             RecentHosts = recentHosts,
             TestConnectionAsync = async (h, p) =>
             {
-                try
-                {
-                    using var client = new System.Net.Sockets.TcpClient();
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                    await client.ConnectAsync(h, p, cts.Token);
-                    return null;
-                }
-                catch (Exception ex)
-                {
-                    return ex.Message;
-                }
+                try { using var client = new System.Net.Sockets.TcpClient(); using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3)); await client.ConnectAsync(h, p, cts.Token); return null; }
+                catch (Exception ex) { return ex.Message; }
             },
-            ClearCredentialsAsync = () =>
-            {
-                cfg.ServiceHost = "localhost";
-                cfg.ServicePort = 9100;
-                cfg.LastUsername = string.Empty;
-                cfg.RecentHosts.Clear();
-                cfg.Save();
-                return Task.CompletedTask;
-            },
+            ClearCredentialsAsync = () => { cfg.ServiceHost = "localhost"; cfg.ServicePort = 9100; cfg.LastUsername = string.Empty; cfg.RecentHosts.Clear(); cfg.Save(); return Task.CompletedTask; },
             AuthenticateAsync = async (_, _, username, password) =>
             {
-                try
-                {
-                    var ok = await authSession.LoginAsync(username, password);
-                    return ok ? null : "Authentication failed. Check your credentials.";
-                }
-                catch (Exception ex)
-                {
-                    return ex.Message;
-                }
+                try { var ok = await authSession.LoginAsync(username, password); return ok ? null : "Authentication failed. Check your credentials."; }
+                catch (Exception ex) { return ex.Message; }
             }
         };
 
         var loginDialog = new Views.LoginDialog(loginVm);
-        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
-
-        if (mainWindow == null)
-            return false;
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null;
+        if (mainWindow == null) return false;
 
         var loginResult = await loginDialog.ShowDialog<bool?>(mainWindow);
         if (loginResult == true)
         {
-            // Save username and recent hosts
             cfg.LastUsername = loginVm.Username;
             cfg.PushRecentHost(loginVm.ServiceHost, loginVm.ServicePort);
             cfg.Save();
@@ -1779,134 +452,84 @@ public class MainWindowViewModel : INotifyPropertyChanged
         return loginResult == true;
     }
 
-    private async Task ConnectToServiceAsync()
+    /// <summary>
+    /// Trigger C: AI-tags all selected image assets and refreshes the gallery.
+    /// </summary>
+    private async Task AiTagSelectedAssetsAsync()
     {
+        if (_aiTaggingService is null) return;
+
+        var imageIds = AssetGallery.SelectedAssets
+            .Select(a => a.Id)
+            .ToList();
+
+        if (imageIds.Count == 0) return;
+
+        StatusBar.IsAiTaggingActive = true;
+        StatusBar.AiTaggingProgressText = "AI tagging selected assets…";
+        StatusBar.AiTaggingPercentage = 0;
+
+        var progress = new Progress<(int completed, int total)>(p =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                StatusBar.AiTaggingPercentage = p.total > 0 ? (double)p.completed / p.total * 100 : 0;
+                StatusBar.AiTaggingProgressText = $"AI tagging... ({p.completed}/{p.total})";
+            });
+        });
+
         try
         {
-            ServiceConnectionStatus = "Connecting...";
-            StatusText = "Connecting to service...";
+            await _aiTaggingService.TagAssetsAsync(imageIds, progress);
+            StatusBar.StatusText = $"AI tagged {imageIds.Count} asset(s)";
 
-            await _modeManager.InitializeMultiUserAsync(_serviceHost, _servicePort);
-
-            // Connect broker (TCP connection)
-            if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
-            {
-                ServiceConnectionStatus = "Broker client not available";
-                return;
-            }
-
-            await _modeManager.BrokerClient.ConnectAsync();
-
-            // Show login dialog for authentication
-            var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
-                TryShowLoginDialogAsync(_modeManager.AuthSession, _serviceHost, _servicePort));
-
-            if (!authenticated)
-            {
-                // Login was cancelled or failed — disconnect and abort
-                await _modeManager.BrokerClient.DisconnectAsync();
-                ServiceConnectionStatus = "Login cancelled";
-                StatusText = "Connection cancelled";
-                return;
-            }
-
-            IsConnectedToService = true;
-            ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort}";
-            ConnectToServiceCommand.RaiseCanExecuteChanged();
-            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
-
-            // Reload data
+            // Refresh gallery + sidebar
             await Sidebar.LoadAsync();
             await AssetGallery.LoadAssetsAsync();
-
-            // Persist mode and connection settings
-            App.Config.Mode = "MultiUser";
-            App.Config.ServiceHost = _serviceHost;
-            App.Config.ServicePort = _servicePort;
-            App.Config.Save();
-
-            StatusText = "Connected to service";
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect to service");
-            ServiceConnectionStatus = $"Connection failed: {ex.Message}";
-            IsConnectedToService = false;
-            StatusText = "Connection failed";
-
-            // Ensure we disconnect on failure
-            try
-            {
-                if (_modeManager.BrokerClient?.IsConnected == true)
-                    await _modeManager.BrokerClient.DisconnectAsync();
-            }
-            catch { /* best-effort cleanup */ }
+            _logger.LogError(ex, "Failed to AI tag selected assets");
+            StatusBar.StatusText = $"AI tagging failed: {ex.Message}";
         }
-    }        private async Task LogoutAsync()
+        finally
         {
-            try
-            {
-                // Clear the auth session
-                _modeManager.AuthSession?.Logout();
-
-                // Show the login dialog again for re-authentication
-                var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
-                    TryShowLoginDialogAsync(_modeManager.AuthSession!, _serviceHost, _servicePort));
-
-                if (authenticated)
-                {
-                    ServiceConnectionStatus = $"Connected to {_serviceHost}:{_servicePort} (re-authenticated)";
-                    StatusText = "Re-authenticated successfully";
-                    LogoutCommand.RaiseCanExecuteChanged();
-                }
-                else
-                {
-                    // Re-authentication cancelled or failed — disconnect
-                    // DisconnectFromServiceAsync handles the status text update
-                    await DisconnectFromServiceAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to re-authenticate after logout");
-                StatusText = $"Logout failed: {ex.Message}";
-                // Fall back to disconnect on error
-                await DisconnectFromServiceAsync();
-            }
+            StatusBar.IsAiTaggingActive = false;
         }
+    }
 
-        private async Task DisconnectFromServiceAsync()
+    /// <summary>
+    /// Subscribes to the AiTaggingService's relayed download progress so it surfaces in the status bar (D-14).
+    /// </summary>
+    private void SubscribeToDownloadProgress(AiTaggingService aiTaggingService)
     {
-        try
+        aiTaggingService.PropertyChanged += (_, e) =>
         {
-            StatusText = "Disconnecting from service...";
-
-            if (_modeManager.BrokerClient?.IsConnected == true)
+            if (e.PropertyName == nameof(AiTaggingService.DownloadProgress))
             {
-                await _modeManager.BrokerClient.DisconnectAsync();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var pct = aiTaggingService.DownloadProgress;
+                    StatusBar.IsModelDownloading = pct > 0 && pct < 1.0;
+                    StatusBar.ModelDownloadPercentage = pct * 100;
+                    if (pct > 0 && pct < 1.0)
+                        StatusBar.StatusText = $"Downloading AI model ({pct * 100:F0}%)";
+                    else if (pct >= 1.0)
+                        StatusBar.StatusText = "AI model ready";
+                });
             }
-
-            IsConnectedToService = false;
-            ServiceConnectionStatus = "Disconnected";
-            ConnectToServiceCommand.RaiseCanExecuteChanged();
-            DisconnectFromServiceCommand.RaiseCanExecuteChanged();
-            LogoutCommand.RaiseCanExecuteChanged();
-
-            StatusText = "Disconnected from service";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to disconnect from service");
-            StatusText = $"Disconnect failed: {ex.Message}";
-        }
+            else if (e.PropertyName == nameof(AiTaggingService.IsInitialized) && aiTaggingService.IsInitialized)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    StatusBar.IsModelDownloading = false;
+                });
+            }
+        };
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
-
-

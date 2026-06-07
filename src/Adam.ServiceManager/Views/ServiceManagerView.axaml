@@ -36,12 +36,17 @@
                        VerticalAlignment="Center"
                        HorizontalAlignment="Right" />
 
-            <!-- Refresh button -->
-            <Button Grid.Column="3"
-                    Content="⟳ Refresh"
-                    Command="{Binding RefreshStatusCommand}"
-                    Margin="8,0,0,0"
-                    Padding="12,4" FontSize="12" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+              <!-- Refresh button -->
+              <Button Content="⟳ Refresh"
+                      Command="{Binding RefreshStatusCommand}"
+                      Padding="12,4" FontSize="12" />
+
+              <!-- Open Log button -->
+              <Button Content="📄 Open Log"
+                      Command="{Binding OpenLogFolderCommand}"
+                      Padding="12,4" FontSize="12" />
+            </StackPanel>
           </Grid>
 
           <!-- Action buttons -->
@@ -51,6 +56,19 @@
             <Button Content="Start Service" Command="{Binding StartServiceCommand}" />
             <Button Content="Stop Service" Command="{Binding StopServiceCommand}" />
           </StackPanel>
+
+          <!-- Client connection endpoint — what the user enters in the Catalog Browser -->
+          <Border Background="#F0F6FC" BorderBrush="#1976D2" BorderThickness="1" CornerRadius="6" Padding="12">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Client Connection Endpoint" FontSize="12" FontWeight="SemiBold" Foreground="#1565C0" />
+              <SelectableTextBlock Text="{Binding Endpoint}"
+                                   FontSize="18" FontWeight="Bold"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   Foreground="#0D47A1" />
+              <TextBlock Text="Enter this host and port in the Catalog Browser to connect to this service."
+                         FontSize="11" Foreground="#555" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
         </StackPanel>
       </Border>
 
@@ -97,6 +115,20 @@
             </StackPanel>
           </Grid>
           <TextBlock Text="Restart the app after changing host/port for the new settings to take effect."
+                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+
+          <!-- TLS settings published to clients -->
+          <CheckBox IsChecked="{Binding UseTls}" Content="Clients connect using TLS" FontSize="12" />
+          <CheckBox IsChecked="{Binding AllowSelfSigned}" Content="Allow self-signed certificate"
+                    FontSize="12" Margin="24,0,0,0"
+                    IsEnabled="{Binding UseTls}" />
+
+          <!-- Save connection settings to the registry for the client to read -->
+          <Button Content="💾 Save Settings for Clients"
+                  Command="{Binding SaveToRegistryCommand}"
+                  HorizontalAlignment="Left"
+                  Padding="16,6" Margin="0,4,0,0" />
+          <TextBlock Text="Writes the host, port, and TLS settings to the machine registry (HKLM) so the Catalog Browser uses them automatically the next time it launches."
                      FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
 
           <Separator Margin="0,4" />

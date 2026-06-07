@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
@@ -18,10 +19,10 @@ public enum ConnectionStatus
 
 public sealed class BrokerClient : IAsyncDisposable
 {
-    private readonly string _host;
-    private readonly int _port;
-    private readonly bool _useTls;
-    private readonly bool _allowSelfSigned;
+    private string _host;
+    private int _port;
+    private bool _useTls;
+    private bool _allowSelfSigned;
     private TcpClient? _client;
     private Stream? _stream;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -56,31 +57,79 @@ public sealed class BrokerClient : IAsyncDisposable
         _allowSelfSigned = allowSelfSigned;
     }
 
+    /// <summary>The host this client will connect to.</summary>
+    public string Host => _host;
+
+    /// <summary>The port this client will connect to.</summary>
+    public int Port => _port;
+
+    /// <summary>
+    /// Retargets the client at a different endpoint. Only allowed while
+    /// disconnected, so an in-flight connection is never silently repointed.
+    /// Use this before <see cref="ConnectAsync"/> to honor a host/port the user
+    /// entered or that was published to the registry.
+    /// </summary>
+    public void Reconfigure(string host, int port, bool useTls = false, bool allowSelfSigned = false)
+    {
+        if (IsConnected)
+        {
+            ConnectionDebugLogger.Warn($"Reconfigure rejected: already connected to {_host}:{_port}");
+            throw new InvalidOperationException("Disconnect before changing the broker endpoint.");
+        }
+
+        ConnectionDebugLogger.Info($"Reconfigure: {_host}:{_port} (TLS={_useTls}, SelfSigned={_allowSelfSigned}) \u2192 {host}:{port} (TLS={useTls}, SelfSigned={allowSelfSigned})");
+        _host = host;
+        _port = port;
+        _useTls = useTls;
+        _allowSelfSigned = allowSelfSigned;
+    }
+
     private void SetStatus(ConnectionStatus status)
     {
         if (Status == status) return;
+        var prev = Status;
         Status = status;
+        ConnectionDebugLogger.Info($"Status: [{prev}] \u2192 [{status}] (host={_host}:{_port})");
         StatusChanged?.Invoke(this, status);
     }
 
     public async Task ConnectAsync(CancellationToken ct = default)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(BrokerClient));
+        if (_disposed)
+        {
+            ConnectionDebugLogger.Error("ConnectAsync: ObjectDisposedException — client already disposed");
+            throw new ObjectDisposedException(nameof(BrokerClient));
+        }
+
+        ConnectionDebugLogger.Trace($"ConnectAsync entered (target={_host}:{_port}, TLS={_useTls}, SelfSigned={_allowSelfSigned}, ct.CanBeCanceled={ct.CanBeCanceled})");
+        var sw = Stopwatch.StartNew();
 
         await _lock.WaitAsync(ct);
         try
         {
-            if (_client?.Connected == true) return;
+            if (_client?.Connected == true)
+            {
+                ConnectionDebugLogger.Trace("ConnectAsync: already connected, returning early");
+                return;
+            }
 
             SetStatus(ConnectionStatus.Connecting);
+            ConnectionDebugLogger.Trace($"ConnectAsync: disposing old TcpClient and creating new one");
             _client?.Dispose();
             _client = new TcpClient();
+
+            ConnectionDebugLogger.Info($"ConnectAsync: TCP connect started to {_host}:{_port}");
+            var tcpSw = Stopwatch.StartNew();
             await _client.ConnectAsync(_host, _port, ct);
+            ConnectionDebugLogger.Info($"ConnectAsync: TCP connect completed in {tcpSw.Elapsed.TotalMilliseconds:F1}ms (local={_client.Client.LocalEndPoint})");
+
             var networkStream = _client.GetStream();
             _reconnectAttempts = 0;
 
             if (_useTls)
             {
+                ConnectionDebugLogger.Info($"ConnectAsync: TLS handshake started (target={_host}, protocols=TLS 1.2 | TLS 1.3)");
+                var tlsSw = Stopwatch.StartNew();
                 var sslStream = new SslStream(networkStream, leaveInnerStreamOpen: false, userCertificateValidationCallback: ValidateServerCertificate);
                 await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
                 {
@@ -89,20 +138,37 @@ public sealed class BrokerClient : IAsyncDisposable
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck
                 }, ct);
                 _stream = sslStream;
+                ConnectionDebugLogger.Info($"ConnectAsync: TLS handshake completed in {tlsSw.Elapsed.TotalMilliseconds:F1}ms");
             }
             else
             {
                 _stream = networkStream;
+                ConnectionDebugLogger.Info("ConnectAsync: TLS not enabled, using plain TCP stream");
             }
 
+            ConnectionDebugLogger.Trace("ConnectAsync: starting ReceiveLoop");
             _receiveCts?.Cancel();
             _receiveCts = new CancellationTokenSource();
             _ = ReceiveLoopAsync(_receiveCts.Token);
 
+            ConnectionDebugLogger.Info($"ConnectAsync: fully connected to {_host}:{_port} in {sw.Elapsed.TotalMilliseconds:F1}ms");
             SetStatus(ConnectionStatus.Connected);
         }
-        catch
+        catch (OperationCanceledException)
         {
+            ConnectionDebugLogger.Warn($"ConnectAsync: cancelled after {sw.Elapsed.TotalMilliseconds:F0}ms (timeout or user cancellation)");
+            SetStatus(ConnectionStatus.Disconnected);
+            throw;
+        }
+        catch (SocketException ex)
+        {
+            ConnectionDebugLogger.Error(ex, $"ConnectAsync: SocketException after {sw.Elapsed.TotalMilliseconds:F0}ms — {ex.SocketErrorCode}");
+            SetStatus(ConnectionStatus.Disconnected);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ConnectionDebugLogger.Error(ex, $"ConnectAsync: failed after {sw.Elapsed.TotalMilliseconds:F0}ms");
             SetStatus(ConnectionStatus.Disconnected);
             throw;
         }
@@ -123,20 +189,26 @@ public sealed class BrokerClient : IAsyncDisposable
 
     public async Task DisconnectAsync()
     {
+        ConnectionDebugLogger.Info($"DisconnectAsync: disconnecting from {_host}:{_port} (pending={_pending.Count})");
+        var sw = Stopwatch.StartNew();
+
         await _lock.WaitAsync();
         try
         {
             _receiveCts?.Cancel();
+            ConnectionDebugLogger.Trace("DisconnectAsync: disposed stream and client");
             _stream?.Dispose();
             _client?.Dispose();
             _stream = null;
             _client = null;
             _reconnectAttempts = 0;
 
+            var cancelCount = _pending.Count;
             foreach (var kvp in _pending)
                 kvp.Value.TrySetCanceled();
             _pending.Clear();
 
+            ConnectionDebugLogger.Info($"DisconnectAsync: completed in {sw.Elapsed.TotalMilliseconds:F1}ms (cancelled {cancelCount} pending requests)");
             SetStatus(ConnectionStatus.Disconnected);
         }
         finally
@@ -147,7 +219,14 @@ public sealed class BrokerClient : IAsyncDisposable
 
     public async Task<Envelope> SendAsync(Envelope request, CancellationToken ct = default)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(BrokerClient));
+        if (_disposed)
+        {
+            ConnectionDebugLogger.Error("SendAsync: ObjectDisposedException");
+            throw new ObjectDisposedException(nameof(BrokerClient));
+        }
+
+        ConnectionDebugLogger.Trace($"SendAsync: type={request.MessageType}, corrId={request.CorrelationId}, attempt=1");
+        var sw = Stopwatch.StartNew();
 
         using var timeoutCts = new CancellationTokenSource();
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
@@ -159,36 +238,44 @@ public sealed class BrokerClient : IAsyncDisposable
         {
             try
             {
-                return await SendAsyncInternal(request, linkedCt);
+                var result = await SendAsyncInternal(request, linkedCt);
+                ConnectionDebugLogger.Trace($"SendAsync: completed type={request.MessageType} in {sw.Elapsed.TotalMilliseconds:F1}ms (attempt={attempt + 1})");
+                return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                ConnectionDebugLogger.Warn($"SendAsync: cancelled by caller (type={request.MessageType}, elapsed={sw.Elapsed.TotalMilliseconds:F0}ms)");
                 throw;
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Not connected"))
             {
-                // Non-retryable: not authenticated / not connected by design
+                ConnectionDebugLogger.Warn($"SendAsync: non-retryable — {ex.Message}");
                 throw;
             }
             catch (Exception ex) when (IsRetryable(ex) && attempt < maxRetries - 1)
             {
-                var delay = TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt));
+                var delayMs = 500 * Math.Pow(2, attempt);
+                ConnectionDebugLogger.Warn($"SendAsync: attempt {attempt + 1} failed with {ex.GetType().Name}, retrying in {delayMs:F0}ms");
+                var delay = TimeSpan.FromMilliseconds(delayMs);
                 await Task.Delay(delay, ct);
-                // Ensure connection before retry
+
                 if (!IsConnected && Status != ConnectionStatus.Reconnecting)
                 {
+                    ConnectionDebugLogger.Info($"SendAsync: reconnecting before retry {attempt + 2}");
                     try { await ConnectAsync(ct); }
-                    catch { /* reconnect will be attempted by ReceiveLoop */ }
+                    catch { }
                 }
             }
         }
 
-        // Should not reach here, but fallback
+        ConnectionDebugLogger.Trace($"SendAsync: exhausted retries, attempting final send type={request.MessageType}");
         return await SendAsyncInternal(request, linkedCt);
     }
 
     private async Task<Envelope> SendAsyncInternal(Envelope request, CancellationToken ct)
     {
+        ConnectionDebugLogger.Trace($"SendAsyncInternal: enqueue corrId={request.CorrelationId} type={request.MessageType}");
+
         var tcs = new TaskCompletionSource<Envelope>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[request.CorrelationId] = tcs;
 
@@ -198,10 +285,13 @@ public sealed class BrokerClient : IAsyncDisposable
             if (_stream == null)
             {
                 _pending.TryRemove(request.CorrelationId, out _);
+                ConnectionDebugLogger.Error("SendAsyncInternal: stream is null, not connected");
                 throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
             }
 
+            var sendSw = Stopwatch.StartNew();
             await TcpFrame.SendAsync(_stream, request, ct);
+            ConnectionDebugLogger.Trace($"SendAsyncInternal: frame sent (type={request.MessageType}, size={request.Payload.Length}B, took={sendSw.Elapsed.TotalMilliseconds:F1}ms)");
         }
         finally
         {
@@ -222,39 +312,61 @@ public sealed class BrokerClient : IAsyncDisposable
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
     {
+        ConnectionDebugLogger.Trace("ReceiveLoopAsync: started");
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                if (_stream == null) break;
+                if (_stream == null)
+                {
+                    ConnectionDebugLogger.Warn("ReceiveLoopAsync: stream is null, exiting");
+                    break;
+                }
 
+                ConnectionDebugLogger.Trace("ReceiveLoopAsync: waiting for envelope...");
                 var envelope = await TcpFrame.ReceiveAsync(_stream, ct);
-                if (envelope == null) break;
+
+                if (envelope == null)
+                {
+                    ConnectionDebugLogger.Info("ReceiveLoopAsync: null envelope (server closed connection)");
+                    break;
+                }
+
+                ConnectionDebugLogger.Trace($"ReceiveLoopAsync: received corrId={envelope.CorrelationId} type={envelope.MessageType} status={envelope.StatusCode}");
 
                 if (_pending.TryRemove(envelope.CorrelationId, out var tcs))
                 {
                     tcs.TrySetResult(envelope);
+                    ConnectionDebugLogger.Trace($"ReceiveLoopAsync: matched pending request corrId={envelope.CorrelationId}");
                 }
                 else if (envelope.MessageType == MessageTypeCode.ChangeNotification)
                 {
-                    // Server-initiated push notification (no pending request)
                     var notification = ProtoHelper.Deserialize<ChangeNotification>(envelope.Payload.ToByteArray());
+                    ConnectionDebugLogger.Info($"ReceiveLoopAsync: change notification received (action={notification.Action}, entityId={notification.EntityId})");
                     NotificationReceived?.Invoke(this, notification);
+                }
+                else
+                {
+                    ConnectionDebugLogger.Warn($"ReceiveLoopAsync: unmatched envelope corrId={envelope.CorrelationId} (no pending request)");
                 }
             }
             catch (OperationCanceledException)
             {
+                ConnectionDebugLogger.Trace("ReceiveLoopAsync: cancelled (token signalled)");
                 break;
             }
             catch (Exception ex) when (ex is IOException or ObjectDisposedException or SocketException)
             {
-                // Connection lost — trigger auto-reconnect
+                ConnectionDebugLogger.Warn($"ReceiveLoopAsync: connection lost ({ex.GetType().Name}: {ex.Message})");
+
                 if (!_disposed && _reconnectAttempts < MaxReconnectAttempts)
                 {
+                    ConnectionDebugLogger.Info($"ReceiveLoopAsync: starting auto-reconnect (attempt {_reconnectAttempts + 1}/{MaxReconnectAttempts})");
                     _ = Task.Run(() => AttemptReconnectAsync(ct));
                 }
                 else
                 {
+                    ConnectionDebugLogger.Warn($"ReceiveLoopAsync: max reconnects ({MaxReconnectAttempts}) reached or disposed, failing all pending");
                     foreach (var kvp in _pending)
                         kvp.Value.TrySetException(ex);
                     _pending.Clear();
@@ -264,44 +376,54 @@ public sealed class BrokerClient : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                ConnectionDebugLogger.Error(ex, "ReceiveLoopAsync: unhandled exception");
                 foreach (var kvp in _pending)
                     kvp.Value.TrySetException(ex);
                 _pending.Clear();
                 break;
             }
         }
+        ConnectionDebugLogger.Trace("ReceiveLoopAsync: exited");
     }
 
     private async Task AttemptReconnectAsync(CancellationToken ct)
     {
+        ConnectionDebugLogger.Info($"AttemptReconnectAsync: starting (host={_host}:{_port}, maxAttempts={MaxReconnectAttempts})");
         SetStatus(ConnectionStatus.Reconnecting);
 
         while (_reconnectAttempts < MaxReconnectAttempts && !ct.IsCancellationRequested && !_disposed)
         {
             var delay = ReconnectDelays[Math.Min(_reconnectAttempts, ReconnectDelays.Length - 1)];
+            ConnectionDebugLogger.Info($"AttemptReconnectAsync: attempt {_reconnectAttempts + 1}/{MaxReconnectAttempts}, waiting {delay.TotalSeconds:F0}s before retry");
+
             try
             {
                 await Task.Delay(delay, ct);
             }
             catch (OperationCanceledException)
             {
+                ConnectionDebugLogger.Warn("AttemptReconnectAsync: cancelled during delay");
                 break;
             }
 
             try
             {
+                ConnectionDebugLogger.Info($"AttemptReconnectAsync: executing reconnect #{_reconnectAttempts + 1}");
                 await ConnectAsync(ct);
                 _reconnectAttempts = 0;
+                ConnectionDebugLogger.Info($"AttemptReconnectAsync: reconnected successfully");
                 return;
             }
-            catch
+            catch (Exception ex)
             {
                 _reconnectAttempts++;
+                ConnectionDebugLogger.Warn($"AttemptReconnectAsync: reconnect #{_reconnectAttempts} failed: {ex.GetType().Name}: {ex.Message}");
             }
         }
 
         if (_reconnectAttempts >= MaxReconnectAttempts)
         {
+            ConnectionDebugLogger.Error($"AttemptReconnectAsync: exhausted {MaxReconnectAttempts} attempts, giving up");
             SetStatus(ConnectionStatus.Disconnected);
             foreach (var kvp in _pending)
                 kvp.Value.TrySetException(new InvalidOperationException("Max reconnection attempts exceeded."));
@@ -355,7 +477,12 @@ public sealed class BrokerClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            ConnectionDebugLogger.Trace("DisposeAsync: already disposed, returning");
+            return;
+        }
+        ConnectionDebugLogger.Info("DisposeAsync: disposing BrokerClient");
         _disposed = true;
         _receiveCts?.Cancel();
         _receiveCts?.Dispose();
@@ -363,5 +490,6 @@ public sealed class BrokerClient : IAsyncDisposable
         _client?.Dispose();
         _lock.Dispose();
         SetStatus(ConnectionStatus.Disconnected);
+        ConnectionDebugLogger.Trace("DisposeAsync: completed");
     }
 }

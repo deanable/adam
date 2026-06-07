@@ -48,6 +48,9 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService());
+        var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
+        var statusBar = new StatusBarViewModel(bulkQueue);
 
         // Construct the ViewModel with startUp: false to avoid the background
         // startup pipeline (which dispatches to the UI thread and would hang
@@ -57,6 +60,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
             ingestion, metadataEditor,
             auditLog, bulkQueue,
+            propertyInspector, connection, statusBar,
             startUp: false);
 
         // Open a DB connection for seeding/verifying test data
@@ -88,8 +92,8 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var assetItem = new AssetListItem { Id = assetId, FileName = "landscape.jpg", Title = "Landscape" };
 
         SetField("_selectedAsset", assetItem);
-        _vm.SelectedAssetTags.Add("Urban");
-        _vm.SelectedAssetTags.Add("Summer");
+        _vm.PropertyInspector.SelectedAssetTags.Add("Urban");
+        _vm.PropertyInspector.SelectedAssetTags.Add("Summer");
         // CollectionChanged handler sets _tagsDirty = true
 
         // Act: invoke AutoSaveTagsAsync via reflection
@@ -138,7 +142,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         SetField("_selectedAsset", null);
 
         // Set tags dirty even though no asset is selected
-        _vm.SelectedAssetTags.Add("OrphanTag");
+        _vm.PropertyInspector.SelectedAssetTags.Add("OrphanTag");
 
         // Act
         await InvokeAutoSaveTagsAsync();
@@ -167,7 +171,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var assetItem = new AssetListItem { Id = assetId, FileName = "desc.jpg", Title = "Desc" };
 
         SetField("_selectedAsset", assetItem);
-        _vm.SelectedAssetDescription = "Updated description";
+        _vm.PropertyInspector.SelectedAssetDescription = "Updated description";
         // SelectedAssetDescription setter sets _descriptionDirty = true
 
         // Act
@@ -216,8 +220,8 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var assetItem = new AssetListItem { Id = assetId, FileName = "cat.jpg", Title = "Cat" };
 
         SetField("_selectedAsset", assetItem);
-        _vm.SelectedAssetCategories.Add("Nature");
-        _vm.SelectedAssetCategories.Add("Urban");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("Nature");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("Urban");
         // CollectionChanged handler sets _categoriesDirty = true
 
         // Act
@@ -243,7 +247,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
         SetField("_selectedAsset", assetItem);
         // Remove the category by clearing and adding nothing new
-        _vm.SelectedAssetCategories.Clear();
+        _vm.PropertyInspector.SelectedAssetCategories.Clear();
         // CollectionChanged handler sets _categoriesDirty = true
 
         // Act
@@ -295,7 +299,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         SetField("_selectedAsset", assetItem);
         // Tags are not changed — _tagsDirty stays false
         // Change the description only
-        _vm.SelectedAssetDescription = "Only description changed";
+        _vm.PropertyInspector.SelectedAssetDescription = "Only description changed";
 
         // Act
         await InvokeAutoSaveTagsAsync();
@@ -320,7 +324,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         SetField("_selectedAsset", assetItem);
         // Tags are not changed — _tagsDirty stays false
         // Add a category only
-        _vm.SelectedAssetCategories.Add("NewCategory");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("NewCategory");
 
         // Act
         await InvokeAutoSaveTagsAsync();
@@ -347,7 +351,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         // Initially not dirty
         GetDescriptionDirtyField().Should().BeFalse();
 
-        _vm.SelectedAssetDescription = "New desc";
+        _vm.PropertyInspector.SelectedAssetDescription = "New desc";
 
         GetDescriptionDirtyField().Should().BeTrue();
     }
@@ -357,7 +361,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         GetCategoriesDirtyField().Should().BeFalse();
 
-        _vm.SelectedAssetCategories.Add("NewCat");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("NewCat");
 
         GetCategoriesDirtyField().Should().BeTrue();
     }
@@ -367,7 +371,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         GetCategoriesDirtyField().Should().BeFalse();
 
-        _vm.SelectedAssetCategories.Add("CatA");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("CatA");
         GetCategoriesDirtyField().Should().BeTrue();
 
         // Reset dirty flag as though saved
@@ -375,7 +379,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         GetCategoriesDirtyField().Should().BeFalse();
 
         // Clear — should set dirty
-        _vm.SelectedAssetCategories.Clear();
+        _vm.PropertyInspector.SelectedAssetCategories.Clear();
         GetCategoriesDirtyField().Should().BeTrue();
     }
 
@@ -388,7 +392,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         GetTagsDirtyField().Should().BeFalse();
 
-        _vm.SelectedAssetTags.Add("NewTag");
+        _vm.PropertyInspector.SelectedAssetTags.Add("NewTag");
 
         GetTagsDirtyField().Should().BeTrue();
     }
@@ -400,7 +404,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         GetTagsDirtyField().Should().BeFalse();
 
         // Add a tag — dirty
-        _vm.SelectedAssetTags.Add("TagA");
+        _vm.PropertyInspector.SelectedAssetTags.Add("TagA");
         GetTagsDirtyField().Should().BeTrue();
 
         // Simulate successful save by clearing dirty flag
@@ -408,7 +412,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         GetTagsDirtyField().Should().BeFalse();
 
         // Clear the tags — should set dirty
-        _vm.SelectedAssetTags.Clear();
+        _vm.PropertyInspector.SelectedAssetTags.Clear();
         GetTagsDirtyField().Should().BeTrue();
     }
 
@@ -420,14 +424,14 @@ public class MainWindowViewModelTests : IAsyncLifetime
     public void SaveTagsCommand_CanExecute_NoAsset_ReturnsFalse()
     {
         SetField("_selectedAsset", null);
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeFalse();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
     public void SaveTagsCommand_CanExecute_AssetNotDirty_ReturnsFalse()
     {
         SetField("_selectedAsset", new AssetListItem { Id = Guid.NewGuid(), FileName = "test.jpg", Title = "Test" });
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeFalse();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
@@ -435,7 +439,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         SetField("_selectedAsset", new AssetListItem { Id = Guid.NewGuid(), FileName = "test.jpg", Title = "Test" });
         SetField("_tagsDirty", true);
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeTrue();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -443,7 +447,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         SetField("_selectedAsset", new AssetListItem { Id = Guid.NewGuid(), FileName = "test.jpg", Title = "Test" });
         SetField("_descriptionDirty", true);
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeTrue();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -451,7 +455,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         SetField("_selectedAsset", new AssetListItem { Id = Guid.NewGuid(), FileName = "test.jpg", Title = "Test" });
         SetField("_categoriesDirty", true);
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeTrue();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -461,7 +465,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         SetField("_tagsDirty", true);
         SetField("_descriptionDirty", true);
         SetField("_categoriesDirty", true);
-        _vm.SaveTagsCommand.CanExecute(null).Should().BeTrue();
+        _vm.PropertyInspector.SaveTagsCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -472,12 +476,12 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var assetItem = new AssetListItem { Id = assetId, FileName = "execute.jpg", Title = "Execute" };
 
         SetField("_selectedAsset", assetItem);
-        _vm.SelectedAssetDescription = "After save";
-        _vm.SelectedAssetTags.Add("NewTag");
-        _vm.SelectedAssetCategories.Add("NewCategory");
+        _vm.PropertyInspector.SelectedAssetDescription = "After save";
+        _vm.PropertyInspector.SelectedAssetTags.Add("NewTag");
+        _vm.PropertyInspector.SelectedAssetCategories.Add("NewCategory");
 
         // Act: click the Save button
-        _vm.SaveTagsCommand.Execute(null);
+        _vm.PropertyInspector.SaveTagsCommand.Execute(null);
 
         // Wait for the fire-and-forget async save to complete
         // Poll the DB until the change appears or timeout
@@ -519,7 +523,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     public void LogoutCommand_CanExecute_WhenNotConnected_ReturnsFalse()
     {
         // Default state: _isConnectedToService is false, auth is null
-        _vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+        _vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
@@ -527,7 +531,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         SetField("_isConnectedToService", true);
         // _modeManager.AuthSession is null → null-conditional yields false
-        _vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+        _vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
@@ -536,7 +540,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         await using var ctx = new LoggedInVmContext();
         await ctx.InitializeAsync();
 
-        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeTrue();
+        ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -545,11 +549,11 @@ public class MainWindowViewModelTests : IAsyncLifetime
         await using var ctx = new LoggedInVmContext();
         await ctx.InitializeAsync();
 
-        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeTrue();
+        ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeTrue();
 
         // Disconnect should disable the command
-        ctx.Vm.DisconnectFromServiceCommand.Execute(null);
-        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+        ctx.Vm.Connection.DisconnectFromServiceCommand.Execute(null);
+        ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
@@ -563,7 +567,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         connectedField.SetValue(ctx.Vm, false);
 
-        ctx.Vm.LogoutCommand.CanExecute(null).Should().BeFalse();
+        ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
 
     // ──────────────────────────────────────────────
@@ -573,30 +577,30 @@ public class MainWindowViewModelTests : IAsyncLifetime
     [Fact]
     public void MainWindowViewModel_InitialState_DefaultsToLocalMode()
     {
-        _vm.IsServiceMode.Should().BeFalse();
-        _vm.IsLocalMode.Should().BeTrue();
-        _vm.IsConnectedToService.Should().BeFalse();
-        _vm.ServiceConnectionStatus.Should().Be("Disconnected");
-        _vm.ServiceHost.Should().Be("localhost");
-        _vm.ServicePort.Should().Be(9100);
+        _vm.Connection.IsServiceMode.Should().BeFalse();
+        _vm.Connection.IsLocalMode.Should().BeTrue();
+        _vm.Connection.IsConnectedToService.Should().BeFalse();
+        _vm.Connection.ServiceConnectionStatus.Should().Be("Disconnected");
+        _vm.Connection.ServiceHost.Should().Be("localhost");
+        _vm.Connection.ServicePort.Should().Be(9100);
     }
 
     [Fact]
     public void MainWindowViewModel_IsLocalMode_ReturnsOppositeOfIsServiceMode()
     {
         // Initially local mode
-        _vm.IsLocalMode.Should().BeTrue();
-        _vm.IsServiceMode.Should().BeFalse();
+        _vm.Connection.IsLocalMode.Should().BeTrue();
+        _vm.Connection.IsServiceMode.Should().BeFalse();
 
         // Flip to service mode (setting the field directly to avoid SwitchToLocalAsync)
         SetField("_isServiceMode", true);
-        _vm.IsLocalMode.Should().BeFalse();
-        _vm.IsServiceMode.Should().BeTrue();
+        _vm.Connection.IsLocalMode.Should().BeFalse();
+        _vm.Connection.IsServiceMode.Should().BeTrue();
 
         // Flip back
         SetField("_isServiceMode", false);
-        _vm.IsLocalMode.Should().BeTrue();
-        _vm.IsServiceMode.Should().BeFalse();
+        _vm.Connection.IsLocalMode.Should().BeTrue();
+        _vm.Connection.IsServiceMode.Should().BeFalse();
     }
 
     // ──────────────────────────────────────────────
@@ -607,33 +611,33 @@ public class MainWindowViewModelTests : IAsyncLifetime
     public void ServiceHost_Setter_RaisesPropertyChanged()
     {
         var changed = new List<string?>();
-        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        _vm.Connection.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
-        _vm.ServiceHost = "192.168.1.1";
+        _vm.Connection.ServiceHost = "192.168.1.1";
 
-        changed.Should().Contain(nameof(MainWindowViewModel.ServiceHost));
+        changed.Should().Contain(nameof(ConnectionViewModel.ServiceHost));
     }
 
     [Fact]
     public void ServicePort_Setter_RaisesPropertyChanged()
     {
         var changed = new List<string?>();
-        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        _vm.Connection.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
-        _vm.ServicePort = 8080;
+        _vm.Connection.ServicePort = 8080;
 
-        changed.Should().Contain(nameof(MainWindowViewModel.ServicePort));
+        changed.Should().Contain(nameof(ConnectionViewModel.ServicePort));
     }
 
     [Fact]
     public void IsConnectedToService_Setter_RaisesPropertyChanged()
     {
         var changed = new List<string?>();
-        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        _vm.Connection.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
-        _vm.IsConnectedToService = true;
+        _vm.Connection.IsConnectedToService = true;
 
-        changed.Should().Contain(nameof(MainWindowViewModel.IsConnectedToService));
+        changed.Should().Contain(nameof(ConnectionViewModel.IsConnectedToService));
     }
 
     // ──────────────────────────────────────────────
@@ -643,41 +647,41 @@ public class MainWindowViewModelTests : IAsyncLifetime
     [Fact]
     public void ToggleLocalModeCommand_CanExecute_AlwaysReturnsTrue()
     {
-        _vm.ToggleLocalModeCommand.CanExecute(null).Should().BeTrue();
+        _vm.Connection.ToggleLocalModeCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
     public void ToggleServiceModeCommand_CanExecute_AlwaysReturnsTrue()
     {
-        _vm.ToggleServiceModeCommand.CanExecute(null).Should().BeTrue();
+        _vm.Connection.ToggleServiceModeCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
     public void ConnectToServiceCommand_CanExecute_WhenNotConnected_ReturnsTrue()
     {
         // Default state: _isConnectedToService is false
-        _vm.ConnectToServiceCommand.CanExecute(null).Should().BeTrue();
+        _vm.Connection.ConnectToServiceCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
     public void ConnectToServiceCommand_CanExecute_WhenConnected_ReturnsFalse()
     {
         SetField("_isConnectedToService", true);
-        _vm.ConnectToServiceCommand.CanExecute(null).Should().BeFalse();
+        _vm.Connection.ConnectToServiceCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
     public void DisconnectFromServiceCommand_CanExecute_WhenNotConnected_ReturnsFalse()
     {
         // Default state: _isConnectedToService is false
-        _vm.DisconnectFromServiceCommand.CanExecute(null).Should().BeFalse();
+        _vm.Connection.DisconnectFromServiceCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
     public void DisconnectFromServiceCommand_CanExecute_WhenConnected_ReturnsTrue()
     {
         SetField("_isConnectedToService", true);
-        _vm.DisconnectFromServiceCommand.CanExecute(null).Should().BeTrue();
+        _vm.Connection.DisconnectFromServiceCommand.CanExecute(null).Should().BeTrue();
     }
 
     // ──────────────────────────────────────────────
@@ -687,22 +691,22 @@ public class MainWindowViewModelTests : IAsyncLifetime
     [Fact]
     public void ServiceHost_SetAndGet_RoundTrips()
     {
-        _vm.ServiceHost = "broker.example.com";
-        _vm.ServiceHost.Should().Be("broker.example.com");
+        _vm.Connection.ServiceHost = "broker.example.com";
+        _vm.Connection.ServiceHost.Should().Be("broker.example.com");
     }
 
     [Fact]
     public void ServicePort_SetAndGet_RoundTrips()
     {
-        _vm.ServicePort = 8080;
-        _vm.ServicePort.Should().Be(8080);
+        _vm.Connection.ServicePort = 8080;
+        _vm.Connection.ServicePort.Should().Be(8080);
     }
 
     [Fact]
     public void ServiceConnectionStatus_SetAndGet_RoundTrips()
     {
-        _vm.ServiceConnectionStatus = "Connected to localhost:9100";
-        _vm.ServiceConnectionStatus.Should().Be("Connected to localhost:9100");
+        _vm.Connection.ServiceConnectionStatus = "Connected to localhost:9100";
+        _vm.Connection.ServiceConnectionStatus.Should().Be("Connected to localhost:9100");
     }
 
     // ──────────────────────────────────────────────
@@ -714,15 +718,15 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         // Start in service mode
         SetField("_isServiceMode", true);
-        _vm.IsServiceMode.Should().BeTrue();
+        _vm.Connection.IsServiceMode.Should().BeTrue();
 
         // Execute toggle to local — the setter sets _isServiceMode = false
         // synchronously before firing SwitchToLocalAsync (fire-and-forget),
         // so the property is immediately readable without awaiting the async method.
-        _vm.ToggleLocalModeCommand.Execute(null);
+        _vm.Connection.ToggleLocalModeCommand.Execute(null);
 
-        _vm.IsServiceMode.Should().BeFalse();
-        _vm.IsLocalMode.Should().BeTrue();
+        _vm.Connection.IsServiceMode.Should().BeFalse();
+        _vm.Connection.IsLocalMode.Should().BeTrue();
     }
 
     [Fact]
@@ -730,17 +734,17 @@ public class MainWindowViewModelTests : IAsyncLifetime
     {
         // Start connected
         SetField("_isConnectedToService", true);
-        _vm.IsConnectedToService.Should().BeTrue();
+        _vm.Connection.IsConnectedToService.Should().BeTrue();
 
         // Execute disconnect — runs DisconnectFromServiceAsync which checks
         // BrokerClient (null → skip) and sets IsConnectedToService = false
-        _vm.DisconnectFromServiceCommand.Execute(null);
+        _vm.Connection.DisconnectFromServiceCommand.Execute(null);
 
         // Wait briefly for the fire-and-forget async method to complete
         await Task.Delay(200);
 
-        _vm.IsConnectedToService.Should().BeFalse();
-        _vm.ServiceConnectionStatus.Should().Be("Disconnected");
+        _vm.Connection.IsConnectedToService.Should().BeFalse();
+        _vm.Connection.ServiceConnectionStatus.Should().Be("Disconnected");
     }
 
     // ──────────────────────────────────────────────
@@ -750,7 +754,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
     [Fact]
     public void HasSingleSelection_WhenNoSelection_ReturnsFalse()
     {
-        _vm.HasSingleSelection.Should().BeFalse();
+        _vm.PropertyInspector.HasSingleSelection.Should().BeFalse();
     }
 
     [Fact]
@@ -765,8 +769,8 @@ public class MainWindowViewModelTests : IAsyncLifetime
         SetField("_selectedAssets", list);
         // _selectedAsset is null
 
-        _vm.HasMultiSelection.Should().BeTrue("HasMultiSelection depends on _selectedAssets.Count > 1");
-        _vm.HasSingleSelection.Should().BeFalse("HasSingleSelection requires HasSelectedAsset AND !HasMultiSelection");
+        _vm.PropertyInspector.HasMultiSelection.Should().BeTrue("HasMultiSelection depends on _selectedAssets.Count > 1");
+        _vm.PropertyInspector.HasSingleSelection.Should().BeFalse("HasSingleSelection requires HasSelectedAsset AND !HasMultiSelection");
     }
 
     // ──────────────────────────────────────────────
@@ -775,48 +779,62 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
     private void SetField(string fieldName, object? value)
     {
-        var field = typeof(MainWindowViewModel)
-            .GetField(fieldName,
+        var target = (object)_vm;
+        var type = typeof(MainWindowViewModel);
+
+        if (fieldName is "_selectedAsset" or "_tagsDirty" or "_descriptionDirty" or "_categoriesDirty" or "_selectedAssets")
+        {
+            target = _vm.PropertyInspector;
+            type = typeof(PropertyInspectorViewModel);
+        }
+        else if (fieldName is "_isConnectedToService" or "_isServiceMode")
+        {
+            target = _vm.Connection;
+            type = typeof(ConnectionViewModel);
+        }
+        else if (fieldName is "_isInitialLoading")
+        {
+            target = _vm.StatusBar;
+            type = typeof(StatusBarViewModel);
+        }
+
+        var field = type.GetField(fieldName,
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic |
                 System.Reflection.BindingFlags.Public)!;
-        field.SetValue(_vm, value);
+        field.SetValue(target, value);
     }
 
     private bool GetTagsDirtyField()
     {
-        var field = typeof(MainWindowViewModel)
+        var field = typeof(PropertyInspectorViewModel)
             .GetField("_tagsDirty",
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic)!;
-        return (bool)field.GetValue(_vm)!;
+        return (bool)field.GetValue(_vm.PropertyInspector)!;
     }
 
     private async Task InvokeAutoSaveTagsAsync()
     {
-        var method = typeof(MainWindowViewModel)
-            .GetMethod("AutoSaveTagsAsync",
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.NonPublic)!;
-        await (Task)method.Invoke(_vm, null)!;
+        await _vm.PropertyInspector.AutoSaveTagsAsync();
     }
 
     private bool GetDescriptionDirtyField()
     {
-        var field = typeof(MainWindowViewModel)
+        var field = typeof(PropertyInspectorViewModel)
             .GetField("_descriptionDirty",
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic)!;
-        return (bool)field.GetValue(_vm)!;
+        return (bool)field.GetValue(_vm.PropertyInspector)!;
     }
 
     private bool GetCategoriesDirtyField()
     {
-        var field = typeof(MainWindowViewModel)
+        var field = typeof(PropertyInspectorViewModel)
             .GetField("_categoriesDirty",
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic)!;
-        return (bool)field.GetValue(_vm)!;
+        return (bool)field.GetValue(_vm.PropertyInspector)!;
     }
 
     /// <summary>
@@ -943,6 +961,11 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
         var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
+        var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService());
+        var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
+        var statusBar = new StatusBarViewModel(bulkQueue);
+
         Vm = new MainWindowViewModel(
             new NullLogger<MainWindowViewModel>(),
             _modeManager,
@@ -952,13 +975,16 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
             new MetadataEditorViewModel(_modeManager),
             new AuditLogViewModel(_modeManager),
-            new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>()),
+            bulkQueue,
+            propertyInspector,
+            connection,
+            statusBar,
             startUp: false);
 
         // Set connected state via reflection to simulate a connected service
-        var isConnectedField = typeof(MainWindowViewModel).GetField("_isConnectedToService",
+        var isConnectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        isConnectedField.SetValue(Vm, true);
+        isConnectedField.SetValue(Vm.Connection, true);
     }
 
     public async ValueTask DisposeAsync()

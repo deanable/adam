@@ -3,8 +3,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Adam.ServiceManager.Services;
+using Adam.Shared.Configuration;
 using Adam.Shared.Services;
-using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -29,6 +30,8 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     private readonly bool _isElevated;
     private string _serviceHost = "localhost";
     private int _servicePort = 9100;
+    private bool _useTls;
+    private bool _allowSelfSigned = true;
     private ObservableCollection<string> _logMessages = new();
     private readonly ObservableCollection<string> _serviceLogMessages;
     private Timer? _pollTimer;
@@ -36,10 +39,12 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     private bool _isServiceTabSelected = true;
     private bool _disposed;
     private int _pollingIntervalSeconds;
+    private readonly IUiDispatcher _dispatcher;
 
-    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null)
+    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null, IUiDispatcher? dispatcher = null)
     {
         _logger = logger ?? NullLogger<ServiceManagerViewModel>.Instance;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         var installers = serviceInstallers.ToList();
         _serviceInstaller = installers.FirstOrDefault(s => s.IsSupported) ?? new NullServiceInstaller();
         _logger.LogInformation("ServiceManagerViewModel: Selected service installer = {InstallerType} (IsSupported={IsSupported}, ServiceName='{ServiceName}')",
@@ -58,7 +63,19 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         var config = App.Config;
         _serviceHost = config.ServiceHost;
         _servicePort = config.ServicePort;
+        _useTls = config.UseTls;
+        _allowSelfSigned = config.AllowSelfSigned;
         _pollingIntervalSeconds = Math.Clamp(config.PollingIntervalSeconds, 1, 300);
+
+        // Default the host to this server's routable IP so clients get an address
+        // they can actually reach, rather than "localhost" (which only works on this
+        // machine). Only override when nothing meaningful has been configured yet.
+        if (string.IsNullOrWhiteSpace(_serviceHost) || IsLocalHost(_serviceHost))
+        {
+            var ip = NetworkInfo.GetPrimaryIPv4Address();
+            if (!string.IsNullOrEmpty(ip))
+                _serviceHost = ip;
+        }
 
         // Commands
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshStatusAsync());
@@ -67,10 +84,12 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         StartServiceCommand = new RelayCommand(async _ => await StartServiceAsync(), _ => _isServiceInstalled && !_isServiceRunning);
         StopServiceCommand = new RelayCommand(async _ => await StopServiceAsync(), _ => _isServiceInstalled && _isServiceRunning);
         RelaunchAsAdminCommand = new RelayCommand(async _ => await RelaunchAsAdminAsync());
+        SaveToRegistryCommand = new RelayCommand(_ => SaveSettingsToRegistry());
         _serviceLogMessages = serviceLogMessages ?? new ObservableCollection<string>();
 
         ClearLogCommand = new RelayCommand(_ => LogMessages.Clear());
         ClearServiceLogCommand = new RelayCommand(_ => ServiceLogMessages.Clear());
+        OpenLogFolderCommand = new RelayCommand(_ => OpenLogFolder());
 
         // Tab navigation commands
         ShowServiceViewCommand = new RelayCommand(_ =>
@@ -215,8 +234,10 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     public ICommand StartServiceCommand { get; }
     public ICommand StopServiceCommand { get; }
     public ICommand RelaunchAsAdminCommand { get; }
+    public ICommand SaveToRegistryCommand { get; }
     public ICommand ClearLogCommand { get; }
     public ICommand ClearServiceLogCommand { get; }
+    public ICommand OpenLogFolderCommand { get; }
     public ICommand ShowServiceViewCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
 
@@ -225,7 +246,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     public string ServiceHost
     {
         get => _serviceHost;
-        set { _serviceHost = value; OnPropertyChanged(); }
+        set { _serviceHost = value; OnPropertyChanged(); OnPropertyChanged(nameof(Endpoint)); }
     }
 
     public int ServicePort
@@ -236,7 +257,32 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             if (value < 1 || value > 65535) return;
             _servicePort = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(Endpoint));
         }
+    }
+
+    /// <summary>
+    /// The address clients use to connect to the Broker service, in <c>host:port</c> form.
+    /// Shown on the dashboard so the user can verify it when connecting from the Catalog Browser.
+    /// </summary>
+    public string Endpoint => $"{_serviceHost}:{_servicePort}";
+
+    /// <summary>
+    /// Whether clients should connect using TLS. Published to the registry on save.
+    /// </summary>
+    public bool UseTls
+    {
+        get => _useTls;
+        set { _useTls = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Whether clients should accept the service's self-signed certificate.
+    /// </summary>
+    public bool AllowSelfSigned
+    {
+        get => _allowSelfSigned;
+        set { _allowSelfSigned = value; OnPropertyChanged(); }
     }
 
     /// <summary>
@@ -323,10 +369,21 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         var entry = $"[{timestamp}] {message}";
 
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_dispatcher.CheckAccess())
             AddLogEntry(entry);
         else
-            Dispatcher.UIThread.Post(() => AddLogEntry(entry));
+            _dispatcher.Post(() => AddLogEntry(entry));
+    }
+
+    /// <summary>
+    /// Dispatches an action to run on the UI thread, awaiting completion.
+    /// </summary>
+    private async Task RunOnUiThreadAsync(Action action)
+    {
+        if (_dispatcher.CheckAccess())
+            action();
+        else
+            await _dispatcher.InvokeAsync(action);
     }
 
     private void AddLogEntry(string entry)
@@ -346,7 +403,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             if (!OperatingSystem.IsWindows())
             {
                 AddLog("Relaunch as administrator is only supported on Windows.");
-                StatusMessage = "Administrator relaunch is only supported on Windows.";
+                await RunOnUiThreadAsync(() => StatusMessage = "Administrator relaunch is only supported on Windows.");
                 return;
             }
 
@@ -354,16 +411,38 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             if (string.IsNullOrEmpty(processPath))
             {
                 AddLog("Could not determine process path.");
-                StatusMessage = "Could not determine process path.";
+                await RunOnUiThreadAsync(() => StatusMessage = "Could not determine process path.");
                 return;
             }
 
-            AddLog($"Launching: {processPath}");
-            var startInfo = new ProcessStartInfo(processPath)
+            // When running via `dotnet run` (framework-dependent), ProcessPath points to
+            // dotnet.exe with no arguments — launching that would just open a blank dotnet
+            // console. Detect this and pass the assembly DLL as an argument.
+            var isDotnetHost = Path.GetFileNameWithoutExtension(processPath)
+                .Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+
+            AddLog($"Launching: {processPath} (isDotnetHost={isDotnetHost})");
+
+            ProcessStartInfo startInfo;
+            if (isDotnetHost)
             {
-                UseShellExecute = true,
-                Verb = "runas"
-            };
+                var assemblyPath = typeof(ServiceManagerViewModel).Assembly.Location;
+                AddLog($"Assembly path: {assemblyPath}");
+                startInfo = new ProcessStartInfo(processPath)
+                {
+                    Arguments = $"\"{assemblyPath}\"",
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+            }
+            else
+            {
+                startInfo = new ProcessStartInfo(processPath)
+                {
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+            }
 
             Process.Start(startInfo);
             AddLog("Elevated process launched. Closing this instance...");
@@ -375,38 +454,105 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         {
             _logger.LogError(ex, "Failed to relaunch as administrator");
             AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
-            StatusMessage = $"Failed to relaunch: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Failed to relaunch: {ex.Message}");
+        }
+    }
+
+    // ─── Save Settings to Registry ───────────────────────────────────
+
+    /// <summary>
+    /// Persists the current connection settings to the local app config and
+    /// publishes them to HKLM so the Catalog Browser (a standard-user process)
+    /// can read the correct endpoint at launch. Requires elevation, which the
+    /// Service Manager always has via its manifest.
+    /// </summary>
+    private void SaveSettingsToRegistry()
+    {
+        AddLog("=== SAVING CONNECTION SETTINGS FOR CLIENTS ===");
+        try
+        {
+            // Clients connect over the network, so a local-only host (localhost,
+            // 127.0.0.1, …) would always fail for them. Publish the server's
+            // routable IP instead, and reflect it back into the UI.
+            if (IsLocalHost(ServiceHost))
+            {
+                var ip = NetworkInfo.GetPrimaryIPv4Address();
+                if (!string.IsNullOrEmpty(ip))
+                {
+                    AddLog($"Host '{ServiceHost}' is local-only; publishing server IP '{ip}' for clients instead.");
+                    ServiceHost = ip;
+                }
+                else
+                {
+                    AddLog($"WARNING: could not determine the server's IP; publishing '{ServiceHost}', which remote clients cannot reach.");
+                }
+            }
+
+            // Persist to this app's own config first so the values survive a restart.
+            var config = App.Config;
+            config.ServiceHost = ServiceHost;
+            config.ServicePort = ServicePort;
+            config.UseTls = UseTls;
+            config.AllowSelfSigned = AllowSelfSigned;
+            config.Save();
+
+            var settings = new RegistrySettings
+            {
+                ServiceHost = ServiceHost,
+                ServicePort = ServicePort,
+                UseTls = UseTls,
+                AllowSelfSigned = AllowSelfSigned,
+            };
+            settings.Save();
+
+            AddLog($"Published to HKLM\\{RegistrySettings.KeyPath}: Host={ServiceHost}, Port={ServicePort}, Tls={UseTls}, AllowSelfSigned={AllowSelfSigned}");
+            StatusMessage = $"Settings saved for clients ({Endpoint}). The Catalog Browser will use these on next launch.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Insufficient privileges to write registry settings");
+            AddLog($"ADMIN REQUIRED: {ex.Message}");
+            StatusMessage = "Administrator privileges are required to save settings for clients.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save settings to registry");
+            AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
+            StatusMessage = $"Failed to save settings: {ex.Message}";
         }
     }
 
     // ─── Refresh Status ──────────────────────────────────────────────
-
     private async Task RefreshStatusAsync()
     {
         AddLog("Refreshing service status...");
-        IsBusy = true;
+        await RunOnUiThreadAsync(() => IsBusy = true);
         try
         {
             AddLog($"Checking local service via {_serviceInstaller.GetType().Name}...");
             var svc = await _serviceInstaller.GetStatusAsync();
-            ServiceStatusText = svc.ToString();
+            var svcStr = svc.ToString();
+            var isInstalled = svc != ServiceStatus.NotInstalled;
+            var isRunning = svc == ServiceStatus.Running;
 
-            // Treat Running, Stopped, or Unknown (START_PENDING / transitional) as "installed".
-            // NotInstalled is the only state that means the service doesn't exist.
-            IsServiceInstalled = svc != ServiceStatus.NotInstalled;
-            IsServiceRunning = svc == ServiceStatus.Running;
+            await RunOnUiThreadAsync(() =>
+            {
+                ServiceStatusText = svcStr;
+                IsServiceInstalled = isInstalled;
+                IsServiceRunning = isRunning;
+            });
 
-            AddLog($"Service status: {svc} (raw sc.exe output will be in the service log), Installed={IsServiceInstalled}, Running={IsServiceRunning}");
+            AddLog($"Service status: {svc} (raw sc.exe output will be in the service log), Installed={isInstalled}, Running={isRunning}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Status refresh failed");
             AddLog($"ERROR refreshing status: {ex.GetType().Name}: {ex.Message}");
-            StatusMessage = $"Status error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Status error: {ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiThreadAsync(() => IsBusy = false);
         }
     }
 
@@ -420,7 +566,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         AddLog($"Installer IsElevated: {(OperatingSystem.IsWindows() ? new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator).ToString() : "N/A")}");
         AddLog($"Environment: PID={Environment.ProcessId}, ProcessPath={Environment.ProcessPath}");
         AddLog($"OS: {Environment.OSVersion}, UserInteractive: {Environment.UserInteractive}");
-        IsBusy = true;
+        await RunOnUiThreadAsync(() => IsBusy = true);
         try
         {
             if (!_serviceInstaller.IsSupported)
@@ -428,7 +574,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
                 var msg = "No service installer available for this platform.";
                 _logger.LogError("Start aborted: {Message}", msg);
                 AddLog($"FAILED: {msg}");
-                StatusMessage = msg;
+                await RunOnUiThreadAsync(() => StatusMessage = msg);
                 return;
             }
 
@@ -438,17 +584,20 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             var elapsed = sw.Elapsed;
             AddLog($"Installer.StartAsync completed successfully. Elapsed: {elapsed.TotalMilliseconds:F0}ms (started={before:O}, ended={DateTime.UtcNow:O})");
 
-            IsServiceRunning = true;
-            ServiceStatusText = ServiceStatus.Running.ToString();
-            StatusMessage = "Service started.";
-            OnPropertyChanged(nameof(StatusText));
+            await RunOnUiThreadAsync(() =>
+            {
+                IsServiceRunning = true;
+                ServiceStatusText = ServiceStatus.Running.ToString();
+                StatusMessage = "Service started.";
+                OnPropertyChanged(nameof(StatusText));
+            });
             AddLog("=== SERVICE STARTED ===");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges to start service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ADMIN REQUIRED: {ex.Message}");
-            StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
+            await RunOnUiThreadAsync(() => StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.");
         }
         catch (Exception ex)
         {
@@ -457,11 +606,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             AddLog($"STACK TRACE: {ex.StackTrace}");
             if (ex.InnerException != null)
                 AddLog($"INNER EXCEPTION: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-            StatusMessage = $"Start error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Start error: {ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiThreadAsync(() => IsBusy = false);
             AddLog($"Total start operation elapsed: {sw.Elapsed.TotalMilliseconds:F0}ms");
         }
     }
@@ -471,7 +620,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         var sw = Stopwatch.StartNew();
         AddLog("=== STOPPING SERVICE ===");
         AddLog($"Installer type: {_serviceInstaller.GetType().Name}, IsSupported: {_serviceInstaller.IsSupported}");
-        IsBusy = true;
+        await RunOnUiThreadAsync(() => IsBusy = true);
         try
         {
             if (!_serviceInstaller.IsSupported)
@@ -479,7 +628,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
                 var msg = "No service installer available for this platform.";
                 _logger.LogError("Stop aborted: {Message}", msg);
                 AddLog($"FAILED: {msg}");
-                StatusMessage = msg;
+                await RunOnUiThreadAsync(() => StatusMessage = msg);
                 return;
             }
 
@@ -489,17 +638,20 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             var elapsed = sw.Elapsed;
             AddLog($"Installer.StopAsync completed successfully. Elapsed: {elapsed.TotalMilliseconds:F0}ms (started={before:O}, ended={DateTime.UtcNow:O})");
 
-            IsServiceRunning = false;
-            ServiceStatusText = ServiceStatus.Stopped.ToString();
-            StatusMessage = "Service stopped.";
-            OnPropertyChanged(nameof(StatusText));
+            await RunOnUiThreadAsync(() =>
+            {
+                IsServiceRunning = false;
+                ServiceStatusText = ServiceStatus.Stopped.ToString();
+                StatusMessage = "Service stopped.";
+                OnPropertyChanged(nameof(StatusText));
+            });
             AddLog("=== SERVICE STOPPED ===");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges to stop service (elapsed={ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
             AddLog($"ADMIN REQUIRED: {ex.Message}");
-            StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
+            await RunOnUiThreadAsync(() => StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.");
         }
         catch (Exception ex)
         {
@@ -508,11 +660,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             AddLog($"STACK TRACE: {ex.StackTrace}");
             if (ex.InnerException != null)
                 AddLog($"INNER EXCEPTION: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-            StatusMessage = $"Stop error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Stop error: {ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiThreadAsync(() => IsBusy = false);
             AddLog($"Total stop operation elapsed: {sw.Elapsed.TotalMilliseconds:F0}ms");
         }
     }
@@ -525,7 +677,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         AddLog($"Installer type: {_serviceInstaller.GetType().Name}");
         AddLog($"Installer supported: {_serviceInstaller.IsSupported}");
         AddLog($"Installer service name: '{_serviceInstaller.ServiceName}'");
-        IsBusy = true;
+        await RunOnUiThreadAsync(() => IsBusy = true);
         try
         {
             var brokerPath = ResolveBrokerServicePath();
@@ -537,7 +689,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
                 var msg = "No service installer available for this platform. Cannot install service.";
                 _logger.LogError("Installation aborted: {Message}", msg);
                 AddLog($"FAILED: {msg}");
-                StatusMessage = msg;
+                await RunOnUiThreadAsync(() => StatusMessage = msg);
                 return;
             }
 
@@ -545,29 +697,63 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             await _serviceInstaller.InstallAsync(brokerPath, ServicePort);
             AddLog("Installer.InstallAsync completed successfully.");
 
+            // Publish the server's routable IP, not a local-only host, so clients can connect.
+            if (IsLocalHost(ServiceHost))
+            {
+                var ip = NetworkInfo.GetPrimaryIPv4Address();
+                if (!string.IsNullOrEmpty(ip))
+                {
+                    AddLog($"Host '{ServiceHost}' is local-only; using server IP '{ip}' for clients.");
+                    ServiceHost = ip;
+                }
+            }
+
             var config = App.Config;
             config.ServiceHost = ServiceHost;
             config.ServicePort = ServicePort;
+            config.UseTls = UseTls;
+            config.AllowSelfSigned = AllowSelfSigned;
             config.Save();
             AddLog($"Configuration saved: Host={ServiceHost}, Port={ServicePort}");
 
-            StatusMessage = "Service installed and started.";
-            IsServiceInstalled = true;
-            IsServiceRunning = true;
-            OnPropertyChanged(nameof(StatusText));
+            // Publish to the registry so standard-user clients pick up the endpoint.
+            try
+            {
+                new RegistrySettings
+                {
+                    ServiceHost = ServiceHost,
+                    ServicePort = ServicePort,
+                    UseTls = UseTls,
+                    AllowSelfSigned = AllowSelfSigned,
+                }.Save();
+                AddLog($"Published connection settings to HKLM\\{RegistrySettings.KeyPath} for clients.");
+            }
+            catch (Exception regEx)
+            {
+                _logger.LogWarning(regEx, "Could not publish connection settings to registry during install");
+                AddLog($"WARNING: could not publish settings to registry: {regEx.Message}");
+            }
+
+            await RunOnUiThreadAsync(() =>
+            {
+                StatusMessage = "Service installed and started.";
+                IsServiceInstalled = true;
+                IsServiceRunning = true;
+                OnPropertyChanged(nameof(StatusText));
+            });
             AddLog("=== SERVICE INSTALLATION SUCCEEDED ===");
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already in use"))
         {
             _logger.LogWarning(ex, "Port already in use during installation");
             AddLog($"WARNING: {ex.Message}");
-            StatusMessage = $"Warning: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Warning: {ex.Message}");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges for service installation");
             AddLog($"ADMIN REQUIRED: {ex.Message}");
-            StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
+            await RunOnUiThreadAsync(() => StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.");
         }
         catch (Exception ex)
         {
@@ -575,11 +761,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
             if (ex.InnerException != null)
                 AddLog($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-            StatusMessage = $"Install error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Install error: {ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiThreadAsync(() => IsBusy = false);
         }
     }
 
@@ -589,7 +775,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         AddLog($"Installer type: {_serviceInstaller.GetType().Name}");
         AddLog($"Installer supported: {_serviceInstaller.IsSupported}");
         AddLog($"Installer service name: '{_serviceInstaller.ServiceName}'");
-        IsBusy = true;
+        await RunOnUiThreadAsync(() => IsBusy = true);
         try
         {
             if (!_serviceInstaller.IsSupported)
@@ -597,7 +783,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
                 var msg = "No service installer available for this platform. Cannot uninstall service.";
                 _logger.LogError("Uninstallation aborted: {Message}", msg);
                 AddLog($"FAILED: {msg}");
-                StatusMessage = msg;
+                await RunOnUiThreadAsync(() => StatusMessage = msg);
                 return;
             }
 
@@ -605,17 +791,20 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             await _serviceInstaller.UninstallAsync();
             AddLog("Installer.UninstallAsync completed successfully.");
 
-            StatusMessage = "Service stopped and removed.";
-            IsServiceInstalled = false;
-            IsServiceRunning = false;
-            OnPropertyChanged(nameof(StatusText));
+            await RunOnUiThreadAsync(() =>
+            {
+                StatusMessage = "Service stopped and removed.";
+                IsServiceInstalled = false;
+                IsServiceRunning = false;
+                OnPropertyChanged(nameof(StatusText));
+            });
             AddLog("=== SERVICE UNINSTALLATION SUCCEEDED ===");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Insufficient privileges for service uninstallation");
             AddLog($"ADMIN REQUIRED: {ex.Message}");
-            StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.";
+            await RunOnUiThreadAsync(() => StatusMessage = "Administrator privileges required. Use 'Relaunch as Administrator' and try again.");
         }
         catch (Exception ex)
         {
@@ -623,11 +812,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             AddLog($"ERROR: {ex.GetType().Name}: {ex.Message}");
             if (ex.InnerException != null)
                 AddLog($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-            StatusMessage = $"Uninstall error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusMessage = $"Uninstall error: {ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiThreadAsync(() => IsBusy = false);
         }
     }
 
@@ -638,6 +827,16 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             ? $"{ts.Days}d {ts.Hours}h {ts.Minutes}m"
             : $"{ts.Hours}h {ts.Minutes}m {ts.Seconds}s";
     }
+
+    /// <summary>
+    /// True for hostnames that only resolve on the local machine and so must not
+    /// be published to remote clients.
+    /// </summary>
+    private static bool IsLocalHost(string host) =>
+        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+        host == "127.0.0.1" ||
+        host == "::1" ||
+        host == "0.0.0.0";
 
     /// <summary>
     /// Creates a <see cref="System.Threading.Timer"/> that calls <see cref="RefreshStatusAsync"/>
@@ -671,6 +870,38 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     {
         _pollTimer?.Dispose();
         _pollTimer = CreateTimer(_pollingIntervalSeconds);
+    }
+
+    private void OpenLogFolder()
+    {
+        try
+        {
+            var logPath = Path.Combine(AppContext.BaseDirectory, "adam-service-manager.log");
+            if (!File.Exists(logPath))
+            {
+                // Try just opening the directory if the file doesn't exist yet
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = AppContext.BaseDirectory,
+                    UseShellExecute = true,
+                    Verb = "open"
+                });
+                return;
+            }
+
+            // Open the file with the default editor
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = logPath,
+                UseShellExecute = true,
+                Verb = "open"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open logs");
+            AddLog($"ERROR opening logs: {ex.Message}");
+        }
     }
 
     public void Dispose()

@@ -20,19 +20,22 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly ChecksumService _checksumService = new();
     private readonly MetadataExtractorService _metadataExtractor = new();
     private readonly ILogger<IngestionViewModel> _logger;
+    private readonly AiTaggingService? _aiTaggingService;
     private int _progressValue;
     private string _progressText = string.Empty;
     private bool _isIngesting;
     private string _ingestionStatus = string.Empty;
     private CancellationTokenSource? _cts;
     private System.Diagnostics.Stopwatch? _ingestStopwatch;
+    private bool _enableAiTagging;
 
     public event Action? IngestionCompleted;
 
-    public IngestionViewModel(ModeManager modeManager, ILogger<IngestionViewModel> logger)
+    public IngestionViewModel(ModeManager modeManager, ILogger<IngestionViewModel> logger, AiTaggingService? aiTaggingService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
+        _aiTaggingService = aiTaggingService;
         StartIngestionCommand = new RelayCommand(async _ => await StartIngestionAsync(), _ => !IsIngesting && PendingFiles.Count > 0);
         ClearCommand = new RelayCommand(_ => ClearFiles());
         RefreshFolderBrowserCommand = new RelayCommand(async _ => await LoadIngestedFoldersAsync());
@@ -54,6 +57,16 @@ public class IngestionViewModel : INotifyPropertyChanged
     {
         get => _progressText;
         set { _progressText = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// When enabled, AI tagging runs as a sequential post-pass after the parallel ingest completes.
+    /// (D-10: opt-in during ingest)
+    /// </summary>
+    public bool EnableAiTagging
+    {
+        get => _enableAiTagging;
+        set { _enableAiTagging = value; OnPropertyChanged(); }
     }
 
     public bool IsIngesting
@@ -152,6 +165,7 @@ public class IngestionViewModel : INotifyPropertyChanged
         var ct = _cts.Token;
 
         int ingested = 0, skipped = 0, errors = 0, processed = 0;
+        var imageIds = new System.Collections.Concurrent.ConcurrentBag<Guid>();
         var dbLock = new SemaphoreSlim(1, 1);
 
         await Parallel.ForEachAsync(
@@ -279,6 +293,10 @@ public class IngestionViewModel : INotifyPropertyChanged
                         Interlocked.Increment(ref ingested);
                         _logger.LogInformation("[{IngestId}] Ingested: {FilePath} -> asset={AssetId}, title=\"{Title}\", keywords={KwCount}, categories={CatCount}",
                             ingestId, filePath, assetId, asset.Title, textMetadata?.Keywords.Count ?? 0, textMetadata?.Categories.Count ?? 0);
+
+                        // Collect image asset IDs for optional AI tagging post-pass
+                        if (assetType == AssetType.Image)
+                            imageIds.Add(assetId);
                     }
                     finally
                     {
@@ -309,6 +327,30 @@ public class IngestionViewModel : INotifyPropertyChanged
 
         _cts.Dispose();
         _cts = null;
+
+        // Phase 9 Trigger A: sequential AI tagging post-pass (D-11)
+        if (EnableAiTagging && _aiTaggingService != null && imageIds.Count > 0 && errors == 0 && !ct.IsCancellationRequested)
+        {
+            _logger.LogInformation("[{IngestId}] AI tagging post-pass starting for {Count} image(s)", ingestId, imageIds.Count);
+            int aiDone = 0; var aiTotal = imageIds.Count;
+            foreach (var id in imageIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    await _aiTaggingService.TagAssetAsync(id, ct);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[{IngestId}] AI tagging failed for asset {AssetId}", ingestId, id);
+                }
+                aiDone++;
+                await ReportProgressAsync(aiDone, aiTotal, "AI tagging…");
+            }
+            _logger.LogInformation("[{IngestId}] AI tagging post-pass complete", ingestId);
+        }
+
         IsIngesting = false;
         ClearFiles();
         _logger.LogInformation("[{IngestId}] Ingestion complete \u2014 Ingested={Ingested}, Skipped={Skipped}, Errors={Errors}", ingestId, ingested, skipped, errors);

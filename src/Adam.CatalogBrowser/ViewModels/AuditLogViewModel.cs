@@ -5,7 +5,6 @@ using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Services;
-using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -17,6 +16,7 @@ public class AuditLogViewModel : INotifyPropertyChanged
 {
     private readonly ILogger<AuditLogViewModel> _logger;
     private readonly ModeManager _modeManager;
+    private readonly IUiDispatcher _dispatcher;
     private string _statusText = string.Empty;
     private bool _isLoading;
     private string _filterAction = string.Empty;
@@ -25,10 +25,11 @@ public class AuditLogViewModel : INotifyPropertyChanged
     private DateTimeOffset? _filterTo;
     private ObservableCollection<string> _logMessages = [];
 
-    public AuditLogViewModel(ModeManager modeManager, ILogger<AuditLogViewModel>? logger = null)
+    public AuditLogViewModel(ModeManager modeManager, ILogger<AuditLogViewModel>? logger = null, IUiDispatcher? dispatcher = null)
     {
         _logger = logger ?? NullLogger<AuditLogViewModel>.Instance;
         _modeManager = modeManager;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         RefreshCommand = new RelayCommand(async _ => await LoadLogsAsync());
         ExportCsvCommand = new RelayCommand(async _ => await ExportCsvAsync());
         ClearLogCommand = new RelayCommand(_ => LogMessages.Clear());
@@ -61,13 +62,13 @@ public class AuditLogViewModel : INotifyPropertyChanged
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         var entry = $"[{timestamp}] {message}";
 
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_dispatcher.CheckAccess())
         {
             AddLogEntry(entry);
         }
         else
         {
-            Dispatcher.UIThread.Post(() => AddLogEntry(entry));
+            _dispatcher.Post(() => AddLogEntry(entry));
         }
     }
 
@@ -78,11 +79,18 @@ public class AuditLogViewModel : INotifyPropertyChanged
         _logMessages.Add(entry);
     }
 
+    private async Task RunOnUiThreadAsync(Action action)
+    {
+        if (_dispatcher.CheckAccess())
+            action();
+        else
+            await _dispatcher.InvokeAsync(action);
+    }
+
     public async Task LoadLogsAsync()
     {
         AddLog("Loading audit logs...");
-        IsLoading = true;
-        Logs.Clear();
+        await RunOnUiThreadAsync(() => IsLoading = true);
 
         try
         {
@@ -90,6 +98,8 @@ public class AuditLogViewModel : INotifyPropertyChanged
             {
                 AddLog("Standalone mode: querying SQLite database...");
                 await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                await RunOnUiThreadAsync(() => Logs.Clear());
+
                 var query = db.AccessLogs.Include(l => l.User).AsQueryable();
 
                 if (!string.IsNullOrEmpty(FilterAction))
@@ -117,15 +127,18 @@ public class AuditLogViewModel : INotifyPropertyChanged
 
                 foreach (var l in logs)
                 {
-                    Logs.Add(new AuditLogItem
+                    await RunOnUiThreadAsync(() =>
                     {
-                        Id = l.Id,
-                        Username = l.User?.Username ?? "",
-                        Action = l.Action,
-                        EntityType = l.EntityType,
-                        EntityId = l.EntityId?.ToString() ?? "",
-                        Details = l.Details ?? "",
-                        Timestamp = l.Timestamp
+                        Logs.Add(new AuditLogItem
+                        {
+                            Id = l.Id,
+                            Username = l.User?.Username ?? "",
+                            Action = l.Action,
+                            EntityType = l.EntityType,
+                            EntityId = l.EntityId?.ToString() ?? "",
+                            Details = l.Details ?? "",
+                            Timestamp = l.Timestamp
+                        });
                     });
                 }
                 AddLog($"Loaded {logs.Count} log entr{(logs.Count == 1 ? "y" : "ies")} from database.");
@@ -179,15 +192,18 @@ public class AuditLogViewModel : INotifyPropertyChanged
                     var listResp = ProtoHelper.Deserialize<ListAuditLogsResponse>(resp.Payload.ToByteArray());
                     foreach (var l in listResp.Items)
                     {
-                        Logs.Add(new AuditLogItem
+                        await RunOnUiThreadAsync(() =>
                         {
-                            Id = Guid.Parse(l.Id),
-                            Username = l.Username,
-                            Action = l.Action,
-                            EntityType = l.EntityType,
-                            EntityId = l.EntityId ?? "",
-                            Details = l.Details ?? "",
-                            Timestamp = DateTimeOffset.FromUnixTimeSeconds(l.Timestamp)
+                            Logs.Add(new AuditLogItem
+                            {
+                                Id = Guid.Parse(l.Id),
+                                Username = l.Username,
+                                Action = l.Action,
+                                EntityType = l.EntityType,
+                                EntityId = l.EntityId ?? "",
+                                Details = l.Details ?? "",
+                                Timestamp = DateTimeOffset.FromUnixTimeSeconds(l.Timestamp)
+                            });
                         });
                     }
                     AddLog($"Loaded {listResp.Items.Count} log entr{(listResp.Items.Count == 1 ? "y" : "ies")} from broker.");
@@ -198,18 +214,18 @@ public class AuditLogViewModel : INotifyPropertyChanged
                 }
             }
 
-            StatusText = $"{Logs.Count} log entr{(Logs.Count == 1 ? "y" : "ies")}";
+            await RunOnUiThreadAsync(() => StatusText = $"{Logs.Count} log entr{(Logs.Count == 1 ? "y" : "ies")}");
             AddLog($"Displaying {Logs.Count} log entr{(Logs.Count == 1 ? "y" : "ies")}.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load audit logs");
             AddLog($"ERROR loading audit logs: {ex.GetType().Name}: {ex.Message}");
-            StatusText = $"Error: {ex.Message}";
+            await RunOnUiThreadAsync(() => StatusText = $"Error: {ex.Message}");
         }
         finally
         {
-            IsLoading = false;
+            await RunOnUiThreadAsync(() => IsLoading = false);
         }
     }
 

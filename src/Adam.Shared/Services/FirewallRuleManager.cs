@@ -23,6 +23,12 @@ public static class FirewallRuleManager
 
         logger ??= NullLogger.Instance;
 
+        if (await RuleExistsAsync(ct, logger).ConfigureAwait(false))
+        {
+            logger.LogInformation("Firewall rule '{RuleName}' already exists. Deleting to ensure correct configuration...", RuleName);
+            await RemoveRuleAsync(ct, logger).ConfigureAwait(false);
+        }
+
         var args = $"advfirewall firewall add rule name=\"{RuleName}\" protocol=TCP dir=in localport={port} action=allow profile=any description=\"Allows the Adam Digital Asset Management Broker Service to receive connections on TCP port {port}.\"";
 
         logger.LogDebug("Running netsh {Args}", args);

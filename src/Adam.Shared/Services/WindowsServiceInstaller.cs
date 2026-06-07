@@ -100,15 +100,17 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
                 await RunScAsync($"stop {ServiceName}", ct);
             }
 
-            _logger.LogInformation("[TIMING] Updating service config: binPath='{BrokerPath}'...", brokerPath);
-            await RunScAsync($"config {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
+            _logger.LogInformation("[TIMING] Updating service config with brokerPath='{BrokerPath}'...", brokerPath);
+            await UpdateBrokerConfigAsync(brokerPath, port);
+            await RunScAsync($"config {ServiceName} binPath= \"{brokerPath}\" start=auto", ct);
             _logger.LogInformation("[TIMING] Updating service description...");
             await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
         }
         else
         {
-            _logger.LogInformation("[TIMING] Creating new service '{ServiceName}' with binPath='{BrokerPath}'...", ServiceName, brokerPath);
-            await RunScAsync($"create {ServiceName} binPath=\"{brokerPath}\" start=auto", ct);
+            _logger.LogInformation("[TIMING] Creating new service '{ServiceName}' with brokerPath='{BrokerPath}'...", ServiceName, brokerPath);
+            await UpdateBrokerConfigAsync(brokerPath, port);
+            await RunScAsync(BuildScCreateArguments(ServiceName, brokerPath), ct);
             _logger.LogInformation("[TIMING] Setting service description...");
             await RunScAsync($"description {ServiceName} \"Adam Digital Asset Management Broker Service\"", ct);
         }
@@ -294,7 +296,20 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
                     }
                 };
 
-                process.Start();
+                try
+                {
+                    process.Start();
+                }
+                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223) // ERROR_CANCELLED
+                {
+                    _logger.LogWarning("UAC prompt was cancelled by the user.");
+                    throw new OperationCanceledException("Elevation was cancelled by the user.", ex);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to start elevated process");
+                    throw;
+                }
                 var pid = process.Id;
                 _logger.LogInformation("[TIMING] Elevated process started with PID={Pid} after {ElapsedMs:F0}ms — now waiting for exit (timeout={TimeoutMs}ms)...",
                     pid, sw.Elapsed.TotalMilliseconds, elevatedTimeoutMs);
@@ -563,6 +578,47 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
     }
 
     /// <summary>
+    /// Updates the <c>appsettings.json</c> file alongside the broker executable with the
+    /// configured port, so the broker reads the correct port from configuration rather than
+    /// relying on command-line arguments (which confuse <c>sc.exe</c>'s parser).
+    /// </summary>
+    private async Task UpdateBrokerConfigAsync(string brokerPath, int port)
+    {
+        var brokerDir = Path.GetDirectoryName(brokerPath);
+        if (string.IsNullOrEmpty(brokerDir)) return;
+
+        var configPath = Path.Combine(brokerDir, "appsettings.json");
+        if (!File.Exists(configPath))
+        {
+            _logger.LogWarning("appsettings.json not found at {ConfigPath} — skipping port configuration.", configPath);
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("[TIMING] Updating broker port to {Port} in {ConfigPath}...", port, configPath);
+            var json = await File.ReadAllTextAsync(configPath);
+            var node = System.Text.Json.Nodes.JsonNode.Parse(json);
+            if (node is System.Text.Json.Nodes.JsonObject root &&
+                root["Broker"] is System.Text.Json.Nodes.JsonObject broker)
+            {
+                broker["Port"] = port;
+                var opts = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+                await File.WriteAllTextAsync(configPath, root.ToJsonString(opts));
+                _logger.LogInformation("[TIMING] Broker port updated to {Port} in appsettings.json.", port);
+            }
+            else
+            {
+                _logger.LogWarning("Could not find 'Broker:Port' in appsettings.json — config structure may differ.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update appsettings.json — continuing anyway (broker will use default port).");
+        }
+    }
+
+    /// <summary>
     /// Logs diagnostic state information before elevation to help debug issues.
     /// </summary>
     private void LogDiagnosticState()
@@ -587,6 +643,21 @@ public sealed class WindowsServiceInstaller : IServiceInstaller
     {
         if (!IsSupported)
             throw new PlatformNotSupportedException("Windows Service is only supported on Windows.");
+    }
+
+    /// <summary>
+    /// Builds the <c>sc.exe create</c> arguments string for a service installation.
+    /// The binPath uses only the exe path (no additional arguments) because:
+    /// 1. <c>sc.exe</c>'s parser doesn't understand quoted values with embedded <c>=</c> signs
+    /// 2. Service configuration (port, etc.) is configured via <c>appsettings.json</c>
+    ///    alongside the broker executable during installation.
+    /// Format: <c>create &lt;serviceName&gt; binPath= "&lt;brokerPath&gt;" start=auto</c>
+    /// </summary>
+    internal static string BuildScCreateArguments(string serviceName, string brokerPath)
+    {
+        // Quote the path if it contains spaces so sc.exe sees it as one argument
+        var pathArg = brokerPath.Contains(' ') ? $"\"{brokerPath}\"" : brokerPath;
+        return $"create {serviceName} binPath= {pathArg} start=auto";
     }
 
     private void EnsureAbsolutePath(string path)

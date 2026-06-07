@@ -1,4 +1,4 @@
-using Adam.BrokerService.Configuration;
+using Adam.Shared.Configuration;
 using Adam.BrokerService.Data;
 using Adam.BrokerService.Handlers;
 using Adam.BrokerService.Services;
@@ -9,7 +9,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+// Configure connection debug log to a directory the broker can always write to,
+// even when running as a Windows Service (SYSTEM/LOCAL SERVICE).
+var brokerLogDir = Path.Combine(Path.GetTempPath(), "Adam", "BrokerService");
+ConnectionDebugLogger.LogDirectory = brokerLogDir;
+ConnectionDebugLogger.Reset();
+ConnectionDebugLogger.Info($"[BROKER] BrokerService starting (args={string.Join(" ", args)})");
+ConnectionDebugLogger.Info($"[BROKER] Machine={Environment.MachineName}, OS={Environment.OSVersion}");
+ConnectionDebugLogger.Info($"[BROKER] Debug log: {ConnectionDebugLogger.LogFilePath}");
+
+var exeDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
+
 var host = Host.CreateDefaultBuilder(args)
+    .UseContentRoot(exeDir)
     .UseWindowsService()
     .ConfigureServices((ctx, services) =>
     {

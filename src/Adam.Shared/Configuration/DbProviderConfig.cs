@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Adam.Shared.Data;
 
-namespace Adam.BrokerService.Configuration;
+namespace Adam.Shared.Configuration;
 
 public sealed class DbProviderConfig
 {
@@ -13,8 +13,8 @@ public sealed class DbProviderConfig
     {
         return new DbProviderConfig
         {
-            Provider = config.GetValue<string>("DbProvider") ?? "sqlite",
-            ConnectionString = config.GetValue<string>("DbConnection") ?? $"Data Source={config.GetValue<string>("DbPath") ?? "catalog.db"}"
+            Provider = config["DbProvider"] ?? "sqlite",
+            ConnectionString = config["DbConnection"] ?? $"Data Source={config["DbPath"] ?? "catalog.db"}"
         };
     }
 

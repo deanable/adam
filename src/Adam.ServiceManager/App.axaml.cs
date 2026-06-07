@@ -65,9 +65,38 @@ public partial class App : Application
             });
 
             var provider = services.BuildServiceProvider();
+            var startupLogger = provider.GetRequiredService<ILogger<App>>();
 
-            // Initialize the database
-            modeManager.InitializeAsync().GetAwaiter().GetResult();
+            // Initialize the database based on configuration.
+            //
+            // This must NEVER prevent the window from appearing: once the BrokerService
+            // is running it holds the SQLite catalog database, so EnsureCreated/OpenConnection
+            // here can throw "database is locked". If that bubbled out of
+            // OnFrameworkInitializationCompleted the MainWindow would never be created and the
+            // app would exit silently — the user would see it "not launch" after starting the
+            // service. So we swallow init failures, log them, and still show the window. The
+            // Users tab re-creates its own DbContext on demand and surfaces any DB error there.
+            try
+            {
+                if (config.DbProvider.Equals("sqlite", StringComparison.OrdinalIgnoreCase))
+                {
+                    modeManager.InitializeAsync().GetAwaiter().GetResult();
+                }
+                else
+                {
+                    modeManager.InitializeMultiUserAsync(
+                        config.ServiceHost,
+                        config.ServicePort,
+                        config.DbProvider,
+                        config.DbConnection).GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception ex)
+            {
+                startupLogger.LogError(ex,
+                    "Database initialization failed at startup (the running service may hold the database). " +
+                    "Continuing so the Service Manager window still opens.");
+            }
 
             var vm = provider.GetRequiredService<ServiceManagerViewModel>();
             var mainWindow = new MainWindow

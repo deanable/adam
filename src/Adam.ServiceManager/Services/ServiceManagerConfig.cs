@@ -19,6 +19,29 @@ public sealed class ServiceManagerConfig
     public int ServicePort { get; set; } = 9100;
 
     /// <summary>
+    /// Whether clients should connect using TLS. Published to the registry so
+    /// the Catalog Browser configures its connection to match the service.
+    /// </summary>
+    public bool UseTls { get; set; }
+
+    /// <summary>
+    /// Whether clients should accept the service's self-signed certificate.
+    /// Only meaningful when <see cref="UseTls"/> is enabled.
+    /// </summary>
+    public bool AllowSelfSigned { get; set; } = true;
+
+    /// <summary>
+    /// Database provider for the Broker service this manager is controlling.
+    /// Used by ModeManager to connect to the correct database for user management.
+    /// </summary>
+    public string DbProvider { get; set; } = "sqlite";
+
+    /// <summary>
+    /// Database connection string for the Broker service.
+    /// </summary>
+    public string DbConnection { get; set; } = "Data Source=catalog.db";
+
+    /// <summary>
     /// When true, closing the window minimizes to the system tray instead of exiting.
     /// Managed by the toggle in Service Configuration. Defaults to true since
     /// the app has a tray icon and background service polling.

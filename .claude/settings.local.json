@@ -2,7 +2,30 @@
   "permissions": {
     "allow": [
       "Bash(claude install *)",
-      "Bash(npm *)"
+      "Bash(npm *)",
+      "Bash(dotnet build *)",
+      "Bash(taskkill //PID 61504 //F)",
+      "Bash(dotnet test *)",
+      "Bash(sc query *)",
+      "Bash(./Adam.ServiceManager.exe)",
+      "Bash(tasklist)",
+      "Bash(taskkill //PID 48644 //F)",
+      "Bash(ls -la *.manifest app.manifest)",
+      "Bash(ls -la \"C:/Users/Dean/source/repos/adam/src/Adam.BrokerService/\"*.manifest)",
+      "Bash(find \"C:/Users/Dean/source/repos/adam/src\" -name \"*.manifest\")",
+      "Bash(taskkill //IM Adam.ServiceManager.exe //F)",
+      "Bash(xargs grep -ln \"Listen\\\\|IPAddress\\\\|TcpListener\\\\|Bind\\\\|0.0.0.0\\\\|Loopback\\\\|Any\")",
+      "Bash(ls -la src/Adam.Shared/Configuration/)",
+      "Bash(head -12 src/Adam.Shared/Configuration/*.cs)",
+      "Bash(taskkill //IM Adam.CatalogBrowser.exe //F)",
+      "Bash(echo \"EXIT=$?\")",
+      "Skill(gsd-phase)",
+      "Skill(gsd-plan-phase)",
+      "WebSearch",
+      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs commit \"docs\\(09\\): add context and validation strategy\" --files \".planning/phases/09-ai-image-tagging/09-CONTEXT.md\" \".planning/phases/09-ai-image-tagging/09-VALIDATION.md\")",
+      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs config-get workflow.pattern_mapper)",
+      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs config-get workflow.security_enforcement)",
+      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs agent-skills gsd-planner)"
     ]
   }
 }

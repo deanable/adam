@@ -34,10 +34,10 @@
       <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4"
               IsVisible="{Binding IsEditing}">
         <StackPanel Spacing="8">
-          <TextBlock Text="Edit User" FontSize="14" FontWeight="SemiBold" />
+          <TextBlock Text="User Details" FontSize="14" FontWeight="SemiBold" />
           <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Username:" VerticalAlignment="Center" />
-            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditUsername}" IsReadOnly="True" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditUsername}" IsReadOnly="{Binding IsUsernameReadOnly}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Email:" VerticalAlignment="Center" />
             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditEmail}" />

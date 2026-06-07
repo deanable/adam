@@ -21,6 +21,81 @@ public sealed class ServiceInstallerTests
     //  WindowsServiceInstaller (safe tests)
     // ──────────────────────────────────────────────
 
+    public sealed class WindowsServiceInstallerScCreateCommandTests
+    {
+        [Fact]
+        public void BuildScCreateArguments_PathWithSpaces_QuotesThePath()
+        {
+            var result = WindowsServiceInstaller.BuildScCreateArguments(
+                "AdamBrokerService", @"C:\Program Files\Adam\BrokerService.exe");
+
+            // Path with spaces gets quoted
+            result.Should().Be(
+                "create AdamBrokerService binPath= \"C:\\Program Files\\Adam\\BrokerService.exe\" start=auto");
+
+            // Verify no double-nested quotes (the original bug)
+            result.Should().NotContain("\"\"");
+
+            // No args after the path
+            result.Should().NotContain("--DbPort");
+        }
+
+        [Fact]
+        public void BuildScCreateArguments_PathWithoutSpaces_NoQuotes()
+        {
+            var result = WindowsServiceInstaller.BuildScCreateArguments(
+                "AdamBrokerService", @"C:\Adam\Broker.exe");
+
+            // Path without spaces should NOT be quoted to avoid confusing sc.exe
+            result.Should().Be(
+                "create AdamBrokerService binPath= C:\\Adam\\Broker.exe start=auto");
+
+            result.Should().NotContain("\"");
+        }
+
+        [Fact]
+        public void BuildScCreateArguments_ServiceName_IsCorrect()
+        {
+            var result = WindowsServiceInstaller.BuildScCreateArguments(
+                "CustomService", @"C:\path\svc.exe");
+
+            result.Should().StartWith("create CustomService");
+            result.Should().Contain("start=auto");
+        }
+
+        [Fact]
+        public void BuildScCreateArguments_NoPortArgs()
+        {
+            var result = WindowsServiceInstaller.BuildScCreateArguments(
+                "Svc", @"C:\s.exe");
+
+            // No --DbPort or any other argument — port is configured via appsettings.json
+            result.Should().NotContain("--");
+            result.Should().NotContain("DbPort");
+        }
+
+        /// <summary>
+        /// Verifies that the previous approach (embedding --DbPort=9090 in the binPath)
+        /// is no longer used, because sc.exe's parser cannot handle = signs inside binPath values.
+        /// The port is now configured via appsettings.json instead.
+        /// </summary>
+        [Fact]
+        public void BuildScCreateArguments_PortConfiguredViaFileNotArgs()
+        {
+            var serviceName = "TestService";
+            var brokerPath = @"C:\Adam\Service.exe";
+
+            var result = WindowsServiceInstaller.BuildScCreateArguments(serviceName, brokerPath);
+
+            // The old approach passed --DbPort=9090 as an argument — this is no longer done
+            result.Should().NotContain("--");
+            result.Should().NotContain("9090");
+
+            // Clean binPath: just the exe path, no inline arguments
+            result.Should().Be("create TestService binPath= C:\\Adam\\Service.exe start=auto");
+        }
+    }
+
     public sealed class WindowsServiceInstallerSafeTests
     {
         private readonly WindowsServiceInstaller _sut = new();

@@ -52,15 +52,19 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService());
+        var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
+        var statusBar = new StatusBarViewModel(_bulkQueue);
 
         _vm = new MainWindowViewModel(
             _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
             ingestion, metadataEditor,
-            auditLog, _bulkQueue);
+            auditLog, _bulkQueue,
+            propertyInspector, connection, statusBar);
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false
         // dispatch (it would hang without a pumping dispatcher).
-        SetField("_isInitialLoading", false);
+        _vm.StatusBar.IsInitialLoading = false;
     }
 
     public async Task DisposeAsync()
@@ -366,10 +370,30 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
 
     private void SetField(string fieldName, object? value)
     {
-        var field = typeof(MainWindowViewModel)
-            .GetField(fieldName,
-                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
-        field.SetValue(_vm, value);
+        var target = (object)_vm;
+        var type = typeof(MainWindowViewModel);
+
+        if (fieldName is "_selectedAsset" or "_tagsDirty" or "_descriptionDirty" or "_categoriesDirty" or "_selectedAssets")
+        {
+            target = _vm.PropertyInspector;
+            type = typeof(PropertyInspectorViewModel);
+        }
+        else if (fieldName is "_isConnectedToService" or "_isServiceMode")
+        {
+            target = _vm.Connection;
+            type = typeof(ConnectionViewModel);
+        }
+        else if (fieldName is "_isInitialLoading")
+        {
+            target = _vm.StatusBar;
+            type = typeof(StatusBarViewModel);
+        }
+
+        var field = type.GetField(fieldName,
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Public)!;
+        field.SetValue(target, value);
     }
 
     private static List<Guid> InvokeParseAssetIds(string csv)

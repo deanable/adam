@@ -1,4 +1,4 @@
-using Adam.BrokerService.Configuration;
+using Adam.Shared.Configuration;
 using Adam.BrokerService.Tests.Infrastructure;
 using Adam.Shared.Data;
 using Adam.Shared.Models;

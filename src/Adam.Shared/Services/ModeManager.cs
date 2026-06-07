@@ -1,6 +1,6 @@
+using Adam.Shared.Configuration;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Adam.Shared.Services;
@@ -8,6 +8,7 @@ namespace Adam.Shared.Services;
 public sealed class ModeManager
 {
     private readonly string _basePath;
+    private DbProviderConfig? _dbConfig;
 
     public ModeManager(string basePath, BrokerClient? broker = null, AuthSession? authSession = null)
     {
@@ -17,7 +18,7 @@ public sealed class ModeManager
     }
 
     public string Mode { get; private set; } = "Standalone";
-    public string DbProvider { get; private set; } = "sqlite";
+    public string DbProvider => _dbConfig?.Provider ?? "sqlite";
     public string DbPath { get; private set; } = string.Empty;
     public string? ServiceEndpoint { get; private set; }
 
@@ -32,9 +33,14 @@ public sealed class ModeManager
     public async Task InitializeAsync()
     {
         Mode = "Standalone";
-        DbProvider = "sqlite";
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
+
+        _dbConfig = new DbProviderConfig
+        {
+            Provider = "sqlite",
+            ConnectionString = $"Data Source={DbPath}"
+        };
 
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager DbPath: {DbPath}");
         System.Diagnostics.Debug.WriteLine($"[adam] ModeManager basePath: {_basePath}");
@@ -44,13 +50,18 @@ public sealed class ModeManager
         await ApplyMigrationsAsync(db);
     }
 
-    public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite")
+    public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite", string? connectionString = null)
     {
         Mode = "MultiUser";
-        DbProvider = dbProvider;
         ServiceEndpoint = $"{host}:{port}";
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
+
+        _dbConfig = new DbProviderConfig
+        {
+            Provider = dbProvider,
+            ConnectionString = connectionString ?? $"Data Source={DbPath}"
+        };
 
         await using var db = CreateDbContext();
         await db.Database.EnsureCreatedAsync();
@@ -59,16 +70,13 @@ public sealed class ModeManager
 
     public AppDbContext CreateDbContext()
     {
-        var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath};Pooling=False");
-        connection.Open();
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = "PRAGMA busy_timeout = 10000;";
-        cmd.ExecuteNonQuery();
+        if (_dbConfig == null)
+            throw new InvalidOperationException("ModeManager not initialized. Call InitializeAsync or InitializeMultiUserAsync first.");
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(connection)
-            .Options;
-        return new AppDbContext(options);
+        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        _dbConfig.Configure(optionsBuilder);
+
+        return new AppDbContext(optionsBuilder.Options);
     }
 
     /// <summary>
@@ -77,16 +85,18 @@ public sealed class ModeManager
     /// </summary>
     public async Task<AppDbContext> CreateDbContextAsync(CancellationToken ct = default)
     {
-        var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath};Pooling=False");
-        await connection.OpenAsync(ct).ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "PRAGMA busy_timeout = 10000;";
-        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        if (_dbConfig == null)
+            throw new InvalidOperationException("ModeManager not initialized. Call InitializeAsync or InitializeMultiUserAsync first.");
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(connection)
-            .Options;
-        return new AppDbContext(options);
+        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        _dbConfig.Configure(optionsBuilder);
+
+        var db = new AppDbContext(optionsBuilder.Options);
+        
+        // Ensure the connection is actually opened asynchronously if it's not already
+        await db.Database.OpenConnectionAsync(ct).ConfigureAwait(false);
+        
+        return db;
     }
 
     private static async Task ApplyMigrationsAsync(AppDbContext db)
