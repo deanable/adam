@@ -12,7 +12,7 @@
 
     <!-- Toolbar -->
     <Border Grid.Row="0" Background="#FAFAFA" Padding="8" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
           <TextBlock Text="View:" VerticalAlignment="Center" FontSize="12" Foreground="#555" />
           <ComboBox ItemsSource="{Binding ViewOptions}"
@@ -34,7 +34,34 @@
                      Width="40" />
         </StackPanel>
 
-        <TextBlock Grid.Column="4"
+        <!-- AI Tag Selected button (Trigger C) -->
+        <Button Grid.Column="3"
+                Content="🤖 AI Tag Selected"
+                Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                FontSize="11"
+                Padding="8,2"
+                Margin="4,0"
+                Background="#7B1FA2"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4"
+                VerticalAlignment="Center"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#E0E0E0" />
+              <Setter Property="Foreground" Value="#999" />
+            </Style>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#8E24AA" />
+            </Style>
+            <Style Selector="Button:pressed">
+              <Setter Property="Background" Value="#6A1B9A" />
+            </Style>
+          </Button.Styles>
+        </Button>
+
+        <TextBlock Grid.Column="5"
                    Text="{Binding StatusText}"
                    VerticalAlignment="Center"
                    FontSize="11"
