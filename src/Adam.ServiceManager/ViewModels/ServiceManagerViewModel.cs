@@ -41,7 +41,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     private int _pollingIntervalSeconds;
     private readonly IUiDispatcher _dispatcher;
 
-    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null, IUiDispatcher? dispatcher = null)
+    public ServiceManagerViewModel(IEnumerable<IServiceInstaller> serviceInstallers, ILogger<ServiceManagerViewModel>? logger = null, ObservableCollection<string>? serviceLogMessages = null, UserManagementViewModel? userManagement = null, AuditLogViewModel? auditLog = null, IUiDispatcher? dispatcher = null)
     {
         _logger = logger ?? NullLogger<ServiceManagerViewModel>.Instance;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
@@ -51,6 +51,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             _serviceInstaller.GetType().Name, _serviceInstaller.IsSupported, _serviceInstaller.ServiceName);
 
         UserManagement = userManagement ?? throw new ArgumentNullException(nameof(userManagement));
+        AuditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
         _currentView = this; // Start with service view
 
         // Detect elevation state
@@ -102,6 +103,12 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
             IsServiceTabSelected = false;
             CurrentView = UserManagement;
             await UserManagement.LoadUsersAsync();
+        });
+        ShowAuditLogCommand = new RelayCommand(async _ =>
+        {
+            IsServiceTabSelected = false;
+            CurrentView = AuditLog;
+            await AuditLog.LoadLogsAsync();
         });
 
         // Auto-refresh timer: polls service status on a background thread.
@@ -212,9 +219,11 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public bool IsUserTabSelected => !_isServiceTabSelected;
+    public bool IsUserTabSelected => !_isServiceTabSelected && CurrentView != AuditLog;
+    public bool IsAuditTabSelected => CurrentView == AuditLog;
 
     public UserManagementViewModel UserManagement { get; }
+    public AuditLogViewModel AuditLog { get; }
 
     public object? CurrentView
     {
@@ -240,6 +249,7 @@ public class ServiceManagerViewModel : INotifyPropertyChanged, IDisposable
     public ICommand OpenLogFolderCommand { get; }
     public ICommand ShowServiceViewCommand { get; }
     public ICommand ShowUserManagementCommand { get; }
+    public ICommand ShowAuditLogCommand { get; }
 
     // ─── Configuration ───────────────────────────────────────────────
 

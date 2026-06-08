@@ -23,11 +23,15 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 ## Quick Commands
 
 - `/gsd-progress` — Check current phase progress and next actions
-- `/gsd-discuss-phase 1` — Gather context before planning Phase 1
-- `/gsd-plan-phase 1` — Create detailed plan for Phase 1
-- `/gsd-execute-phase 1` — Execute all plans in Phase 1
+- `/gsd-discuss-phase 7` — Gather context before planning Phase 7
+- `/gsd-plan-phase 7` — Create detailed plan for Phase 7
+- `/gsd-execute-phase 7` — Execute all plans in Phase 7
 - `/gsd-verify-work` — Validate completed features against requirements
-- `/gsd-code-review 1` — Review code changes in Phase 1
+- `/gsd-code-review 7` — Review code changes in Phase 7
+
+**Current Phase:** 7 — Client RBAC & Hardening
+**Milestone:** v1.2 — Client Polish (Phases 7-8)
+**Tests:** 383 passing (2 Docker-dependent skipped)
 
 ## Project-Specific Guidance
 
@@ -35,9 +39,9 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 
 There is a strict separation between the **client** and the **server panel**:
 
-- **CatalogBrowser** (`Adam.CatalogBrowser`) — The client. Only handles asset browsing, metadata editing, ingestion, and **connecting to** the service. All server administration (user management, service installation, server setup) has been removed. The connection bar in the title bar provides host/port, connect, disconnect, login, and logout functionality.
+- **CatalogBrowser** (`Adam.CatalogBrowser`) — The client. Only handles asset browsing, metadata editing, ingestion, and **connecting to** the service. All server administration (user management, service installation, server setup) has been removed. The connection bar in the title bar provides host/port, connect, disconnect, login, and logout functionality. The right panel provides metadata editing (tags, ratings, labels, flags, GPS, copyright), rotate/flip, and export.
 
-- **ServiceManager** (`Adam.ServiceManager`) — The server panel. Handles all server-side functionality: service installation/uninstallation, start/stop, port configuration, and **user management** (add/edit/deactivate users, role assignment). Requires administrator/elevated privileges for service management operations.
+- **ServiceManager** (`Adam.ServiceManager`) — The server panel. 3-tab layout: **Admin Panel** (service status, migration wizard), **Users** (add/edit/deactivate users, role assignment), **Audit** (filterable audit log viewer). Requires administrator/elevated privileges for service management operations.
 
 - **BrokerService** (`Adam.BrokerService`) — The TCP broker that mediates multi-user access to the shared database.
 
@@ -58,7 +62,7 @@ All multi-user communication uses raw TCP with length-prefixed protobuf framing 
 
 ### Critical Known Issues
 - ~~Port mismatch~~ **RESOLVED**: `BrokerClient` now receives host/port from `AdamConfig` (configurable via connection bar UI / `settings.json`). No longer hardcoded.
-- **Static JWT key**: `AuthHandler._signingKey` is static mutable — potential race condition
+- ~~Static JWT key~~ **RESOLVED**: `AuthHandler._signingKey` is now an instance field, no longer static mutable (T2.12)
 - See `.planning/codebase/CONCERNS.md` for full list
 
 ### Service Infrastructure
@@ -75,7 +79,8 @@ All multi-user communication uses raw TCP with length-prefixed protobuf framing 
 #### Service Installers
 `IServiceInstaller` interface (`Adam.Shared.Services`) provides platform-specific installation:
 - **WindowsServiceInstaller** — Uses `sc.exe` for service management. Before install: checks port via `PortChecker`, alerts if in use. After install: adds Windows Firewall rule via `FirewallRuleManager`. Uninstall: removes the firewall rule.
-- **LinuxServiceInstaller** / **MacOsServiceInstaller** — Accept the port parameter as a no-op for future implementation (platform stubs)
+- **LinuxServiceInstaller** — Uses `systemctl` for systemd service management (install/uninstall/start/stop/status). Accepts broker path and port.
+- **MacOsServiceInstaller** — Uses `launchctl` for launchd service management (install/uninstall/start/stop/status). Accepts broker path and port.
 - **NullServiceInstaller** — Fallback when no platform installer is available; throws `PlatformNotSupportedException`
 
 #### Firewall Rules
@@ -86,7 +91,28 @@ All multi-user communication uses raw TCP with length-prefixed protobuf framing 
 - Gracefully degrades on non-Windows (checks `OperatingSystem.IsWindows()`) and when netsh is unavailable (e.g., non-elevated context, Nano Server)
 - Rule name: "Adam Broker Service (TCP)", description includes the specific port number
 
-#### File Streaming
+#### AI Image Tagging (Phase 9)
+
+`LiquidVision.Core` (in-repo) provides local LFM2-VL ONNX model inference for auto-tagging images. No Python or cloud dependency.
+
+**Configuration:**
+- `AddLiquidVision()` in `CatalogBrowser/App.axaml.cs` with `Precision = Q4F16`, `ExecutionProvider = Cpu`
+- `AiTaggingService` registered as singleton in DI
+
+**Three triggers:**
+1. **Ingest opt-in** (`EnableAiTagging` checkbox in `IngestionViewModel`) — runs as a sequential post-pass after parallel ingest completes (never inside `Parallel.ForEachAsync`)
+2. **Per-asset Auto-tag** (`AutoTagCommand` in `MetadataEditorViewModel`) — unions keywords into editable tags, fills description when empty, applies categories directly to DB
+3. **Bulk re-tag** (`AiTagSelectedCommand` in gallery) — filters to images, sequential, status bar progress
+
+**Model download progress** is surfaced via `AiTaggingService.PropertyChanged` → `StatusBarViewModel.IsModelDownloading`/`ModelDownloadPercentage`
+
+**Testing:**
+```bash
+dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
+```
+7 unit tests cover image-only guard, keyword/category merge, description fill, cancellation, batch progress, and analyze-only path.
+
+### File Streaming
 - **GetFileRequest** / **GetFileResponse** — Protobuf contracts for retrieving file bytes from BrokerService
 - **AssetHandler.GetFileAsync** — Looks up asset in DB, verifies `StoragePath` exists on disk, reads all bytes, returns metadata (filename, extension, MIME type, size, checksum) + content as `ByteString`
 - Error codes: 5 (asset not found), 6 (file missing on disk), 7 (forbidden), 13 (read failure)
@@ -105,10 +131,10 @@ dotnet test
 
 Run specific test suites:
 ```bash
-dotnet test tests/Adam.BrokerService.Tests
-dotnet test tests/Adam.CatalogBrowser.Tests
-dotnet test tests/Adam.ServiceManager.Tests
-dotnet test tests/Adam.Shared.Tests
+dotnet test tests/Adam.Shared.Tests         # 137 tests (core services, AI tagging, auth)
+dotnet test tests/Adam.BrokerService.Tests  # 92 tests (90 pass, 2 skipped w/o Docker)
+dotnet test tests/Adam.ServiceManager.Tests # 156 tests (admin panel, user mgmt, audit log)
+dotnet test tests/Adam.CatalogBrowser.Tests # headless Avalonia tests
 ```
 
 Run BrokerService tests by category (filter by test name):
@@ -116,19 +142,15 @@ Run BrokerService tests by category (filter by test name):
 dotnet test tests/Adam.BrokerService.Tests --filter "FullyQualifiedName~ConfigurablePort"
 dotnet test tests/Adam.BrokerService.Tests --filter "FullyQualifiedName~FileStreaming"
 dotnet test tests/Adam.BrokerService.Tests --filter "FullyQualifiedName~Collections"
+dotnet test tests/Adam.BrokerService.Tests --filter "FullyQualifiedName~DbProvider"
 ```
 
-Run CatalogBrowser headless tests (uses Avalonia.Headless):
+Run AI Tagging tests:
 ```bash
-dotnet test tests/Adam.CatalogBrowser.Tests
+dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
 ```
 
-Run ServiceManager tests:
-```bash
-dotnet test tests/Adam.ServiceManager.Tests
-```
-
-Integration tests use Testcontainers for database provider matrix testing. 2 tests are skipped when Docker is unavailable.
+**Total: 383 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
 
 ### Testing ServiceManager ViewModels
 

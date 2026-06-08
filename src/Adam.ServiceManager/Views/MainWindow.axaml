@@ -15,6 +15,9 @@
     <DataTemplate DataType="{x:Type vm:UserManagementViewModel}">
       <views:UserManagementView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AuditLogViewModel}">
+      <views:AuditLogView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid RowDefinitions="Auto,Auto,*">
@@ -44,6 +47,13 @@
         <Button Content="Users"
                 Command="{Binding ShowUserManagementCommand}"
                 Foreground="White" Background="{Binding IsUserTabSelected, Converter={x:Static local:TabBgConverter.Instance}}"
+                BorderThickness="0"
+                Padding="16,6"
+                FontSize="12"
+                Cursor="Hand" />
+        <Button Content="Audit"
+                Command="{Binding ShowAuditLogCommand}"
+                Foreground="White" Background="{Binding IsAuditTabSelected, Converter={x:Static local:TabBgConverter.Instance}}"
                 BorderThickness="0"
                 Padding="16,6"
                 FontSize="12"

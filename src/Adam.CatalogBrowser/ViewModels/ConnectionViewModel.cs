@@ -133,6 +133,12 @@ public class ConnectionViewModel : INotifyPropertyChanged
     /// </summary>
     public event Func<Task>? ServiceConnected;
 
+    /// <summary>
+    /// Raised when the server returns status code 7 (account deactivated) or
+    /// the token expires, signalling the host to force a logout (T7.4).
+    /// </summary>
+    public event Func<Task>? ForceLogout;
+
     private async Task ShowLoginAndConnectAsync()
     {
         ConnectionDebugLogger.Info($"ShowLoginAndConnectAsync: switching to service mode (host={ServiceHost}:{ServicePort})");
@@ -230,11 +236,37 @@ public class ConnectionViewModel : INotifyPropertyChanged
         ConnectionDebugLogger.Info("DisconnectFromServiceAsync: completed");
     }
 
-    private async Task LogoutAsync()
+    public async Task LogoutAsync()
     {
         ConnectionDebugLogger.Info("LogoutAsync: logging out and disconnecting");
         _modeManager.AuthSession?.Logout();
         await DisconnectFromServiceAsync();
+    }
+
+    /// <summary>
+    /// Validates the current session with the broker.
+    /// If the account was deactivated, fires ForceLogout (T7.4, T7.5).
+    /// Returns the current user profile, or null if invalid.
+    /// </summary>
+    public async Task<UserProfile?> ValidateSessionAsync(CancellationToken ct = default)
+    {
+        var auth = _modeManager.AuthSession;
+        if (auth == null || !auth.IsLoggedIn)
+            return null;
+
+        var profile = await auth.ValidateTokenAsync(ct);
+        if (profile == null && auth.CurrentUser == null)
+        {
+            // Account was deactivated — fire forced logout
+            _logger.LogWarning("Session validation failed — account may be deactivated");
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                if (ForceLogout != null)
+                    await ForceLogout();
+            });
+        }
+
+        return profile;
     }
 
     private async Task SwitchToLocalAsync()

@@ -47,16 +47,21 @@
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
           <!-- Navigation -->
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
-          <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
-          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
-          <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+          <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  IsVisible="{Binding CanIngest}" />
+          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  IsVisible="{Binding CanEditMetadata}" />
+          <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  IsVisible="{Binding CanAudit}" />
 
           <!-- Admin / Service Manager separator -->
-          <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center" />
+          <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center"
+                     IsVisible="{Binding CanAdminister}" />
           <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"
                   Foreground="#CCFFCC" Background="#004D40" BorderThickness="0"
                   FontSize="11" Padding="8,2" CornerRadius="3" Margin="0,0,8,0"
-                  Cursor="Hand">
+                  Cursor="Hand"
+                  IsVisible="{Binding CanAdminister}">
             <Button.Styles>
               <Style Selector="Button:pointerover">
                 <Setter Property="Background" Value="#00695C" />
@@ -559,11 +564,16 @@
 
     <!-- Status bar -->
     <Border Grid.Row="3" Background="#F0F0F0" Padding="4,2">
-      <Grid ColumnDefinitions="*,Auto,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <TextBlock Text="{Binding StatusBar.StatusText}" FontSize="10" Foreground="#666" VerticalAlignment="Center" />
 
+        <!-- Session info (Phase 7) -->
+        <TextBlock Grid.Column="1" Text="{Binding SessionStatusText}" FontSize="10" Foreground="#999"
+                   VerticalAlignment="Center" Margin="4,0"
+                   IsVisible="{Binding Connection.IsServiceMode}" />
+
         <!-- Bulk operation progress -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="8,0"
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="8,0"
                     IsVisible="{Binding StatusBar.IsBulkOperationActive}">
           <ProgressBar Value="{Binding StatusBar.BulkProgressPercentage}"
                        Minimum="0" Maximum="100"
@@ -576,7 +586,7 @@
                      VerticalAlignment="Center" />
         </StackPanel>
 
-        <TextBlock Grid.Column="2" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#999" />
+        <TextBlock Grid.Column="3" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#999" />
       </Grid>
     </Border>
   </Grid>

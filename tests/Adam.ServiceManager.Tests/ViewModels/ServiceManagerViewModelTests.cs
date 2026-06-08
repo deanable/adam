@@ -8,20 +8,50 @@ namespace Adam.ServiceManager.Tests.ViewModels;
 
 /// <summary>
 /// Tests for the <see cref="ServiceManagerViewModel"/> properties.
+/// Uses separate ModeManager instances per test to avoid database locking.
 /// </summary>
-public sealed class ServiceManagerViewModelHealthTests
+public sealed class ServiceManagerViewModelHealthTests : IDisposable
 {
-    private static UserManagementViewModel CreateDummyUserManagement()
+    private readonly string _basePath;
+    private readonly ModeManager _modeManager;
+    private readonly AuditLogViewModel _auditLog;
+    private readonly UserManagementViewModel _userMgmt;
+    private bool _disposed;
+
+    public ServiceManagerViewModelHealthTests()
     {
-        var modeManager = new ModeManager(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()));
-        return new UserManagementViewModel(modeManager, new NullLogger<UserManagementViewModel>());
+        _basePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        _modeManager = new ModeManager(_basePath);
+        _modeManager.InitializeAsync().GetAwaiter().GetResult();
+        _auditLog = new AuditLogViewModel(_modeManager, new NullLogger<AuditLogViewModel>(), new SyncUiDispatcher());
+        _userMgmt = new UserManagementViewModel(_modeManager, new NullLogger<UserManagementViewModel>(), new SyncUiDispatcher());
+    }
+
+    private ServiceManagerViewModel CreateVm()
+    {
+        return new ServiceManagerViewModel(
+            Enumerable.Empty<IServiceInstaller>(),
+            userManagement: _userMgmt,
+            auditLog: _auditLog);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try
+        {
+            if (Directory.Exists(_basePath))
+                Directory.Delete(_basePath, recursive: true);
+        }
+        catch (IOException) { }
     }
 
     [Fact]
     public void AdministratorAccount_IsNotEmpty()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.AdministratorAccount.Should().NotBeNullOrWhiteSpace();
         vm.AdministratorAccount.Should().Contain("\\");
@@ -30,8 +60,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void IsElevated_DoesNotThrow()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         var act = () => { var x = vm.IsElevated; };
         act.Should().NotThrow();
@@ -40,8 +69,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void IsElevationRequired_InvertsIsElevated()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.IsElevationRequired.Should().Be(!vm.IsElevated);
     }
@@ -49,8 +77,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void Health_WhenNotInstalled_ReturnsRed()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.Health.Should().Be(ServiceHealth.Red);
         vm.HealthLabel.Should().Be("Not Installed");
@@ -59,8 +86,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void Health_WhenInstalledButNotRunning_ReturnsAmber()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.IsServiceInstalled = true;
         vm.IsServiceRunning = false;
@@ -72,8 +98,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void Health_WhenInstalledAndRunning_ReturnsGreen()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.IsServiceInstalled = true;
         vm.IsServiceRunning = true;
@@ -85,8 +110,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void StatusText_ReflectsServiceStatus()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         vm.ServiceStatusText = "Running";
         vm.StatusText.Should().Be("Service: Running");
@@ -95,8 +119,7 @@ public sealed class ServiceManagerViewModelHealthTests
     [Fact]
     public void RelaunchAsAdminCommand_DoesNotThrow()
     {
-        var userMgmt = CreateDummyUserManagement();
-        var vm = new ServiceManagerViewModel(Enumerable.Empty<IServiceInstaller>(), userManagement: userMgmt);
+        var vm = CreateVm();
 
         var act = () => vm.RelaunchAsAdminCommand.CanExecute(null);
         act.Should().NotThrow();

@@ -23,6 +23,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly AiTaggingService? _aiTaggingService;
     private readonly BulkOperationQueue _bulkQueue;
     private object? _currentView;
+    private readonly DispatcherTimer _sessionCheckTimer;
 
     public MainWindowViewModel(
         ILogger<MainWindowViewModel> logger,
@@ -53,6 +54,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Connection = connection;
         StatusBar = statusBar;
         _currentView = assetGallery;
+
+        // Phase 7: Session check timer — checks token expiry every 60s (T7.3)
+        _sessionCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _sessionCheckTimer.Tick += OnSessionCheckTick;
+        _sessionCheckTimer.Start();
 
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
         AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);
@@ -95,23 +101,23 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             CurrentView = ingestion;
             await ingestion.LoadIngestedFoldersAsync();
-        });
+        }, _ => CanIngest);
 
         ShowMetadataEditorCommand = new RelayCommand(async _ =>
         {
             if (PropertyInspector.SelectedAsset != null)
                 await metadataEditor.LoadAssetAsync(PropertyInspector.SelectedAsset.Id);
             CurrentView = metadataEditor;
-        });
+        }, _ => CanEditMetadata);
 
-        ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog);
-        ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager());
-        ExportCommand = new RelayCommand(_ => ShowExportDialog());
+        ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog, _ => CanAudit);
+        ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager(), _ => CanAdminister);
+        ExportCommand = new RelayCommand(_ => ShowExportDialog(), _ => CanEditMetadata);
 
-        RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw));
-        RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw));
-        FlipHorizontalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipHorizontal));
-        FlipVerticalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipVertical));
+        RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw), _ => CanEditMetadata);
+        RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw), _ => CanEditMetadata);
+        FlipHorizontalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipHorizontal), _ => CanEditMetadata);
+        FlipVerticalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipVertical), _ => CanEditMetadata);
 
         sidebar.FilterChanged += () =>
         {
@@ -188,7 +194,44 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await AssetGallery.LoadAssetsAsync();
             App.Config.Mode = "MultiUser";
             App.Config.Save();
+
+            // Update permission-aware UI after login
+            await RefreshPermissionsAsync();
         };
+
+        // Re-evaluate permissions when connection state changes (login/logout)
+        Connection.PropertyChanged += async (_, e) =>
+        {
+            if (e.PropertyName is nameof(ConnectionViewModel.IsConnectedToService) or nameof(ConnectionViewModel.IsServiceMode))
+            {
+                await RefreshPermissionsAsync();
+            }
+        };
+
+        // Phase 7 T7.4: Handle forced logout (account deactivation / token expiry)
+        Connection.ForceLogout += async () =>
+        {
+            _logger.LogWarning("Forced logout triggered — clearing session");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Connection.IsConnectedToService = false;
+                Connection.ServiceConnectionStatus = "Session terminated — please reconnect";
+                StatusBar.StatusText = "Session terminated — account may have been deactivated";
+            });
+            await RefreshPermissionsAsync();
+        };
+
+        // Re-evaluate when user logs in/out via AuthSession
+        if (_modeManager.AuthSession != null)
+        {
+            _modeManager.AuthSession.PropertyChanged += async (_, e) =>
+            {
+                if (e.PropertyName == nameof(IAuthSession.CurrentUser))
+                {
+                    await RefreshPermissionsAsync();
+                }
+            };
+        }
 
         if (startUp)
         {
@@ -527,6 +570,152 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 });
             }
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Phase 7: Permission-aware UI properties (T7.2, T7.3, T7.4, T7.5)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The current user's role name ("Viewer", "Editor", "Administrator"), or null.
+    /// In standalone mode, returns "Administrator" (full access).
+    /// </summary>
+    public string? CurrentUserRole
+    {
+        get
+        {
+            if (_modeManager.IsStandalone)
+                return "Administrator";
+            return _modeManager.AuthSession?.CurrentUser?.Role;
+        }
+    }
+
+    /// <summary>
+    /// Whether the current user/session can access ingestion (requires asset:create).
+    /// </summary>
+    public bool CanIngest => EvaluatePermission("asset:create");
+
+    /// <summary>
+    /// Whether the current user/session can edit metadata (requires asset:update).
+    /// </summary>
+    public bool CanEditMetadata => EvaluatePermission("asset:update");
+
+    /// <summary>
+    /// Whether the current user/session can view audit logs (requires audit:read).
+    /// </summary>
+    public bool CanAudit => EvaluatePermission("audit:read");
+
+    /// <summary>
+    /// Whether the current user/session can access admin features (requires user:*).
+    /// </summary>
+    public bool CanAdminister => EvaluatePermission("user:*");
+
+    /// <summary>
+    /// Whether the current user/session can AI-tag assets (requires asset:update).
+    /// </summary>
+    public bool CanAiTag => _aiTaggingService != null && EvaluatePermission("asset:update");
+
+    /// <summary>
+    /// Human-readable session status text shown in the status bar.
+    /// </summary>
+    public string SessionStatusText
+    {
+        get
+        {
+            if (_modeManager.IsStandalone)
+                return "Local mode — full access";
+
+            var auth = _modeManager.AuthSession;
+            if (auth == null || !auth.IsLoggedIn)
+                return "Not logged in";
+
+            var role = auth.CurrentUser?.Role ?? "?";
+            if (auth.IsTokenExpired())
+                return $"Session expired — {role} (relogin required)";
+
+            return $"{auth.CurrentUser?.Username} — {role}";
+        }
+    }
+
+    private bool EvaluatePermission(string permission)
+    {
+        // Standalone mode: all permissions granted
+        if (_modeManager.IsStandalone)
+            return true;
+
+        // Multi-user mode: check the current user's role
+        var role = _modeManager.AuthSession?.CurrentUser?.Role;
+        if (string.IsNullOrEmpty(role))
+            return false;
+
+        // Check token expiry: expired tokens = no permissions
+        if (_modeManager.AuthSession!.IsTokenExpired())
+            return false;
+
+        return PermissionEvaluator.HasPermission(role, permission);
+    }
+
+    /// <summary>
+    /// Called when connection state, login state, or mode changes.
+    /// Fires PropertyChanged for all permission properties and re-evaluates command CanExecute.
+    /// </summary>
+    private async Task RefreshPermissionsAsync()
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            OnPropertyChanged(nameof(CurrentUserRole));
+            OnPropertyChanged(nameof(CanIngest));
+            OnPropertyChanged(nameof(CanEditMetadata));
+            OnPropertyChanged(nameof(CanAudit));
+            OnPropertyChanged(nameof(CanAdminister));
+            OnPropertyChanged(nameof(CanAiTag));
+            OnPropertyChanged(nameof(SessionStatusText));
+
+            // Re-evaluate command CanExecute for permission-gated commands
+            (ShowIngestionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ShowMetadataEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ShowAuditLogCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ShowServiceManagerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ExportCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RotateClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RotateCounterClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (FlipHorizontalCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (FlipVerticalCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (AiTagSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        });
+
+        // If token is expired, show a warning in the status bar
+        if (!_modeManager.IsStandalone && _modeManager.AuthSession?.IsTokenExpired() == true)
+        {
+            _logger.LogWarning("Session token expired — user must re-login");
+            StatusBar.StatusText = "Session expired — please log out and reconnect";
+        }
+    }
+
+    /// <summary>
+    /// Periodic timer tick — checks token expiry and refreshes permissions (T7.3).
+    /// </summary>
+    private async void OnSessionCheckTick(object? sender, EventArgs e)
+    {
+        if (_modeManager.IsStandalone)
+            return;
+
+        var auth = _modeManager.AuthSession;
+        if (auth == null || !auth.IsLoggedIn)
+            return;
+
+        // Check token expiry
+        if (auth.IsTokenExpired())
+        {
+            _logger.LogWarning("Session token expired (detected by timer)");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                StatusBar.StatusText = "Session expired — please log out and reconnect";
+            });
+
+            // Refire permission checks so the UI disables gated features
+            await RefreshPermissionsAsync();
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

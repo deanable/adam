@@ -2,15 +2,15 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 5 — Server Management Tooling (in progress)
-**Current Milestone:** v1.1 — Server Maturity
+**Current Phase:** 7 — Client RBAC & Hardening
+**Current Milestone:** v1.2 — Client Polish
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Maturing the standalone ServiceManager tool for user and service administration
+**Current focus:** Permission-aware client UI and session stability in multi-user mode
 
 ## Phase Progress
 
@@ -20,11 +20,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 2 | ✅ | 1/1 | 100% | Archived |
 | 3 | ✅ | 1/1 | 100% | Archived |
 | 4 | ✅ | 1/1 | 100% | Archived |
-| 5 | 🚧 | 0/1 | 0% | Current |
-| 6 | ○ | 0/1 | 0% |
-| 7 | ○ | 0/1 | 0% |
+| 5 | ✅ | 1/1 | 100% | Archived |
+| 6 | ✅ | 1/1 | 100% | Archived |
+| 7 | 🚧 | 0/1 | 0% | Current |
 | 8 | ○ | 0/1 | 0% |
-| 9 | ○ | 0/1 | 0% |
+| 9 | ✅ | 1/1 | 100% | Archived |
 
 ## Accumulated Context
 
@@ -79,6 +79,7 @@ None.
 - **Phase 2 archived to:** `.planning/milestones/v1.0-in-progress.md`
 - **9 of 9 Phase 3 tasks complete**
 - **Phase 3 plan:** `.planning/plans/phase-3/PLAN.md`
+- **Phase 5 archived to:** `.planning/milestones/v1.0-in-progress.md`
 - All 106 tests pass (2 Docker-dependent skipped)
 
 ## Phase 2 Plan
@@ -141,7 +142,11 @@ None.
 - **T5.6:** Admin navigation button in title bar, `ShowAdminPanelCommand` in `MainWindowViewModel`, DataTemplate registration, DI registration for `AdminPanelViewModel`
 - **T5.7:** Migration wizard polish — `BrowseSourceAsync` using `StorageProvider` file picker, `CancelMigration` with `CancellationTokenSource`, guard checks for empty source/missing service
 - **T5.8:** 47 new tests across 2 test files — `AdminPanelViewModelTests.cs` (33 tests: constructor, mode properties, service status, UI state, FormatUptime, PropertyChanged) and `MigrationWizardViewModelTests.cs` (14 tests: constructor, provider selection, command guards, PropertyChanged, cancel)
-- All **507 tests pass** (0 failed, 2 Docker-dependent skipped)
+- **T5.9:** Shared Data Foundation — `DbProviderConfig` moved to `Adam.Shared`, provider packages added, `ModeManager` and `BrokerService/Program.cs` updated to use shared config
+- **T5.10:** User Lifecycle — ServiceManagerConfig persisted `DbProvider`/`DbConnection`, `App.axaml.cs` initializes `ModeManager` with configured provider, full CRUD in `UserManagementViewModel` with soft-delete, `UserManagementView.axaml` layout finalized, 40+ tests
+- **T5.11:** Windows Service Hardening — UAC dismissal handled gracefully (Win32Exception → OperationCanceledException), `FirewallRuleManager` checks rule existence before adding, "Open Log" button in ServiceManagerView, background status poll timer
+- **T5.12:** Audit Log View — `AuditLogViewModel` with standalone DB querying, client-side DateTimeOffset filtering (SQLite-compatible), Action/EntityType/Date range filters, 19 new tests. `AuditLogView.axaml` wired as third tab in ServiceManager.
+- All **156 ServiceManager tests pass** (0 failed)
 - Grid.Row layout fix in MainWindow.axaml — 3-column layout moved from Row 1 to Row 2 to coexist with connection panel
 
 ## Phase 6 Completion Summary
@@ -154,12 +159,23 @@ None.
 - **T6.6:** Added `DbProviderConfig_Configure_builds_options` theory test — verifies the correct EF Core provider extension (Sqlite/Npgsql/SqlServer) is registered for each provider string
 - All **510 tests pass** (3 new from T6.6, 2 Docker-dependent skipped)
 
+## Phase 9 Completion Summary
+
+- **T9.1:** Build wiring — `LiquidVision.Core` referenced from `Adam.Shared`, ONNX Runtime + SkiaSharp distribution dependency accepted
+- **T9.2:** `AiTaggingService` (`Adam.Shared/Services`) — wraps `ILiquidVisionAnalyzer`, lazy `InitializeAsync` with model download on first use, image-only guard, keyword/category/description merge via existing `AssociateKeywordsAsync`/`AssociateCategoriesAsync`. Auto-apply, union with existing tags, no provenance tracking. Fills `Description` when empty.
+- **T9.3:** DI registration — `AddLiquidVision(...)` in `CatalogBrowser/App.axaml.cs` with `Precision = Q4F16`, `ExecutionProvider = Cpu` (singleton analyzer)
+- **T9.4:** Trigger A (Ingest opt-in) — `EnableAiTagging` checkbox in `IngestionViewModel`, sequential post-pass after parallel ingest completes
+- **T9.5:** Trigger B (Per-asset Auto-tag) — `AutoTagCommand` in `MetadataEditorViewModel`, unions into Tags/Categories, persisted via `SaveAsync`
+- **T9.6:** Trigger C (Bulk re-tag) — `AiTagSelectedCommand` in gallery toolbar, filters to images, sequential with status bar progress
+- **T9.7:** Status bar progress — `IsModelDownloading`/`ModelDownloadPercentage` + `IsAiTaggingActive`/`AiTaggingPercentage`/`AiTaggingProgressText` on `StatusBarViewModel`
+- **T9.8:** Tests — 7 unit tests covering image-only guard, keyword/category merge, description fill-only-when-empty, cancellation, batch progress, analyze-only path
+- All **7 AI Tagging tests pass**; all projects build cleanly (0 warnings)
+
 ## Next Actions
 
-1. **Research Phase 5**: Verify current `ServiceManager` implementation state (Linux/macOS installers).
-2. **Implement User Lifecycle**: Complete Add/Edit/Deactivate UI in `ServiceManager`.
-3. **Audit Log Overview**: Add high-level audit view to `ServiceManager`.
+1. **Begin Phase 7**: Client RBAC & Hardening — permission-aware UI, token expiry handling, graceful degradation.
+2. **Continue milestone v1.2**: Client Polish — Phase 7 (RBAC) and Phase 8 (v1.0 Polish & Ship).
 
 ---
-*State updated: 2026-06-05 after roadmap re-alignment for client/server separation*
+*State updated: 2026-06-08 after Phase 5, 6 & 9 completion*
 

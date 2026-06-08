@@ -55,13 +55,15 @@ public partial class App : Application
             services.AddSingleton(modeManager);
 
             services.AddTransient<UserManagementViewModel>();
+            services.AddTransient<AuditLogViewModel>();
 
             services.AddSingleton<ServiceManagerViewModel>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<ServiceManagerViewModel>>();
                 var installers = sp.GetServices<IServiceInstaller>();
                 var userManagement = sp.GetRequiredService<UserManagementViewModel>();
-                return new ServiceManagerViewModel(installers, logger, serviceLogCapture, userManagement);
+                var auditLog = sp.GetRequiredService<AuditLogViewModel>();
+                return new ServiceManagerViewModel(installers, logger, serviceLogCapture, userManagement, auditLog);
             });
 
             var provider = services.BuildServiceProvider();

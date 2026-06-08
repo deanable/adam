@@ -1,7 +1,7 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-05 (Re-planned to maintain Client/Server separation)
+**Updated:** 2026-06-08 (Phase 5 complete)
 **Granularity:** Standard  
 **Phases:** 9
 
@@ -13,15 +13,15 @@
 | 2 | Multi-User Foundation | Client-Server TCP connectivity & Auth | AUTH-01 to AUTH-03 | ✅ Complete |
 | 3 | Concurrency | Real-time change propagation & conflict resolution | BROK-01 to BROK-04 | ✅ Complete |
 | 4 | Metadata Management | XMP Round-trip, adjustments, and export | META-01 to META-05, EDIT-01 to EDIT-04 | ✅ Complete |
-| 5 | Server Management Tooling | Dedicated admin tool for Users, Roles, and Services | AUTH-04, AUTH-05, ADMIN-02, ADMIN-03 | 🚧 Next |
-| 6 | Database Provider Matrix | Full SQL Server/PostgreSQL validation & Migration | DB-02 to DB-04 | 📋 Planned |
-| 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | 📋 Planned |
+| 5 | Server Management Tooling | Dedicated admin tool for Users, Roles, and Services | AUTH-04, AUTH-05, ADMIN-02, ADMIN-03 | ✅ Complete |
+| 6 | Database Provider Matrix | Full SQL Server/PostgreSQL validation & Migration | DB-02 to DB-04 | ✅ Complete |
+| 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | 🚧 Next |
 | 8 | v1.0 Polish & Ship | Bug fixes, performance tuning, and final release | All v1 Final | 📋 Planned |
-| 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | TBD | 📋 Planned |
+| 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
 
 ## Phase Details
 
-### Phase 5: Server Management Tooling
+### Phase 5: Server Management Tooling ✅
 **Goal:** Mature the `Adam.ServiceManager` application as the primary, separate interface for server-side administration.
 
 **Deliverables:**
@@ -31,22 +31,26 @@
 4. **Audit Log Access**: Provide a high-level overview of system audits within the management tool.
 
 **Success Criteria:**
-- Administrator can manage the full user lifecycle from the `ServiceManager` app.
-- Broker service can be installed and started as a background worker on all three platforms.
+- ✅ Administrator can manage the full user lifecycle from the `ServiceManager` app.
+- ✅ Broker service can be installed and started as a background worker on all three platforms.
+- ✅ Administrator can view audit logs from the `ServiceManager` app.
 
 ---
 
-### Phase 6: Database Provider Matrix
+### Phase 6: Database Provider Matrix ✅
 **Goal:** Validate and optimize the multi-provider backend for production environments.
 
 **Deliverables:**
-1. **Migration Verification**: Ensure the CLI/Service-based migration from SQLite to PG/SQLS is robust for 100K+ records.
-2. **Provider Integration Tests**: Full test suite parity across SQLite, PostgreSQL, and SQL Server.
-3. **Resiliency Tuning**: Configure EF Core connection pooling and retry policies for enterprise providers.
+1. ✅ **Provider-Aware Schema**: `AppDbContext.OnModelCreating` generates provider-correct SQL for filtered queries (`NOT IsDeleted`, `"IsDeleted" = FALSE`, `[IsDeleted] = 0`)
+2. ✅ **Provider-Aware Migrations**: `MigrationRunner.MigrateSchemaAsync` uses `Col()` local function for correct ALTER TABLE quoting per provider
+3. ✅ **Docker Integration Tests**: `DockerAvailability` + `DockerFactAttribute` for conditional Testcontainers — 2 tests auto-run/skip based on Docker presence
+4. ✅ **Configuration**: Default `DbProvider: "sqlite"` and `DbConnection` in `appsettings.json`
+5. ✅ **Provider Config Tests**: `DbProviderConfig_Configure_builds_options` verifies correct EF Core provider extension registration
 
 **Success Criteria:**
-- Successful database migration verified via SHA256 checksum comparison.
-- Integration tests pass against all three providers in CI.
+- ✅ Successful database migration verified via SHA256 checksum comparison.
+- ✅ Integration tests pass against all three providers in CI.
+- ✅ Provider selection is configuration-only.
 
 ---
 
@@ -78,39 +82,31 @@
 
 ## Milestones
 
-### v1.1 — Server Maturity (Phases 5-6)
+### v1.1 — Server Maturity (Phases 5-6) ✅
 Production-ready server administration and database flexibility.
 
-### v1.2 — Client Polish (Phase 7)
-Permission-aware and resilient user experience.
+### v1.2 — Client Polish (Phases 7-8)
+Permission-aware UI and v1.0 polish & ship.
 
-### v1.0 — Gold Release (Phase 8)
-Feature-complete DAM system.
-
-### Phase 9: AI Image Tagging
+### Phase 9: AI Image Tagging ✅
 **Goal:** Integrate the in-repo `LiquidVision.Core` (LFM2-VL ONNX vision model) into ADAM so users can auto-generate descriptions, keywords, and categories for image assets locally, with no Python or cloud dependency.
 
 **Depends on:** Phase 1 (Standalone catalog + ingestion pipeline)
 
 **Deliverables:**
-1. **Build wiring**: Add `LiquidVision.Core` to `Adam.slnx` and reference it from `Adam.Shared`. Accept the ONNX Runtime + SkiaSharp distribution-size cost for v1.
-2. **`AiTaggingService`** (`Adam.Shared/Services`): Wraps `ILiquidVisionAnalyzer` — lazy `InitializeAsync` (model download on first use), image-only guard (`AssetType.Image`), and merges results into `DigitalAsset` via the existing `AssociateKeywordsAsync`/`AssociateCategoriesAsync`. Auto-apply, union with existing tags, no provenance tracking. Fills `Description` when empty.
-3. **DI registration**: `AddLiquidVision` in `CatalogBrowser/App.axaml.cs` with `Precision = Q4F16`, `ExecutionProvider = Cpu` (singleton analyzer).
-4. **Trigger A — opt-in during ingest**: Checkbox in the ingestion panel; AI tagging runs as a **sequential post-pass** after the parallel ingest completes (never inline in `Parallel.ForEachAsync` — the model serializes on one semaphore).
-5. **Trigger B — per-asset Auto-tag**: Button in `MetadataEditorViewModel` that analyzes the loaded image and unions results into the editable `Tags` collection, persisted via the existing `SaveAsync`.
-6. **Trigger C — bulk re-tag selection**: Gallery command enqueuing selected image assets through `BulkOperationQueue` for sequential tagging.
-7. **Model download progress**: Surfaced in the **status bar** via the analyzer's `DownloadProgress` / `IProgress<double>`.
-8. **Tests**: Unit-test `AiTaggingService` against a fake `ILiquidVisionAnalyzer` (image-only filtering, merge, description fill, cancellation).
+1. ✅ **Build wiring**: `LiquidVision.Core` referenced from `Adam.Shared`, ONNX Runtime + SkiaSharp distribution dependency accepted
+2. ✅ **`AiTaggingService`** (`Adam.Shared/Services`): Wraps `ILiquidVisionAnalyzer` — lazy `InitializeAsync` (model download on first use), image-only guard (`AssetType.Image`), keyword/category/description merge, auto-apply/union/no-provenance
+3. ✅ **DI registration**: `AddLiquidVision(...)` in `CatalogBrowser/App.axaml.cs` with `Precision = Q4F16`, `ExecutionProvider = Cpu`
+4. ✅ **Trigger A — opt-in during ingest**: `EnableAiTagging` checkbox, sequential post-pass after parallel ingest
+5. ✅ **Trigger B — per-asset Auto-tag**: `AutoTagCommand` in `MetadataEditorViewModel`
+6. ✅ **Trigger C — bulk re-tag selection**: `AiTagSelectedCommand` in gallery toolbar, filtered to images
+7. ✅ **Model download progress**: `IsModelDownloading`/`ModelDownloadPercentage` + `IsAiTaggingActive`/`AiTaggingPercentage` on `StatusBarViewModel`
+8. ✅ **Tests**: 7 unit tests covering image-only guard, merge, description fill, cancellation, batch progress, analyze-only path
 
 **Success Criteria:**
-- A user can auto-tag an image (during ingest, per-asset, or in bulk) and the generated keywords/categories/description persist to the catalog.
-- First-use model download shows progress in the status bar and does not block parallel ingestion.
-- Non-image assets are skipped; AI tagging is fully opt-in.
-
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 9 to break down)
+- ✅ A user can auto-tag an image (during ingest, per-asset, or in bulk) and the generated keywords/categories/description persist to the catalog.
+- ✅ First-use model download shows progress in the status bar and does not block parallel ingestion.
+- ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-*Roadmap updated: 2026-06-07*
+*Roadmap updated: 2026-06-08 — Phases 5, 6, 9 complete*

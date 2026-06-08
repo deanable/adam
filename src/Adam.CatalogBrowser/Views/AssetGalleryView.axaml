@@ -34,10 +34,11 @@
                      Width="40" />
         </StackPanel>
 
-        <!-- AI Tag Selected button (Trigger C) -->
+        <!-- AI Tag Selected button (Trigger C) — gated by permission (T7.2) -->
         <Button Grid.Column="3"
                 Content="🤖 AI Tag Selected"
                 Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                IsVisible="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
                 FontSize="11"
                 Padding="8,2"
                 Margin="4,0"
