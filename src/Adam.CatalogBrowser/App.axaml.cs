@@ -81,7 +81,10 @@ public partial class App : Application
             // Phase 9: AI Image Tagging (D-09)
             services.AddLiquidVision(o =>
             {
-                o.Precision = ModelPrecision.Q4F16;
+                // 1.6B is ~3.5x larger than the 450M model and notably more accurate. It ships only
+                // fp32/fp16 (no q4f16), so run fp16 — handled by the precision-aware generator.
+                o.ModelId = "onnx-community/LFM2-VL-1.6B-ONNX";
+                o.Precision = ModelPrecision.Fp16;
                 o.ExecutionProvider = ExecutionProviderKind.Cpu;
             });
             services.AddSingleton<AiTaggingService>();

@@ -44,7 +44,7 @@ public sealed class ModelLoader : IDisposable
 
             var tokenizer = Lfm2Tokenizer.FromFile(layout.TokenizerJsonPath);
             var config = ModelConfig.FromFile(layout.ConfigPath);
-            var preprocessor = PreprocessorConfig.FromFile(layout.PreprocessorConfigPath);
+            var preprocessor = PreprocessorConfig.FromFile(layout.ResolvedPreprocessorConfigPath);
 
             _loaded = new LoadedModel
             {

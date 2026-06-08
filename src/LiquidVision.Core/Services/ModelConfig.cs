@@ -75,7 +75,13 @@ public sealed class PreprocessorConfig
     {
         using var stream = File.OpenRead(path);
         using var doc = JsonDocument.Parse(stream);
-        var r = doc.RootElement;
+        var root = doc.RootElement;
+
+        // A combined processor_config.json nests the image-processing fields under "image_processor";
+        // a flat preprocessor_config.json holds them at the root. Read from whichever applies.
+        var r = root.TryGetProperty("image_processor", out var imageProc) && imageProc.ValueKind == JsonValueKind.Object
+            ? imageProc
+            : root;
 
         return new PreprocessorConfig
         {

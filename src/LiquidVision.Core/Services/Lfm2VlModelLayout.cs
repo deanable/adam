@@ -41,6 +41,13 @@ public sealed class Lfm2VlModelLayout
     public string GenerationConfigPath => Path.Combine(ModelDirectory, "generation_config.json");
     public string PreprocessorConfigPath => Path.Combine(ModelDirectory, "preprocessor_config.json");
 
+    /// <summary>Some repos ship a combined <c>processor_config.json</c> (fields nested under <c>image_processor</c>) instead of a flat <c>preprocessor_config.json</c>.</summary>
+    public string ProcessorConfigPath => Path.Combine(ModelDirectory, "processor_config.json");
+
+    /// <summary>The preprocessing config that actually exists on disk (flat preprocessor first, then combined processor).</summary>
+    public string ResolvedPreprocessorConfigPath =>
+        File.Exists(PreprocessorConfigPath) ? PreprocessorConfigPath : ProcessorConfigPath;
+
     /// <summary>Maps the configured precision to the repository file-name suffix.</summary>
     public string PrecisionSuffix => _options.Precision switch
     {
@@ -63,18 +70,28 @@ public sealed class Lfm2VlModelLayout
             {
                 var onnx = $"onnx/{graph}{PrecisionSuffix}.onnx";
                 files.Add(new RemoteModelFile(onnx, Path.Combine(ModelDirectory, ToLocal(onnx)), Optional: false));
-                // External data sits beside the .onnx so ORT auto-loads it. Optional: some precisions inline it.
-                var data = onnx + "_data";
-                files.Add(new RemoteModelFile(data, Path.Combine(ModelDirectory, ToLocal(data)), Optional: true));
+                // External data sits beside the .onnx so ORT auto-loads it. Large graphs (e.g. the decoder) are
+                // sharded across .onnx_data, .onnx_data_1, .onnx_data_2 — all optional (a precision may inline them
+                // or use fewer shards).
+                foreach (var data in new[] { onnx + "_data", onnx + "_data_1", onnx + "_data_2" })
+                    files.Add(new RemoteModelFile(data, Path.Combine(ModelDirectory, ToLocal(data)), Optional: true));
             }
 
+            // Required configs every variant ships.
             foreach (var cfg in new[]
             {
-                "config.json", "generation_config.json", "preprocessor_config.json",
-                "processor_config.json", "tokenizer.json", "tokenizer_config.json", "chat_template.jinja"
+                "config.json", "generation_config.json",
+                "tokenizer.json", "tokenizer_config.json"
             })
             {
                 files.Add(new RemoteModelFile(cfg, Path.Combine(ModelDirectory, cfg), Optional: false));
+            }
+
+            // A model ships exactly one of preprocessor_config.json / processor_config.json; chat_template.jinja
+            // is not present in every repo. All optional so a 404 is tolerated.
+            foreach (var cfg in new[] { "preprocessor_config.json", "processor_config.json", "chat_template.jinja" })
+            {
+                files.Add(new RemoteModelFile(cfg, Path.Combine(ModelDirectory, cfg), Optional: true));
             }
 
             return files;
