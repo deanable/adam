@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: Polish & Ship
+current_phase: 7 — Client RBAC & Hardening
+status: completed
+last_updated: "2026-06-08T11:07:53.228Z"
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+---
+
 # State: adam
 
 **Project:** adam — Digital Asset Management System  
@@ -29,6 +44,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 ## Accumulated Context
 
 ### Roadmap Evolution
+
 - Phase 9 added (2026-06-07): AI Image Tagging — integrate in-repo `LiquidVision.Core` (LFM2-VL ONNX) for local image auto-tagging. Triggers: opt-in during ingest, per-asset Auto-tag button, bulk re-tag. Auto-apply/union/no-provenance; status-bar download progress; Q4F16/CPU defaults.
 
 ## Active Decisions
@@ -52,6 +68,7 @@ None.
 5 domains analyzed, 47 findings identified, 30 recommendations made.
 
 ### Critical Issues Found (Must Fix in Phase 2)
+
 - **✅ CRITICAL-4:** No TLS — JWT and passwords in plaintext over TCP → **FIXED** (T2.1)
 - **✅ CRITICAL-5:** Hardcoded JWT secret committed to source control → **FIXED** (T2.2 — env var required, documented)
 - **✅ CRITICAL-6:** No authorization on Asset/Collection/Change handlers → **FIXED** (T2.3)
@@ -89,6 +106,7 @@ None.
 **Estimated Effort:** ~15.5 days
 
 ### Work Streams
+
 1. **Security Hardening** — TLS, JWT secret removal, authorization, protocol fixes
 2. **Broker Reliability** — Task observation, graceful shutdown, write timeout, idle detection
 3. **Auth Layer Fixes** — Signing key race fix, brute-force protection, structured security logging
@@ -104,6 +122,7 @@ None.
 **Status:** Complete
 
 ### Work Streams
+
 1. **Connection Registry** — Per-connection tracking, thread-safe broadcast
 2. **Change Notifications** — Push-based real-time updates, fire-and-forget broadcast
 3. **Conflict Resolution** — ExpectedVersion optimistic concurrency
@@ -117,6 +136,7 @@ None.
 **Status:** Complete — all tasks T4.1–T4.10 implemented and committed
 
 ### Work Streams
+
 1. **Metadata Round-Trip** — Ratings, labels, flags, GPS, copyright + XMP write-back
 2. **RAW Sidecar** — XMP sidecar for CR2/NEF/ARW/DNG
 3. **Image Adjustments** — Rotate 90/180/270, flip horizontal/vertical
@@ -178,4 +198,3 @@ None.
 
 ---
 *State updated: 2026-06-08 after Phase 5, 6 & 9 completion*
-

@@ -1,0 +1,125 @@
+{
+  "providerName": "OpenRouter",
+  "providerKind": "openRouter",
+  "apiKey": "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",
+  "model": "openrouter/free",
+  "baseUrl": "https://openrouter.ai/api/v1",
+  "workspace": "C:\\Users\\deank\\repos\\adam",
+  "permissionMode": "danger-full-access",
+  "allowedTools": [
+    "bash",
+    "edit",
+    "glob",
+    "grep",
+    "read",
+    "write"
+  ],
+  "keepOpen": true,
+  "prompt": "",
+  "args": [],
+  "contextWindowTokens": 131072,
+  "maxOutputTokens": 8192,
+  "respectRateLimits": true,
+  "profiles": [
+    {
+      "friendlyName": "Custom",
+      "providerKind": "custom",
+      "apiKey": "",
+      "baseUrl": "",
+      "workspace": "C:\\Users\\deank\\AppData\\Local\\Programs\\Claw Code",
+      "model": "",
+      "permissionMode": "danger-full-access",
+      "allowedTools": [
+        "read",
+        "glob",
+        "grep"
+      ],
+      "keepOpen": true,
+      "prompt": "",
+      "args": [],
+      "respectRateLimits": true
+    },
+    {
+      "friendlyName": "Google AI Studio",
+      "providerKind": "googleAiStudio",
+      "apiKey": "",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "workspace": "C:\\Users\\deank\\AppData\\Local\\Programs\\Claw Code",
+      "model": "gemini-2.0-flash",
+      "permissionMode": "danger-full-access",
+      "allowedTools": [
+        "read",
+        "glob",
+        "grep"
+      ],
+      "keepOpen": true,
+      "prompt": "",
+      "args": [],
+      "respectRateLimits": true
+    },
+    {
+      "friendlyName": "OpenRouter",
+      "providerKind": "openRouter",
+      "apiKey": "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",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "workspace": "C:\\Users\\deank\\repos\\adam",
+      "model": "openrouter/free",
+      "permissionMode": "danger-full-access",
+      "allowedTools": [
+        "bash",
+        "edit",
+        "glob",
+        "grep",
+        "read",
+        "write"
+      ],
+      "keepOpen": true,
+      "prompt": "",
+      "args": [],
+      "respectRateLimits": true
+    },
+    {
+      "friendlyName": "OpenRouter",
+      "providerKind": "openRouter",
+      "apiKey": "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",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "workspace": "C:\\Users\\deank\\repos\\DDam",
+      "model": "openrouter/free",
+      "permissionMode": "danger-full-access",
+      "allowedTools": [
+        "bash",
+        "edit",
+        "glob",
+        "grep",
+        "read",
+        "write"
+      ],
+      "keepOpen": true,
+      "prompt": "",
+      "args": [],
+      "respectRateLimits": true
+    },
+    {
+      "friendlyName": "OpenRouter",
+      "providerKind": "openRouter",
+      "apiKey": "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",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "workspace": "C:\\Users\\deank\\AppData\\Local\\Programs\\Claw Code",
+      "model": "openrouter/free",
+      "permissionMode": "danger-full-access",
+      "allowedTools": [
+        "bash",
+        "edit",
+        "glob",
+        "grep",
+        "read",
+        "write"
+      ],
+      "keepOpen": true,
+      "prompt": "",
+      "args": [],
+      "respectRateLimits": true
+    }
+  ],
+  "lastSelected": "OpenRouter"
+}
