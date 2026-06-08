@@ -6,6 +6,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using LiquidVision.Core.Configuration;
 using LiquidVision.Core.Exceptions;
+using Float16 = Microsoft.ML.OnnxRuntime.Float16;
 
 namespace LiquidVision.Core.Services;
 
@@ -16,8 +17,12 @@ namespace LiquidVision.Core.Services;
 /// (so the hybrid conv/attention layout needs no hardcoding).
 /// </summary>
 /// <remarks>
-/// Implements the full-precision (fp32) path. If the graphs are fp16/quantized-activations variants,
-/// the cache element type will not be <see cref="float"/> and a clear error is raised pointing back to fp32.
+/// Precision-aware: each ONNX boundary's element type is discovered at runtime from the graph metadata
+/// (<see cref="NodeMetadata.ElementType"/>) and tensors are converted fp32&lt;-&gt;fp16 only where the graph
+/// demands it. The internal working representation stays <see cref="float"/> (so feature scatter and token
+/// sampling are precision-independent); conversions happen only at the ORT boundary. KV/conv caches are kept
+/// in their native dtype end-to-end to avoid per-step precision loss and CPU cost. This supports the fp32,
+/// fp16, and q4f16 (fp16-activation) graph exports with no code change.
 /// </remarks>
 public sealed class Lfm2VlGenerator
 {
@@ -26,14 +31,18 @@ public sealed class Lfm2VlGenerator
 
     private readonly string _embedInput;
     private readonly string _embedOutput;
+    private readonly NodeMetadata _embedOutputMeta;
     private readonly string _decoderEmbedsInput;
+    private readonly NodeMetadata _decoderEmbedsMeta;
     private readonly string? _attnInput;
     private readonly string? _posInput;
     private readonly string _logitsOutput;
+    private readonly NodeMetadata _logitsMeta;
     private readonly string _visionOutput;
+    private readonly NodeMetadata _visionOutputMeta;
     private readonly List<CacheSlot> _caches;
 
-    private sealed record CacheSlot(string PastInput, string PresentOutput, int[] Dims);
+    private sealed record CacheSlot(string PastInput, string PresentOutput, int[] Dims, Type ElementType);
 
     public Lfm2VlGenerator(LoadedModel model, LiquidVisionOptions options)
     {
@@ -43,9 +52,11 @@ public sealed class Lfm2VlGenerator
         // --- embed_tokens graph ---
         _embedInput = model.EmbedTokens.InputMetadata.Keys.First();
         _embedOutput = model.EmbedTokens.OutputMetadata.Keys.First();
+        _embedOutputMeta = model.EmbedTokens.OutputMetadata[_embedOutput];
 
         // --- vision encoder graph: first output is the image features ---
         _visionOutput = model.VisionEncoder.OutputMetadata.Keys.First();
+        _visionOutputMeta = model.VisionEncoder.OutputMetadata[_visionOutput];
 
         // --- decoder graph: locate roles by name, discover caches generically ---
         var dIn = model.Decoder.InputMetadata;
@@ -53,11 +64,13 @@ public sealed class Lfm2VlGenerator
             ?? throw new ModelInferenceException(
                 "Decoder graph does not expose an 'inputs_embeds' input; cannot merge image features. " +
                 $"Available inputs: {string.Join(", ", dIn.Keys)}");
+        _decoderEmbedsMeta = dIn[_decoderEmbedsInput];
         _attnInput = dIn.Keys.FirstOrDefault(k => k.Contains("attention_mask", StringComparison.OrdinalIgnoreCase));
         _posInput = dIn.Keys.FirstOrDefault(k => k.Contains("position_ids", StringComparison.OrdinalIgnoreCase));
 
         _logitsOutput = model.Decoder.OutputMetadata.Keys.FirstOrDefault(k => k.Contains("logits", StringComparison.OrdinalIgnoreCase))
             ?? model.Decoder.OutputMetadata.Keys.First();
+        _logitsMeta = model.Decoder.OutputMetadata[_logitsOutput];
 
         _caches = DiscoverCaches(model.Decoder);
         if (_caches.Count == 0)
@@ -90,27 +103,25 @@ public sealed class Lfm2VlGenerator
             ct.ThrowIfCancellationRequested();
 
             int curLen = currentEmbeds.Dimensions[1];
-            var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(_decoderEmbedsInput, currentEmbeds) };
+            var inputs = new List<NamedOnnxValue> { MakeFloatInput(_decoderEmbedsInput, _decoderEmbedsMeta, currentEmbeds) };
 
             if (_attnInput is not null)
                 inputs.Add(NamedOnnxValue.CreateFromTensor(_attnInput, Ones2D(totalLen)));
             if (_posInput is not null)
                 inputs.Add(NamedOnnxValue.CreateFromTensor(_posInput, PositionIds(totalLen - curLen, curLen)));
             foreach (var slot in _caches)
-                inputs.Add(NamedOnnxValue.CreateFromTensor(slot.PastInput, caches[slot.PastInput]));
+                inputs.Add(caches[slot.PastInput]);
 
             int nextId;
             using (var results = _m.Decoder.Run(inputs))
             {
-                var logits = results.First(r => r.Name == _logitsOutput).AsTensor<float>();
-                nextId = SelectNextToken(logits, curLen);
+                var logits = results.First(r => r.Name == _logitsOutput);
+                var lastRow = ReadLogitsLastRow(logits, _logitsMeta, curLen, out int vocab);
+                nextId = SelectNextToken(lastRow, vocab);
 
-                // Materialize present -> next past (must copy out before results dispose).
+                // Materialize present -> next past (must copy out before results dispose), in native dtype.
                 foreach (var slot in _caches)
-                {
-                    var present = results.First(r => r.Name == slot.PresentOutput).AsTensor<float>();
-                    caches[slot.PastInput] = CloneTensor(present);
-                }
+                    caches[slot.PastInput] = CloneNativePresent(results, slot);
             }
 
             generated.Add(nextId);
@@ -135,14 +146,13 @@ public sealed class Lfm2VlGenerator
         for (int i = 0; i < ids.Length; i++) input[0, i] = ids[i];
 
         using var results = _m.EmbedTokens.Run(new[] { NamedOnnxValue.CreateFromTensor(_embedInput, input) });
-        var outT = results.First(r => r.Name == _embedOutput).AsTensor<float>();
-        return CloneTensor(outT);
+        return ReadFloatOutput(results, _embedOutput, _embedOutputMeta);
     }
 
     private (float[] flat, int rows) RunVision(ProcessedImage image, int hidden)
     {
         using var results = _m.VisionEncoder.Run(image.VisionInputs);
-        var outT = results.First(r => r.Name == _visionOutput).AsTensor<float>();
+        var outT = ReadFloatOutput(results, _visionOutput, _visionOutputMeta);
         var flat = outT.ToArray();
         if (flat.Length % hidden != 0)
             throw new ModelInferenceException($"Vision output length {flat.Length} is not a multiple of hidden size {hidden}.");
@@ -194,15 +204,15 @@ public sealed class Lfm2VlGenerator
                           ?? throw new ModelInferenceException($"No matching 'present' output for decoder cache input '{name}'.");
             }
 
-            slots.Add(new CacheSlot(name, present, meta.Dimensions.ToArray()));
+            slots.Add(new CacheSlot(name, present, meta.Dimensions.ToArray(), meta.ElementType));
         }
 
         return slots;
     }
 
-    private Dictionary<string, DenseTensor<float>> InitCaches()
+    private Dictionary<string, NamedOnnxValue> InitCaches()
     {
-        var dict = new Dictionary<string, DenseTensor<float>>();
+        var dict = new Dictionary<string, NamedOnnxValue>();
         foreach (var slot in _caches)
         {
             // Replace dynamic dims: batch (index 0) -> 1, any other dynamic (e.g. past sequence length) -> 0.
@@ -210,9 +220,100 @@ public sealed class Lfm2VlGenerator
             var dims = new int[slot.Dims.Length];
             for (int i = 0; i < dims.Length; i++)
                 dims[i] = slot.Dims[i] >= 0 ? slot.Dims[i] : (i == 0 ? 1 : 0);
-            dict[slot.PastInput] = new DenseTensor<float>(dims);
+
+            // Zero-init in native dtype. default(Float16) is bit-pattern 0 == +0.0, so this is correct.
+            NamedOnnxValue value = IsFp16(slot.ElementType)
+                ? NamedOnnxValue.CreateFromTensor(slot.PastInput, new DenseTensor<Float16>(dims))
+                : NamedOnnxValue.CreateFromTensor(slot.PastInput, new DenseTensor<float>(dims));
+            dict[slot.PastInput] = value;
         }
         return dict;
+    }
+
+    // ---- precision boundary helpers ----
+
+    private static bool IsFp16(NodeMetadata meta) => meta.ElementType == typeof(Float16);
+    private static bool IsFp16(Type elementType) => elementType == typeof(Float16);
+
+    /// <summary>
+    /// Wraps a float source tensor as the decoder input, converting to Float16 when the graph expects it.
+    /// fp32 takes a zero-copy fast path.
+    /// </summary>
+    private static NamedOnnxValue MakeFloatInput(string name, NodeMetadata meta, DenseTensor<float> src)
+    {
+        if (!IsFp16(meta))
+            return NamedOnnxValue.CreateFromTensor(name, src);
+
+        var dst = new DenseTensor<Float16>(src.Dimensions.ToArray());
+        var s = src.Buffer.Span;
+        var d = dst.Buffer.Span;
+        for (int i = 0; i < s.Length; i++) d[i] = (Float16)s[i];
+        return NamedOnnxValue.CreateFromTensor(name, dst);
+    }
+
+    /// <summary>Reads a graph output as a float dense tensor, converting from Float16 when needed.</summary>
+    private static DenseTensor<float> ReadFloatOutput(IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results, string name, NodeMetadata meta)
+    {
+        var result = results.First(r => r.Name == name);
+        if (!IsFp16(meta))
+            return CloneTensor(result.AsTensor<float>());
+
+        var src = result.AsTensor<Float16>();
+        var dims = src.Dimensions.ToArray();
+        var clone = new DenseTensor<float>(dims);
+        var d = clone.Buffer.Span;
+        if (src is DenseTensor<Float16> dense)
+        {
+            var s = dense.Buffer.Span;
+            for (int i = 0; i < s.Length; i++) d[i] = (float)s[i];
+        }
+        else
+        {
+            var arr = src.ToArray();
+            for (int i = 0; i < arr.Length; i++) d[i] = (float)arr[i];
+        }
+        return clone;
+    }
+
+    /// <summary>
+    /// Extracts only the last position's logits as a float[vocab], converting from Float16 when needed.
+    /// Avoids materializing the full [1, curLen, vocab] tensor.
+    /// </summary>
+    private static float[] ReadLogitsLastRow(DisposableNamedOnnxValue logits, NodeMetadata meta, int curLen, out int vocab)
+    {
+        int row = curLen - 1;
+        if (!IsFp16(meta))
+        {
+            var t = logits.AsTensor<float>();
+            vocab = t.Dimensions[^1];
+            var outF = new float[vocab];
+            for (int v = 0; v < vocab; v++) outF[v] = t[0, row, v];
+            return outF;
+        }
+
+        var h = logits.AsTensor<Float16>();
+        vocab = h.Dimensions[^1];
+        var outH = new float[vocab];
+        for (int v = 0; v < vocab; v++) outH[v] = (float)h[0, row, v];
+        return outH;
+    }
+
+    /// <summary>Clones a decoder 'present' output into the next 'past' input, preserving native dtype.</summary>
+    private static NamedOnnxValue CloneNativePresent(IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results, CacheSlot slot)
+    {
+        var present = results.First(r => r.Name == slot.PresentOutput);
+        if (IsFp16(slot.ElementType))
+        {
+            var src = present.AsTensor<Float16>();
+            var clone = new DenseTensor<Float16>(src.Dimensions.ToArray());
+            if (src is DenseTensor<Float16> dense)
+                dense.Buffer.Span.CopyTo(clone.Buffer.Span);
+            else
+                src.ToArray().CopyTo(clone.Buffer.Span);
+            return NamedOnnxValue.CreateFromTensor(slot.PastInput, clone);
+        }
+
+        return NamedOnnxValue.CreateFromTensor(slot.PastInput, CloneTensor(present.AsTensor<float>()));
     }
 
     // ---- tensor utilities ----
@@ -232,38 +333,29 @@ public sealed class Lfm2VlGenerator
         return t;
     }
 
-    private int SelectNextToken(Tensor<float> logits, int curLen)
+    private int SelectNextToken(float[] lastRow, int vocab)
     {
-        // logits shape: [1, curLen, vocab]; use the last position.
-        int vocab = logits.Dimensions[^1];
-        int row = curLen - 1;
-
         if (_o.Greedy)
-        {
-            int best = 0;
-            float bestVal = float.NegativeInfinity;
-            for (int v = 0; v < vocab; v++)
-            {
-                float val = logits[0, row, v];
-                if (val > bestVal) { bestVal = val; best = v; }
-            }
-            return best;
-        }
+            return Argmax(lastRow, vocab);
 
-        return SampleTopP(logits, row, vocab);
+        return SampleTopP(lastRow, vocab, _o.Temperature, _o.TopP, _o.Seed);
     }
 
-    private int SampleTopP(Tensor<float> logits, int row, int vocab)
+    /// <summary>
+    /// Nucleus (top-p) sampling over a 1-D logits row. Exposed internally for unit testing; the instance
+    /// path supplies temperature/top-p/seed from <see cref="LiquidVisionOptions"/>.
+    /// </summary>
+    internal static int SampleTopP(float[] logits, int vocab, float temperature, float topP, int? seed)
     {
         var probs = new float[vocab];
         float max = float.NegativeInfinity;
-        for (int v = 0; v < vocab; v++) max = Math.Max(max, logits[0, row, v]);
+        for (int v = 0; v < vocab; v++) max = Math.Max(max, logits[v]);
 
         float sum = 0f;
-        float invT = 1f / Math.Max(_o.Temperature, 1e-6f);
+        float invT = 1f / Math.Max(temperature, 1e-6f);
         for (int v = 0; v < vocab; v++)
         {
-            float e = MathF.Exp((logits[0, row, v] - max) * invT);
+            float e = MathF.Exp((logits[v] - max) * invT);
             probs[v] = e;
             sum += e;
         }
@@ -272,7 +364,7 @@ public sealed class Lfm2VlGenerator
         var idx = Enumerable.Range(0, vocab).ToArray();
         Array.Sort(idx, (a, b) => probs[b].CompareTo(probs[a]));
 
-        var rng = _o.Seed is int s ? new Random(s) : Random.Shared;
+        var rng = seed is int s ? new Random(s) : Random.Shared;
         float cumulative = 0f;
         double r = rng.NextDouble();
         float kept = 0f;
@@ -284,7 +376,7 @@ public sealed class Lfm2VlGenerator
             nucleus.Add(v);
             kept += probs[v];
             last = v;
-            if (kept >= _o.TopP) break;
+            if (kept >= topP) break;
         }
         double pick = r * kept;
         foreach (var v in nucleus)
@@ -293,6 +385,18 @@ public sealed class Lfm2VlGenerator
             if (pick <= cumulative) return v;
         }
         return last;
+    }
+
+    /// <summary>Greedy argmax over a 1-D logits row. Exposed internally for unit testing.</summary>
+    internal static int Argmax(float[] logits, int vocab)
+    {
+        int best = 0;
+        float bestVal = float.NegativeInfinity;
+        for (int v = 0; v < vocab; v++)
+        {
+            if (logits[v] > bestVal) { bestVal = logits[v]; best = v; }
+        }
+        return best;
     }
 
     private static DenseTensor<float> CloneTensor(Tensor<float> source)

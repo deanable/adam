@@ -4,6 +4,7 @@
     <Project Path="src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj" />
     <Project Path="src/Adam.ServiceManager/Adam.ServiceManager.csproj" />
     <Project Path="src/Adam.Shared/Adam.Shared.csproj" />
+    <Project Path="src/LiquidVision.Core/LiquidVision.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Adam.BrokerService.Tests/Adam.BrokerService.Tests.csproj" />

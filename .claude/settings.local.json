@@ -25,7 +25,16 @@
       "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs commit \"docs\\(09\\): add context and validation strategy\" --files \".planning/phases/09-ai-image-tagging/09-CONTEXT.md\" \".planning/phases/09-ai-image-tagging/09-VALIDATION.md\")",
       "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs config-get workflow.pattern_mapper)",
       "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs config-get workflow.security_enforcement)",
-      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs agent-skills gsd-planner)"
+      "Bash(node ~/.claude/get-shit-done/bin/gsd-tools.cjs agent-skills gsd-planner)",
+      "Bash(sc.exe query *)",
+      "Bash(sc.exe queryex *)",
+      "Bash(net stop *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(taskkill /F /PID 4416)",
+      "PowerShell(Stop-Service *)",
+      "Bash(grep -iE \"\\\\.slnx?$\")",
+      "Bash(git rm *)",
+      "Bash(xargs grep -lEi \"Q4F16|Precision|F16|fp16|Float16\")"
     ]
   }
 }

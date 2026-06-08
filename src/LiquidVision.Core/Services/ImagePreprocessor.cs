@@ -5,6 +5,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SkiaSharp;
 using LiquidVision.Core.Exceptions;
+using Float16 = Microsoft.ML.OnnxRuntime.Float16;
 
 namespace LiquidVision.Core.Services;
 
@@ -193,7 +194,7 @@ public sealed class ImagePreprocessor
             }
             else if (lname.Contains("pixel"))
             {
-                inputs.Add(NamedOnnxValue.CreateFromTensor(name, pixelValues));
+                inputs.Add(BuildPixelInput(name, meta, pixelValues));
                 havePixels = true;
             }
             else if (lname.Contains("spatial") || lname.Contains("shape"))
@@ -217,6 +218,19 @@ public sealed class ImagePreprocessor
                 $"Vision encoder exposes no pixel_values-like input. Inputs: {string.Join(", ", _visionInputs.Keys)}.");
 
         return inputs;
+    }
+
+    /// <summary>Feeds pixel_values, converting the float patch tensor to Float16 when the graph expects it.</summary>
+    private static NamedOnnxValue BuildPixelInput(string name, NodeMetadata meta, DenseTensor<float> pixelValues)
+    {
+        if (meta.ElementType != typeof(Float16))
+            return NamedOnnxValue.CreateFromTensor(name, pixelValues);
+
+        var dst = new DenseTensor<Float16>(pixelValues.Dimensions.ToArray());
+        var s = pixelValues.Buffer.Span;
+        var d = dst.Buffer.Span;
+        for (int i = 0; i < s.Length; i++) d[i] = (Float16)s[i];
+        return NamedOnnxValue.CreateFromTensor(name, dst);
     }
 
     private static NamedOnnxValue BuildSpatial(string name, NodeMetadata meta, int rows, int cols)
