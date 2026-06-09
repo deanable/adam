@@ -57,6 +57,20 @@ public class ConnectionViewModel : INotifyPropertyChanged
                     DisconnectFromServiceCommand.RaiseCanExecuteChanged();
                 });
             };
+
+            // Phase 7 T7.5: Handle server-initiated session invalidation
+            // (role change, account deactivation — fired from UserHandler on the broker)
+            modeManager.BrokerClient.SessionInvalidated += async (_, _) =>
+            {
+                _logger.LogInformation("Session invalidated by server — re-validating");
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    ServiceConnectionStatus = "Session invalidated — re-authenticating...";
+                    // ValidateTokenAsync will detect role change or deactivation and fire
+                    // ForceLogout if the account is no longer active (T7.4).
+                    _ = ValidateSessionAsync();
+                });
+            };
         }
     }
 

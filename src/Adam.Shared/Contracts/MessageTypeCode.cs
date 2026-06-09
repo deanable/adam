@@ -77,6 +77,9 @@ public enum MessageTypeCode : ushort
     SubscribeChangesRequest = 111,
     SubscribeChangesResponse = 112,
 
+    // Session management (115)
+    SessionInvalidated = 115,
+
     // Status / Misc (90-99)
     GetServiceStatusRequest = 90,
     GetServiceStatusResponse = 91,

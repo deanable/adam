@@ -2,6 +2,7 @@ using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using Adam.BrokerService.Transport;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,14 +17,16 @@ public sealed class UserHandler
     private readonly AuditLogger _auditLogger;
     private readonly AuthorizationMiddleware _authz;
     private readonly AuthHandler _authHandler;
+    private readonly ConnectionRegistry _connectionRegistry;
 
-    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz, AuthHandler authHandler)
+    public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz, AuthHandler authHandler, ConnectionRegistry connectionRegistry)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _auditLogger = auditLogger;
         _authz = authz;
         _authHandler = authHandler;
+        _connectionRegistry = connectionRegistry;
     }
 
     public async Task<Envelope> ListUsersAsync(Envelope request, CancellationToken ct)
@@ -182,6 +185,8 @@ public sealed class UserHandler
             changes.Add("password");
         }
 
+        bool roleChanged = false;
+
         if (updateReq.RoleId != null)
         {
             var roleId = Guid.Parse(updateReq.RoleId);
@@ -189,6 +194,7 @@ public sealed class UserHandler
                 return ErrorResponse(request, 5, "Role not found");
             user.RoleId = roleId;
             changes.Add("role");
+            roleChanged = true;
         }
 
         if (updateReq.IsActive != user.IsActive)
@@ -197,6 +203,12 @@ public sealed class UserHandler
 
         db.Users.Update(user);
         await db.SaveChangesAsync(ct);
+
+        // Phase 7: Notify affected connections when role is changed or account deactivated (T7.5)
+        if (roleChanged || !user.IsActive)
+        {
+            await NotifySessionInvalidatedAsync(user.Id.ToString(), ct);
+        }
 
         var callerId = _authHandler.GetUserId(request);
         await _auditLogger.LogAsync(db, callerId, "Update", "User", user.Id.ToString(),
@@ -238,12 +250,51 @@ public sealed class UserHandler
         await _auditLogger.LogAsync(db, callerId, "Delete", "User", user.Id.ToString(),
             $"Deactivated user {user.Username}");
 
+        // Phase 7: Notify affected connections when account is deactivated (T7.5)
+        await NotifySessionInvalidatedAsync(user.Id.ToString(), ct);
+
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.DeleteUserRequest,
             StatusCode = 0
         };
+    }
+
+    /// <summary>
+    /// Notifies all active connections for the given user that their session has been
+    /// invalidated (role changed or account deactivated). The client should call
+    /// ValidateTokenAsync to refresh the user profile (Phase 7 T7.5).
+    /// </summary>
+    private async Task NotifySessionInvalidatedAsync(string userId, CancellationToken ct)
+    {
+        var connectionIds = _connectionRegistry.GetConnectionIdsByUserId(userId);
+        if (connectionIds.Count == 0)
+        {
+            _logger.LogDebug("No active connections found for user {UserId} — no invalidation sent", userId);
+            return;
+        }
+
+        var envelope = new Envelope
+        {
+            CorrelationId = Guid.NewGuid().ToString(),
+            MessageType = MessageTypeCode.SessionInvalidated,
+            Payload = Google.Protobuf.ByteString.Empty
+        };
+
+        _logger.LogInformation("Notifying {Count} connection(s) for user {UserId} of session invalidation", connectionIds.Count, userId);
+
+        foreach (var connId in connectionIds)
+        {
+            try
+            {
+                await _connectionRegistry.SendAsync(connId, envelope, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send session invalidation to connection {ConnectionId}", connId);
+            }
+        }
     }
 
     private static Envelope ErrorResponse(Envelope request, int code, string message)

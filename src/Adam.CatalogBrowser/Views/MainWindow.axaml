@@ -31,6 +31,10 @@
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
+    <!-- Nav button disabled state: reduced opacity to indicate locked feature -->
+    <Style Selector="Button.NavButton:disabled">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
   </Window.Styles>
 
   <Window.KeyBindings>
@@ -48,11 +52,17 @@
           <!-- Navigation -->
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
           <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  IsVisible="{Binding CanIngest}" />
+                  Classes="NavButton"
+                  IsEnabled="{Binding CanIngest}"
+                  ToolTip.Tip="{Binding IngestPermissionTooltip}" />
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  IsVisible="{Binding CanEditMetadata}" />
+                  Classes="NavButton"
+                  IsEnabled="{Binding CanEditMetadata}"
+                  ToolTip.Tip="{Binding MetadataPermissionTooltip}" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  IsVisible="{Binding CanAudit}" />
+                  Classes="NavButton"
+                  IsEnabled="{Binding CanAudit}"
+                  ToolTip.Tip="{Binding AuditPermissionTooltip}" />
 
           <!-- Admin / Service Manager separator -->
           <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center"
@@ -61,7 +71,9 @@
                   Foreground="#CCFFCC" Background="#004D40" BorderThickness="0"
                   FontSize="11" Padding="8,2" CornerRadius="3" Margin="0,0,8,0"
                   Cursor="Hand"
-                  IsVisible="{Binding CanAdminister}">
+                  Classes="NavButton"
+                  IsEnabled="{Binding CanAdminister}"
+                  ToolTip.Tip="{Binding AdminPermissionTooltip}">
             <Button.Styles>
               <Style Selector="Button:pointerover">
                 <Setter Property="Background" Value="#00695C" />
@@ -337,9 +349,11 @@
               </StackPanel>
             </Expander>
 
-            <!-- Tags (single-asset editing) -->
+            <!-- Tags (single-asset editing) — Phase 7: gated by CanEditMetadata -->
             <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <StackPanel Margin="0,4,0,0" Spacing="6">
+              <StackPanel Margin="0,4,0,0" Spacing="6"
+                          IsEnabled="{Binding CanEditMetadata}"
+                          ToolTip.Tip="{Binding EditPermissionTooltip}">
 
                 <!-- Description (single-asset mode only) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">

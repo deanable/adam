@@ -2,7 +2,7 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 7 — Client RBAC & Hardening
+**Current Phase:** 8 — v1.0 Polish & Ship
 **Current Milestone:** v1.2 — Client Polish
 
 ## Project Reference
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Permission-aware client UI and session stability in multi-user mode
+**Current focus:** Final stabilization, performance audit, and distribution packaging
 
 ## Phase Progress
 
@@ -22,8 +22,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 4 | ✅ | 1/1 | 100% | Archived |
 | 5 | ✅ | 1/1 | 100% | Archived |
 | 6 | ✅ | 1/1 | 100% | Archived |
-| 7 | 🚧 | 0/1 | 0% | Current |
-| 8 | ○ | 0/1 | 0% |
+| 7 | ✅ | 1/1 | 100% | Archived |
+| 8 | 🚧 | 0/1 | 0% | Current |
 | 9 | ✅ | 1/1 | 100% | Archived |
 
 ## Accumulated Context
@@ -171,11 +171,24 @@ None.
 - **T9.8:** Tests — 7 unit tests covering image-only guard, keyword/category merge, description fill-only-when-empty, cancellation, batch progress, analyze-only path
 - All **7 AI Tagging tests pass**; all projects build cleanly (0 warnings)
 
+## Phase 7 Completion Summary
+
+- **T7.1:** Permission-aware properties (`CanIngest`, `CanEditMetadata`, `CanAudit`, `CanAdminister`, `CanAiTag`, `SessionStatusText`) with `EvaluatePermission()` helper and `RefreshPermissionsAsync()` — fires PropertyChanged and raises CanExecuteChanged for all permission-gated commands
+- **T7.2:** UI gating with `IsEnabled` on right panel Tags StackPanel — gates 14+ editing controls (description, date picker, categories/keywords, rating, label, flag, copyright, GPS, rotate/flip, export, save) by `CanEditMetadata`. MetadataEditorView left-column editing controls gated with `IsEnabled="{Binding CanEdit}"` and defense-in-depth `SaveCommand` CanExecute checking `CanEdit`. Permission tooltips (`EditPermissionTooltip`) show contextual explanation on hover when controls are disabled: "Sign in to edit metadata", "Session expired — re-login required to edit metadata", "Requires Editor or Administrator role"
+- **T7.3:** 60-second `_sessionCheckTimer` — calls `ValidateTokenAsync()` which now queries the DB on the broker side for the user's current role and active status
+- **T7.4:** `ForceLogout` event handling — `ConnectionViewModel.ValidateSessionAsync` fires `ForceLogout` on deactivation → `MainWindowViewModel` clears session state, updates status bar, refreshes permissions
+- **T7.5:** Dynamic role change detection — `AuthHandler.ValidateToken` now queries DB for current role via `AppDbContext`, returning updated claims (not stale JWT). `SessionInvalidated` opcode (115) pushed to affected connections via `ConnectionRegistry.GetConnectionIdsByUserId` when role changes or account is deactivated in `UserHandler`. `BrokerClient.SessionInvalidated` event triggers `ConnectionViewModel.ValidateSessionAsync`. Three-tier detection: instant push (SessionInvalidated), periodic (60s timer), and defense (token expiry)
+- **T7.6:** `SessionStatusText` visible in status bar — shows "Local mode — full access", "Username — Role", "Not logged in", or "Session expired — Role (relogin required)"
+- **Nav button tooltips:** Ingest, Metadata, Audit, and Server Admin buttons changed from `IsVisible` (hidden) to `IsEnabled` with `Classes="NavButton"` — users see all features even when locked. `GetNavTooltipText(actionDescription, requiredRole)` shared helper returns session-state-aware tooltips (not logged in / token expired / no permission). `IngestPermissionTooltip`, `MetadataPermissionTooltip`, `AuditPermissionTooltip`, `AdminPermissionTooltip` properties with PropertyChanged notifications. Disabled state styled with `Opacity="0.35"`.
+- **Service infrastructure:** `ConnectionRegistry.GetConnectionIdsByUserId` for targeted push notifications. `UserHandler` injects `ConnectionRegistry` and calls `NotifySessionInvalidatedAsync` after role change or deactivation
+- **IngestionView defense-in-depth:** Select Files, Select Folder, and drag-drop area gated by `IsEnabled="{Binding DataContext.CanIngest}"` with `ToolTip.Tip` for permission tooltip, ensuring a Viewer user cannot initiate a folder scan even if they navigate to the page. Gallery toolbar AI Tag Selected button changed from `IsVisible` to `IsEnabled` with `ToolTip.Tip` binding.
+- **Tests:** 23 permission tests (nav tooltips, session status, token expiry, dynamic role changes), 20 MetadataEditorViewModel CanEdit tests — all passing
+
 ## Next Actions
 
-1. **Begin Phase 7**: Client RBAC & Hardening — permission-aware UI, token expiry handling, graceful degradation.
-2. **Continue milestone v1.2**: Client Polish — Phase 7 (RBAC) and Phase 8 (v1.0 Polish & Ship).
+1. **Begin Phase 8**: v1.0 Polish & Ship — performance audit, search indexes, thumbnail cache optimization.
+2. **Continue milestone v1.2**: Client Polish — Phase 8 (v1.0 Polish & Ship).
 
 ---
-*State updated: 2026-06-08 after Phase 5, 6 & 9 completion*
+*State updated: 2026-06-09 after Phase 7 work*
 

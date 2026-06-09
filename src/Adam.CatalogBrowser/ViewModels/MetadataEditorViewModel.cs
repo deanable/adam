@@ -43,13 +43,15 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     private string _copyright = string.Empty;
     private string _headline = string.Empty;
     private string _fileName = string.Empty;
+    private bool _canEdit = true;
+    private string _editDisabledReason = string.Empty;
 
     public MetadataEditorViewModel(ModeManager modeManager, IUiDispatcher? dispatcher = null, AiTaggingService? aiTaggingService = null)
     {
         _modeManager = modeManager;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         _aiTaggingService = aiTaggingService;
-        SaveCommand = new RelayCommand(async _ => await SaveAsync(), _ => IsDirty && HasAsset);
+        SaveCommand = new RelayCommand(async _ => await SaveAsync(), _ => CanEdit && IsDirty && HasAsset);
         SetRatingCommand = new RelayCommand(param =>
         {
             if (param is string s && int.TryParse(s, out var r))
@@ -58,6 +60,34 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
             }
         });
         AutoTagCommand = new RelayCommand(async _ => await AutoTagAsync(), _ => HasAsset && !IsLoading && !IsAiTagging);
+    }
+
+    /// <summary>
+    /// Whether editing is permitted for the current session.
+    /// Set externally by <c>MainWindowViewModel.RefreshPermissionsAsync</c>.
+    /// When <c>false</c>, all editing controls are disabled with a tooltip explanation.
+    /// </summary>
+    public bool CanEdit
+    {
+        get => _canEdit;
+        set
+        {
+            _canEdit = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EditPermissionTooltip));
+            (SaveCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (AutoTagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>
+    /// Human-readable explanation shown as tooltip when editing is disabled.
+    /// Empty when editing is permitted.
+    /// </summary>
+    public string EditPermissionTooltip
+    {
+        get => _canEdit ? string.Empty : _editDisabledReason;
+        set => _editDisabledReason = value ?? string.Empty;
     }
 
     public ICommand SaveCommand { get; }

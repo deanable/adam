@@ -1,7 +1,7 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-08 (Phase 5 complete)
+**Updated:** 2026-06-09 (Phase 7 complete)
 **Granularity:** Standard  
 **Phases:** 9
 
@@ -15,8 +15,8 @@
 | 4 | Metadata Management | XMP Round-trip, adjustments, and export | META-01 to META-05, EDIT-01 to EDIT-04 | ✅ Complete |
 | 5 | Server Management Tooling | Dedicated admin tool for Users, Roles, and Services | AUTH-04, AUTH-05, ADMIN-02, ADMIN-03 | ✅ Complete |
 | 6 | Database Provider Matrix | Full SQL Server/PostgreSQL validation & Migration | DB-02 to DB-04 | ✅ Complete |
-| 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | 🚧 Next |
-| 8 | v1.0 Polish & Ship | Bug fixes, performance tuning, and final release | All v1 Final | 📋 Planned |
+| 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | ✅ Complete |
+| 8 | v1.0 Polish & Ship | Bug fixes, performance tuning, and final release | All v1 Final | 🚧 Next |
 | 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
 
 ## Phase Details
@@ -54,21 +54,21 @@
 
 ---
 
-### Phase 7: Client RBAC & Hardening
+### Phase 7: Client RBAC & Hardening ✅
 **Goal:** Update the `CatalogBrowser` to respect the security model and permissions managed by the server.
 
 **Deliverables:**
-1. **Permission-Aware UI**: Disable or hide buttons/views (e.g., Ingest, Delete, Admin-only tools) based on the user's JWT claims.
-2. **Connection Management**: Final polish on the mode toggle (Standalone vs. Multi-User) and connection settings.
-3. **Session Stability**: Handle token expiration, forced logouts, and server-side user deactivation gracefully in the UI.
+1. ✅ **Permission-Aware UI**: Disable or hide buttons/views (e.g., Ingest, Delete, Admin-only tools) based on the user's JWT claims.
+2. ✅ **Connection Management**: Final polish on the mode toggle (Standalone vs. Multi-User) and connection settings.
+3. ✅ **Session Stability**: Handle token expiration, forced logouts, and server-side user deactivation gracefully in the UI.
 
 **Success Criteria:**
-- A user with "Viewer" permissions cannot initiate a folder scan.
-- The client UI updates dynamically when a user's role is changed on the server.
+- ✅ A user with "Viewer" permissions cannot initiate a folder scan.
+- ✅ The client UI updates dynamically when a user's role is changed on the server.
 
 ---
 
-### Phase 8: v1.0 Polish & Ship
+### Phase 8: v1.0 Polish & Ship 🚧
 **Goal:** Final stabilization and distribution prep.
 
 **Deliverables:**
@@ -85,8 +85,8 @@
 ### v1.1 — Server Maturity (Phases 5-6) ✅
 Production-ready server administration and database flexibility.
 
-### v1.2 — Client Polish (Phases 7-8)
-Permission-aware UI and v1.0 polish & ship.
+### v1.2 — Client Polish (Phases 7-8) 🚧
+Permission-aware UI and v1.0 polish & ship — Phase 7 ✅, Phase 8 underway.
 
 ### Phase 9: AI Image Tagging ✅
 **Goal:** Integrate the in-repo `LiquidVision.Core` (LFM2-VL ONNX vision model) into ADAM so users can auto-generate descriptions, keywords, and categories for image assets locally, with no Python or cloud dependency.
@@ -109,4 +109,4 @@ Permission-aware UI and v1.0 polish & ship.
 - ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-*Roadmap updated: 2026-06-08 — Phases 5, 6, 9 complete*
+*Roadmap updated: 2026-06-09 — Phase 7 complete, Phase 8 underway*

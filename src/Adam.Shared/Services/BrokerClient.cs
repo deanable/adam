@@ -48,6 +48,11 @@ public sealed class BrokerClient : IAsyncDisposable
 
     public event EventHandler<ConnectionStatus>? StatusChanged;
     public event EventHandler<ChangeNotification>? NotificationReceived;
+    /// <summary>
+    /// Raised when the server sends a SessionInvalidated notification (Phase 7 T7.5).
+    /// The client should call ValidateTokenAsync to refresh the user profile.
+    /// </summary>
+    public event EventHandler? SessionInvalidated;
 
     public BrokerClient(string host, int port, bool useTls = false, bool allowSelfSigned = false)
     {
@@ -344,6 +349,11 @@ public sealed class BrokerClient : IAsyncDisposable
                     var notification = ProtoHelper.Deserialize<ChangeNotification>(envelope.Payload.ToByteArray());
                     ConnectionDebugLogger.Info($"ReceiveLoopAsync: change notification received (action={notification.Action}, entityId={notification.EntityId})");
                     NotificationReceived?.Invoke(this, notification);
+                }
+                else if (envelope.MessageType == MessageTypeCode.SessionInvalidated)
+                {
+                    ConnectionDebugLogger.Info($"ReceiveLoopAsync: session invalidation received");
+                    SessionInvalidated?.Invoke(this, EventArgs.Empty);
                 }
                 else
                 {

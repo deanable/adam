@@ -34,11 +34,13 @@
                      Width="40" />
         </StackPanel>
 
-        <!-- AI Tag Selected button (Trigger C) — gated by permission (T7.2) -->
+        <!-- AI Tag Selected button (Trigger C) — Phase 7: gated by permission with tooltip -->
         <Button Grid.Column="3"
                 Content="🤖 AI Tag Selected"
                 Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
-                IsVisible="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                IsEnabled="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                ToolTip.Tip="{Binding DataContext.AiTagPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                Classes="AiTagButton"
                 FontSize="11"
                 Padding="8,2"
                 Margin="4,0"
@@ -53,10 +55,13 @@
               <Setter Property="Background" Value="#E0E0E0" />
               <Setter Property="Foreground" Value="#999" />
             </Style>
-            <Style Selector="Button:pointerover">
+            <Style Selector="Button.AiTagButton:disabled">
+              <Setter Property="Opacity" Value="0.35" />
+            </Style>
+            <Style Selector="Button:pointerover:not(:disabled)">
               <Setter Property="Background" Value="#8E24AA" />
             </Style>
-            <Style Selector="Button:pressed">
+            <Style Selector="Button:pressed:not(:disabled)">
               <Setter Property="Background" Value="#6A1B9A" />
             </Style>
           </Button.Styles>

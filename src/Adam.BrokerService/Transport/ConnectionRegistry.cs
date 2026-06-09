@@ -78,6 +78,18 @@ public sealed class ConnectionRegistry : IDisposable
     }
 
     /// <summary>
+    /// Get all authenticated connection IDs for a specific user.
+    /// Used for targeted notifications like session invalidation (Phase 7 T7.5).
+    /// </summary>
+    public IReadOnlyList<string> GetConnectionIdsByUserId(string userId)
+    {
+        return _connections
+            .Where(kvp => string.Equals(kvp.Value.UserId, userId, StringComparison.OrdinalIgnoreCase))
+            .Select(kvp => kvp.Key)
+            .ToList();
+    }
+
+    /// <summary>
     /// Send an envelope to a specific connection.
     /// </summary>
     public async Task<bool> SendAsync(string connectionId, Envelope envelope, CancellationToken ct = default)

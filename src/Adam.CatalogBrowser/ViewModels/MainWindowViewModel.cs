@@ -637,6 +637,95 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Tooltip text shown when hovering over disabled metadata editing controls.
+    /// Explains why the control is disabled based on the current user's role and session state.
+    /// (Phase 7 T7.2 — permission tooltips)
+    /// </summary>
+    public string? EditPermissionTooltip
+    {
+        get
+        {
+            if (_modeManager.IsStandalone)
+                return null;
+
+            if (!EvaluatePermission("asset:update"))
+                return GetEditPermissionTooltipText();
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the human-readable tooltip text explaining why edit controls are disabled.
+    /// Shared between the right-panel (EditPermissionTooltip) and MetadataEditorView.
+    /// </summary>
+    private string GetEditPermissionTooltipText()
+    {
+        return GetNavTooltipText("edit metadata", "Requires Editor or Administrator role");
+    }
+
+    /// <summary>
+    /// Returns session-state-aware tooltip text for permission-gated navigation buttons.
+    /// </summary>
+    /// <param name="actionDescription">Lowercase verb phrase, e.g. "ingest assets", "view audit log".</param>
+    /// <param name="requiredRole">The role requirement, e.g. "Requires Editor or Administrator role".</param>
+    private string GetNavTooltipText(string actionDescription, string requiredRole)
+    {
+        var auth = _modeManager.AuthSession;
+        if (auth == null || !auth.IsLoggedIn)
+            return $"Sign in to {actionDescription}";
+
+        if (auth.IsTokenExpired())
+            return $"Session expired — re-login required to {actionDescription}";
+
+        return requiredRole;
+    }
+
+    /// <summary>
+    /// Tooltip for the Ingest navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? IngestPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("asset:create") ? GetNavTooltipText("ingest assets", "Requires Editor or Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Metadata navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? MetadataPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("asset:update") ? GetNavTooltipText("edit metadata", "Requires Editor or Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Audit navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? AuditPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("audit:read") ? GetNavTooltipText("view audit log", "Requires Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Server Admin button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? AdminPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("user:*") ? GetNavTooltipText("manage server", "Requires Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the AI Tag Selected button in the gallery toolbar.
+    /// Returns <c>null</c> when the full condition (service available + permission granted) is met.
+    /// Returns session-state text when permission is lacking but the service is available.
+    /// Returns <c>null</c> when the service itself is unavailable (button remains hidden).
+    /// </summary>
+    public string? AiTagPermissionTooltip
+    {
+        get
+        {
+            if (_aiTaggingService == null)
+                return null;
+
+            if (_modeManager.IsStandalone)
+                return null;
+
+            return !EvaluatePermission("asset:update") ? GetNavTooltipText("AI tag assets", "Requires Editor or Administrator role") : null;
+        }
+    }
+
     private bool EvaluatePermission(string permission)
     {
         // Standalone mode: all permissions granted
@@ -670,6 +759,23 @@ public class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanAdminister));
             OnPropertyChanged(nameof(CanAiTag));
             OnPropertyChanged(nameof(SessionStatusText));
+            OnPropertyChanged(nameof(EditPermissionTooltip));
+            OnPropertyChanged(nameof(IngestPermissionTooltip));
+            OnPropertyChanged(nameof(MetadataPermissionTooltip));
+            OnPropertyChanged(nameof(AuditPermissionTooltip));
+            OnPropertyChanged(nameof(AdminPermissionTooltip));
+            OnPropertyChanged(nameof(AiTagPermissionTooltip));
+
+            // Update PropertyInspector per-edit permission (Phase 7 T7.2)
+            PropertyInspector.CanEdit = EvaluatePermission("asset:update");
+
+            // Gate MetadataEditorView editing controls (Phase 7 T7.2)
+            // Set tooltip text FIRST, then toggle CanEdit which fires PropertyChanged for EditPermissionTooltip
+            var canEdit = EvaluatePermission("asset:update");
+            MetadataEditor.EditPermissionTooltip = canEdit
+                ? string.Empty
+                : GetEditPermissionTooltipText();
+            MetadataEditor.CanEdit = canEdit;
 
             // Re-evaluate command CanExecute for permission-gated commands
             (ShowIngestionCommand as RelayCommand)?.RaiseCanExecuteChanged();
@@ -693,7 +799,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Periodic timer tick — checks token expiry and refreshes permissions (T7.3).
+    /// Periodic timer tick — validates token with broker to detect role changes
+    /// or account deactivation (Phase 7 T7.3, T7.5).
+    ///
+    /// Calls <c>ValidateTokenAsync</c> which queries the DB for the user's current
+    /// role and active status. If the role changed, <c>CurrentUser</c> is updated
+    /// and triggers <c>RefreshPermissionsAsync</c> automatically via PropertyChanged.
+    /// If the account was deactivated, the session is cleared and ForceLogout fires.
     /// </summary>
     private async void OnSessionCheckTick(object? sender, EventArgs e)
     {
@@ -704,7 +816,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (auth == null || !auth.IsLoggedIn)
             return;
 
-        // Check token expiry
+        // Check token expiry first (fast, local check)
         if (auth.IsTokenExpired())
         {
             _logger.LogWarning("Session token expired (detected by timer)");
@@ -712,9 +824,34 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 StatusBar.StatusText = "Session expired — please log out and reconnect";
             });
-
-            // Refire permission checks so the UI disables gated features
             await RefreshPermissionsAsync();
+            return;
+        }
+
+        // Phase 7 T7.5: Validate token with broker to detect role changes or deactivation.
+        // ValidateTokenAsync now queries the DB on the broker side, so if an admin
+        // changed the role or deactivated the account, this will detect it.
+        try
+        {
+            var profile = await Connection.ValidateSessionAsync();
+
+            if (profile != null)
+            {
+                // CurrentUser.Role was already updated by ValidateTokenAsync if it changed.
+                // The PropertyChanged handler in the constructor fires RefreshPermissionsAsync automatically.
+                _logger.LogDebug("Session check: user={Username}, role={Role}", profile.Username, profile.Role);
+
+                // Update session status text in the status bar
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    OnPropertyChanged(nameof(SessionStatusText));
+                });
+            }
+            // If profile is null, ForceLogout was already fired by ValidateSessionAsync
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Session validation failed during periodic check");
         }
     }
 
