@@ -39,3 +39,4 @@ temp_build_out/
 
 # Test results
 TestResults/
+*.db
