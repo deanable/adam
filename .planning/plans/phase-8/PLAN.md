@@ -11,7 +11,7 @@ tags: [performance, documentation, packaging, release]
 
 ![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
 
-This phase finalizes the adam DAM system for a v1.0 release. It covers three work streams: performance audit of search indexes and thumbnail cache for large collections (100K+ assets), comprehensive documentation (Admin Guide + User Guide), and platform-specific distribution packaging (MSI for Windows, DMG for macOS, DEB for Linux).
+This phase finalizes the adam DAM system for a v1.0 release. It covers four work streams: performance audit of search indexes and thumbnail cache for large collections (100K+ assets), comprehensive documentation (Admin Guide + User Guide), platform-specific distribution packaging (MSI for Windows, DMG for macOS, DEB for Linux), and UI polish & interaction (context menus, delete wiring, keyboard model, and direct-manipulation affordances) derived from the Phase 8 UI audit (`08-UI-REVIEW.md`, overall 13/24, Experience Design 1/4).
 
 **Dependencies:** All prior phases (1-7, 9) — feature-complete codebase ready for stabilization.
 
@@ -24,10 +24,15 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers three wor
 - **PKG-01**: Windows distribution as MSI installer via WiX Toolset or equivalent
 - **PKG-02**: macOS distribution as DMG disk image
 - **PKG-03**: Linux distribution as DEB package
+- **UX-01**: Right-click context menus exist on gallery assets and sidebar tree nodes, exposing the relevant existing commands (rate, label, flag, tag, AI-tag, export, rotate/flip, delete, reveal, copy, add-to-collection)
+- **UX-02**: Assets can be deleted, trashed, and restored from the UI (`DeleteService` wired to a command, confirmation, and a Trash view)
+- **UX-03**: Standard DAM keyboard accelerators are available (Delete, F2, Ctrl+A/C/E/F, rating digits, flag keys)
+- **UX-04**: Gallery tiles render their rating/label/flag/action affordances; destructive and async actions surface confirmation and toast feedback
 - **CON-001**: No critical or high-severity bugs remaining before release
 - **CON-002**: All 34 v1 requirements validated and traceable
 - **PAT-001**: Use `dotnet publish` with self-contained deployment for all platforms
 - **PAT-002**: Test suite must pass cleanly before any packaging step
+- **PAT-003**: UI work reuses existing ViewModel commands where they already exist; new commands follow the established `CommunityToolkit.Mvvm` `[RelayCommand]` pattern
 
 ## 2. Implementation Steps
 
@@ -66,12 +71,33 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers three wor
 | T8.13 | **Linux DEB package** — Create `scripts/build-deb.sh` that structures the publish output into DEB layout (`usr/lib/adam/`, `usr/share/applications/adam.desktop`, `usr/bin/adam` symlink). Use `dpkg-deb` for packaging. | | |
 | T8.14 | **CI/CD integration** — Add GitHub Actions workflow (`.github/workflows/release.yml`) that runs on tag push (`v*`): builds all three platforms, runs full test suite, creates MSI/DMG/DEB artifacts, and uploads to GitHub Releases. | | |
 
+### Work Stream 4: UI Polish & Interaction
+
+**GOAL:** Close the interaction-completeness gaps found in the Phase 8 UI audit (`08-UI-REVIEW.md`) — right-click context menus, reachable delete, keyboard model, and direct-manipulation affordances. Priority tags: **[BLOCK]** = v1.0-blocking, **[HIGH]** = expected DAM affordance, **[POLISH]** = visual/consistency debt (deferrable to v2 if scope tightens).
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| T8.15 | **[HIGH] Feedback components** — Reusable confirmation dialog + transient toast/notification surface. None exist today (audit Pillar 6 / table F); prerequisite for safe delete and async feedback (AI-tag, export, ingest, delete). | | |
+| T8.16 | **[BLOCK] Gallery asset context menu** — Add `ContextFlyout` to gallery items (`AssetGalleryView.axaml:113-189`) exposing Rate / Label / Flag / Tag / AI-Tag / Export / Rotate / Flip. Most commands already exist in the VM and only need an affordance (table A). | | |
+| T8.17 | **[BLOCK] Wire up Delete** — `DeleteService` (`Services/DeleteService.cs`, DI-registered `App.axaml.cs:77`, tested) is referenced by no UI. Add `DeleteSelectedCommand` + confirmation (T8.15) + `Delete` key + context-menu entry, and a Trash/Deleted view surfacing `GetDeletedAssetsAsync`/`RestoreAsync`/`PermanentlyDeleteAsync`. | | |
+| T8.18 | **[HIGH] Sidebar tree context menus + CRUD** — New/Rename/Delete + inline rename for Collections, Keywords, Categories (`MainWindow.axaml:217-292`, `SearchableTreeView.axaml`). These commands do NOT exist in `SidebarViewModel` today — add the commands (and broker-side handlers for multi-user mode). Largest item; candidate to split into its own slice if scope tightens. | | |
+| T8.19 | **[HIGH] New asset commands** — Reveal-in-folder / Open (`Process.Start` on `StoragePath`), Copy path / Copy file (no clipboard usage exists today), Add-to-collection (collections are currently read-only in the UI). Surfaced via T8.16 context menu (table A). | | |
+| T8.20 | **[BLOCK] Bind tile affordances** — `AssetTileControl` exposes Rating/ColorLabel/ColorBrush/IsFlagged/ToolbarActions and the template draws them (`AssetTileControlStyles.axaml:43-122`), but the gallery binds only thumbnail + 3 text fields (`AssetGalleryView.axaml:115-124`), so every tile shows empty slots. Bind these + add hover-reveal action overlay (table D). | | |
+| T8.21 | **[HIGH] Keyboard model** — Extend `Window.KeyBindings` (only `Ctrl+S`×2 today) with Delete, F2 rename, Ctrl+A/C/E/F, Enter open, rating digits 0–5, P/X flag (table C). | | |
+| T8.22 | **[HIGH] Bulk actions** — `SelectionMode="Multiple"` + `SelectedAssets` exist but only AI-tag/Export consume them. Add bulk rate / label / flag / delete / keyword across multi-select (table E). | | |
+| T8.23 | **[POLISH] Discoverability** — Tooltips on icon-only buttons (rotate/flip glyphs `MainWindow.axaml:481-484`, AI-tag emoji); drop-target highlight for keyword/category drag-drop assignment (table D). | | |
+| T8.24 | **[POLISH] Color palette resources** — Extract a shared `ResourceDictionary` palette (60+ hardcoded hex literals today; blocks theming/dark mode) and rein in competing accents (audit Pillar 3). | | |
+| T8.25 | **[POLISH] Type scale + spacing tokens** — Collapse 8+ ad-hoc font sizes into ≤4 `TextBlock` style classes; introduce spacing tokens for the 4/8/12/16 rhythm (audit Pillars 4 & 5). | | |
+| T8.26 | **[POLISH] Copywriting cleanup** — Dedupe empty-state strings, replace bare "Clear"/"Refresh", standardize Save labels (audit Pillar 1). | | |
+
 ## 3. Alternatives
 
 - **ALT-001**: Skip FTS5 and rely on EF Core `Contains()` / `LIKE` queries for full-text search. (Rejected if benchmark shows >2s at 100K — FTS5 is the standard SQLite approach for full-text search.)
 - **ALT-002**: Use Squirrel.Windows or MSIX instead of WiX MSI. (WiX chosen for maturity and fine-grained control over install layout; MSIX may be evaluated for Windows Store distribution in v2.)
 - **ALT-003**: Use .NET单文件发布 instead of directory-based publish. (Single-file may cause issues with native dependency loading for SkiaSharp/ImageSharp; evaluate per-project.)
 - **ALT-004**: Skip CI/CD automation and package manually. (Rejected — CI/CD is essential for reproducible builds and release management.)
+- **ALT-005**: Split sidebar CRUD (T8.18) into its own dedicated phase/slice rather than Phase 8. (Open decision — it is the largest UI item and touches the broker/multi-user path; keep in Phase 8 unless it threatens the v1.0 ship date.)
+- **ALT-006**: Defer all [POLISH] tasks (T8.23–T8.26) to v2. (Acceptable fallback if scope tightens — they are visual/consistency debt, not interaction blockers.)
 
 ## 4. Dependencies
 
@@ -96,6 +122,13 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers three wor
 | `scripts/build-deb.sh` | New — Linux DEB builder |
 | `.github/workflows/release.yml` | New — CI/CD release pipeline |
 | `*.wixproj` | New — WiX MSI project |
+| `src/Adam.CatalogBrowser/Views/AssetGalleryView.axaml` | Add `ContextFlyout`, bind tile affordances (T8.16, T8.20) |
+| `src/Adam.CatalogBrowser/Views/MainWindow.axaml` | Sidebar context menus, key bindings, tooltips (T8.18, T8.21, T8.23) |
+| `src/Adam.CatalogBrowser/Controls/SearchableTreeView.axaml` | Tree-node context menus + inline rename (T8.18) |
+| `src/Adam.CatalogBrowser/ViewModels/SidebarViewModel.cs` | New CRUD commands for collections/keywords/categories (T8.18) |
+| `src/Adam.CatalogBrowser/ViewModels/AssetGalleryViewModel.cs` | `DeleteSelectedCommand`, bulk actions, reveal/copy/add-to-collection (T8.17, T8.19, T8.22) |
+| `src/Adam.CatalogBrowser/Services/DeleteService.cs` | Existing — wire to UI (T8.17) |
+| `src/Adam.CatalogBrowser/Views/` (new) | Confirmation dialog + toast/notification components, Trash view (T8.15, T8.17) |
 
 ## 6. Testing
 
@@ -125,5 +158,6 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers three wor
 - `.planning/ROADMAP.md` — Phase 8 deliverables and success criteria
 - `.planning/STATE.md` — Current project state
 - `.planning/milestones/v1.1-audit-report.md` — Previous milestone audit
+- `.planning/plans/phase-8/08-UI-REVIEW.md` — Phase 8 UI audit (6-pillar, 13/24) backing Work Stream 4
 - `src/Adam.Shared/Data/AppDbContext.cs` — Index definitions for performance audit
 - `src/Adam.Shared/Services/ThumbnailService.cs` — Thumbnail cache service

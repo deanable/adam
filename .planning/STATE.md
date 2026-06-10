@@ -30,6 +30,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 ### Roadmap Evolution
 - Phase 9 added (2026-06-07): AI Image Tagging — integrate in-repo `LiquidVision.Core` (LFM2-VL ONNX) for local image auto-tagging. Triggers: opt-in during ingest, per-asset Auto-tag button, bulk re-tag. Auto-apply/union/no-provenance; status-bar download progress; Q4F16/CPU defaults.
+- Phase 8 expanded (2026-06-10): added **Work Stream 4 — UI Polish & Interaction** (T8.15–T8.26) following a UI audit (`.planning/plans/phase-8/08-UI-REVIEW.md`, 13/24, Experience Design 1/4). Audit found zero context menus app-wide, `DeleteService` built but unwired to any UI, and gallery tiles binding none of the affordances their control draws. Blockers: T8.16 (gallery context menu), T8.17 (wire delete), T8.20 (bind tile affordances).
 
 ## Active Decisions
 
@@ -186,9 +187,11 @@ None.
 
 ## Next Actions
 
-1. **Begin Phase 8**: v1.0 Polish & Ship — performance audit, search indexes, thumbnail cache optimization.
-2. **Continue milestone v1.2**: Client Polish — Phase 8 (v1.0 Polish & Ship).
+1. **Execute Phase 8**: v1.0 Polish & Ship — four work streams: Performance (T8.1–T8.6), Documentation (T8.7–T8.9), Packaging (T8.10–T8.14), and **UI Polish & Interaction (T8.15–T8.26)**. Plan at `.planning/plans/phase-8/PLAN.md`.
+2. **UI blockers first**: T8.16 gallery context menu, T8.17 wire delete + Trash view, T8.20 bind tile affordances — these close most of the perceived UI incompleteness.
+3. **Open scope decision**: T8.18 (sidebar CRUD) is the largest UI item and touches the broker/multi-user path — keep in Phase 8 or split per ALT-005. [POLISH] tasks T8.23–T8.26 deferrable to v2 per ALT-006.
+4. **Continue milestone v1.2**: Client Polish — Phase 8 (v1.0 Polish & Ship).
 
 ---
-*State updated: 2026-06-09 after Phase 7 work*
+*State updated: 2026-06-10 — Phase 8 UI audit complete, Work Stream 4 added to plan*
 
