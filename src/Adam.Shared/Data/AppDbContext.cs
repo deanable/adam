@@ -67,6 +67,7 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.Type);
             e.HasIndex(x => x.StoragePath);
             e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.ModifiedAt);
             e.HasIndex(x => x.MimeType);
             e.HasIndex(x => x.FileSize);
             e.HasIndex(x => x.FileName);
@@ -119,6 +120,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.LensModel).HasMaxLength(200);
             e.Property(x => x.ExposureTime).HasMaxLength(50);
             e.Property(x => x.Orientation).HasMaxLength(50);
+            e.HasIndex(x => x.DateTaken);
+            e.HasIndex(x => x.Rating);
         });
 
         modelBuilder.Entity<RatingInfo>(e =>

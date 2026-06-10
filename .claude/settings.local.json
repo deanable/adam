@@ -34,7 +34,21 @@
       "PowerShell(Stop-Service *)",
       "Bash(grep -iE \"\\\\.slnx?$\")",
       "Bash(git rm *)",
-      "Bash(xargs grep -lEi \"Q4F16|Precision|F16|fp16|Float16\")"
+      "Bash(xargs grep -lEi \"Q4F16|Precision|F16|fp16|Float16\")",
+      "Read(//Users/dev/**)",
+      "Bash(git -C /c/Users/Dean/source/repos/adam log --oneline -15)",
+      "Bash(git -C /c/Users/Dean/source/repos/adam status -s)",
+      "Bash(git -C /c/Users/Dean/source/repos/adam branch --show-current)",
+      "Bash(grep -iA12 'phase 8')",
+      "Bash(git -C /c/Users/Dean/source/repos/adam ls-files scripts/benchmark scripts/publish.sh)",
+      "Bash(git -C /c/Users/Dean/source/repos/adam show --stat --oneline c7b6117)",
+      "Bash(dotnet run *)",
+      "Bash(command -v sqlite3)",
+      "Bash(sqlite3 scripts/benchmark/.adam/catalog.db 'SELECT name FROM sqlite_master WHERE type='\\\\''index'\\\\'' AND \\(name LIKE '\\\\''%ModifiedAt%'\\\\'' OR name LIKE '\\\\''%DateTaken%'\\\\'' OR name LIKE '\\\\''%Rating%'\\\\''\\);')",
+      "Bash(sqlite3 scripts/benchmark/.adam/catalog.db 'EXPLAIN QUERY PLAN SELECT * FROM DigitalAssets WHERE ModifiedAt > '\\\\''2026-01-01'\\\\'' AND IsDeleted=0 ORDER BY ModifiedAt;')",
+      "Bash(sqlite3 scripts/benchmark/.adam/catalog.db 'EXPLAIN QUERY PLAN SELECT Rating FROM MetadataProfiles WHERE Rating >= 3 AND Rating <= 5;')",
+      "Bash(git -C /c/Users/Dean/source/repos/adam --no-pager diff --stat src/ .planning/plans/phase-8/PLAN.md)",
+      "Bash(git -C /c/Users/Dean/source/repos/adam --no-pager diff src/)"
     ]
   }
 }
