@@ -25,6 +25,13 @@ public partial class IngestionView : UserControl
         if (e.DataTransfer.TryGetFiles() is not { } files) return;
         if (DataContext is not IngestionViewModel vm) return;
 
+        // Phase 7: defense-in-depth — reject drops when ingestion permission is not granted.
+        // The file picker Border's IsEnabled gate prevents Click events, but DragDrop
+        // events are registered at the UserControl level and can bypass IsEnabled inheritance.
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.DataContext is global::Adam.CatalogBrowser.ViewModels.MainWindowViewModel mwvm && !mwvm.CanIngest)
+            return;
+
         var paths = new List<string>();
         foreach (var item in files)
         {

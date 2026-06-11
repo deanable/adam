@@ -162,7 +162,10 @@ public sealed class ModeManager
             "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_CreatedAt ON DigitalAssets(CreatedAt)",
             "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_MimeType ON DigitalAssets(MimeType)",
             "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileSize ON DigitalAssets(FileSize)",
-            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileName ON DigitalAssets(FileName)"
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_FileName ON DigitalAssets(FileName)",
+            "CREATE INDEX IF NOT EXISTS IX_DigitalAssets_ModifiedAt ON DigitalAssets(ModifiedAt)",
+            "CREATE INDEX IF NOT EXISTS IX_MetadataProfiles_DateTaken ON MetadataProfiles(DateTaken)",
+            "CREATE INDEX IF NOT EXISTS IX_MetadataProfiles_Rating ON MetadataProfiles(Rating)"
         };
 
         foreach (var cmd in indexCommands)

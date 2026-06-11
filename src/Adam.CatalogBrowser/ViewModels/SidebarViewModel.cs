@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Services;
 using Adam.Shared.Contracts;
+using Adam.Shared.Data;
+using Adam.Shared.Models;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +37,24 @@ public class SidebarViewModel : INotifyPropertyChanged
         _modeManager = modeManager;
         _logger = logger;
         _selectedMediaFormat = MediaFormats[0];
+
+        // T8.18: Sidebar CRUD commands
+        CreateCollectionCommand = new RelayCommand(async _ => await PromptCreateCollectionAsync());
+        RenameCollectionCommand = new RelayCommand(async _ => await PromptRenameCollectionAsync());
+        DeleteCollectionCommand = new RelayCommand(async _ => await PromptDeleteCollectionAsync());
+
+        CreateKeywordCommand = new RelayCommand(async _ => await PromptCreateKeywordAsync());
+        RenameKeywordCommand = new RelayCommand(async _ => await PromptRenameKeywordAsync());
+        DeleteKeywordCommand = new RelayCommand(async _ => await PromptDeleteKeywordAsync());
+
+        CreateCategoryCommand = new RelayCommand(async _ => await PromptCreateCategoryAsync());
+        RenameCategoryCommand = new RelayCommand(async _ => await PromptRenameCategoryAsync());
+        DeleteCategoryCommand = new RelayCommand(async _ => await PromptDeleteCategoryAsync());
+
+        // T8.18: Context menu display — these receive the clicked node as parameter.
+        // They set the selected item, then show a MenuFlyout at the clicked location.
+        ShowKeywordMenuCommand = new RelayCommand(ShowKeywordContextMenu);
+        ShowCategoryMenuCommand = new RelayCommand(ShowCategoryContextMenu);
     }
 
     public ObservableCollection<FolderNode> Folders { get; } = [];
@@ -119,6 +141,23 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
         }
     }
+
+    // ── T8.18: Sidebar CRUD commands ──
+    public ICommand CreateCollectionCommand { get; }
+    public ICommand RenameCollectionCommand { get; }
+    public ICommand DeleteCollectionCommand { get; }
+    public ICommand CreateKeywordCommand { get; }
+    public ICommand RenameKeywordCommand { get; }
+    public ICommand DeleteKeywordCommand { get; }
+    public ICommand CreateCategoryCommand { get; }
+    public ICommand RenameCategoryCommand { get; }
+    public ICommand DeleteCategoryCommand { get; }
+
+    // ── T8.18: Context menu display commands ──
+    // These accept the clicked node as parameter and show a ContextFlyout.
+    // They are wired via SearchableTreeView.NodeContextMenuCommand.
+    public ICommand ShowKeywordMenuCommand { get; }
+    public ICommand ShowCategoryMenuCommand { get; }
 
     public event Action? FilterChanged;
 
@@ -750,6 +789,487 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
     private void OnFilterChanged() => FilterChanged?.Invoke();
+
+    /// <summary>
+    /// Returns the main application window, or null if unavailable.
+    /// </summary>
+    private static Avalonia.Controls.Window? GetOwnerWindow()
+        => App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+
+    /// <summary>
+    /// Sends a request to the broker and returns the response envelope.
+    /// Returns null if the broker is unavailable or disconnected.
+    /// </summary>
+    private async Task<Envelope?> SendBrokerRequestAsync<T>(T request, MessageTypeCode messageType, CancellationToken ct = default)
+        where T : IProtoSerializable
+    {
+        var broker = _modeManager.BrokerClient;
+        if (broker == null || !broker.IsConnected)
+            return null;
+
+        var authToken = _modeManager.AuthSession?.Token ?? string.Empty;
+        var envelope = new Envelope
+        {
+            AuthToken = authToken,
+            CorrelationId = Guid.NewGuid().ToString(),
+            MessageType = messageType,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(request))
+        };
+
+        return await broker.SendAsync(envelope, ct);
+    }
+
+    // ──────────────────────────────────────────────
+    //  T8.18: Context menu builder helpers
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds a standard context menu for sidebar tree nodes.
+    /// </summary>
+    internal static MenuFlyout BuildNodeContextMenu(
+        ICommand createCommand,
+        ICommand renameCommand,
+        ICommand deleteCommand,
+        string createHeader = "New",
+        string renameHeader = "Rename",
+        string deleteHeader = "Delete")
+    {
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(new MenuItem { Header = createHeader, Command = createCommand });
+        flyout.Items.Add(new MenuItem { Header = renameHeader, Command = renameCommand });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = deleteHeader, Command = deleteCommand });
+        return flyout;
+    }
+
+    /// <summary>
+    /// Handles right-click on a keyword tree node — sets selection and shows context menu.
+    /// </summary>
+    private void ShowKeywordContextMenu(object? parameter)
+    {
+        if (parameter is KeywordNode kw)
+            SelectedKeyword = kw;
+        // The flyout itself is shown by the SearchableTreeView code-behind
+        // via the NodeContextMenuCommand. We just handle selection here.
+    }
+
+    /// <summary>
+    /// Handles right-click on a category tree node — sets selection and shows context menu.
+    /// </summary>
+    private void ShowCategoryContextMenu(object? parameter)
+    {
+        if (parameter is CategoryNode cat)
+            SelectedMetadataCategory = cat;
+    }
+
+    // ──────────────────────────────────────────────
+    //  T8.18: Sidebar CRUD operations (standalone)
+    // ──────────────────────────────────────────────
+
+    private async Task PromptCreateCollectionAsync()
+    {
+        var parentId = SelectedCollection?.Id;
+        var name = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "New Collection",
+            "Enter collection name:",
+            "Create",
+            "Cancel");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new CreateCollectionRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
+                    MessageTypeCode.CreateCollectionRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected create collection: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            db.Collections.Add(new Collection
+            {
+                Id = Guid.NewGuid(),
+                Name = name.Trim(),
+                ParentId = parentId
+            });
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create collection");
+        }
+    }
+
+    private async Task PromptRenameCollectionAsync()
+    {
+        if (SelectedCollection == null) return;
+
+        var newName = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "Rename Collection",
+            $"Rename '{SelectedCollection.Name}' to:",
+            "Rename",
+            "Cancel",
+            defaultValue: SelectedCollection.Name);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new UpdateCollectionRequest { Id = SelectedCollection.Id.ToString(), Name = newName.Trim() },
+                    MessageTypeCode.UpdateCollectionRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected rename collection: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var col = await db.Collections.FirstOrDefaultAsync(c => c.Id == SelectedCollection.Id).ConfigureAwait(false);
+            if (col == null) return;
+            col.Name = newName.Trim();
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rename collection");
+        }
+    }
+
+    private async Task PromptDeleteCollectionAsync()
+    {
+        if (SelectedCollection == null) return;
+
+        var owner = GetOwnerWindow();
+        if (owner == null) return;
+        var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Collection",
+            $"Are you sure you want to delete '{SelectedCollection.Name}'?\n\nThis will remove the collection but not the assets within it.",
+            "Delete",
+            "Cancel",
+            isDestructive: true);
+        if (!confirmed) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new DeleteCollectionRequest { Id = SelectedCollection.Id.ToString() },
+                    MessageTypeCode.DeleteCollectionRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected delete collection: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                SelectedCollection = null;
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var col = await db.Collections.FirstOrDefaultAsync(c => c.Id == SelectedCollection.Id).ConfigureAwait(false);
+            if (col == null) return;
+            db.Collections.Remove(col);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            SelectedCollection = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete collection");
+        }
+    }
+
+    private async Task PromptCreateKeywordAsync()
+    {
+        var parentId = SelectedKeyword?.KeywordId;
+        var name = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "New Keyword",
+            "Enter keyword name:",
+            "Create",
+            "Cancel");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new CreateKeywordRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
+                    MessageTypeCode.CreateKeywordRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected create keyword: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            db.Keywords.Add(new Keyword
+            {
+                Id = Guid.NewGuid(),
+                Name = name.Trim(),
+                NormalizedName = name.Trim().ToUpperInvariant(),
+                ParentId = parentId
+            });
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create keyword");
+        }
+    }
+
+    private async Task PromptRenameKeywordAsync()
+    {
+        if (SelectedKeyword == null) return;
+
+        var newName = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "Rename Keyword",
+            $"Rename '{SelectedKeyword.Name}' to:",
+            "Rename",
+            "Cancel",
+            defaultValue: SelectedKeyword.Name);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new UpdateKeywordRequest { Id = SelectedKeyword.KeywordId.ToString(), Name = newName.Trim() },
+                    MessageTypeCode.UpdateKeywordRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected rename keyword: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var kw = await db.Keywords.FirstOrDefaultAsync(k => k.Id == SelectedKeyword.KeywordId).ConfigureAwait(false);
+            if (kw == null) return;
+            kw.Name = newName.Trim();
+            kw.NormalizedName = newName.Trim().ToUpperInvariant();
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rename keyword");
+        }
+    }
+
+    private async Task PromptDeleteKeywordAsync()
+    {
+        if (SelectedKeyword == null) return;
+
+        var owner = GetOwnerWindow();
+        if (owner == null) return;
+        var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Keyword",
+            $"Are you sure you want to delete '{SelectedKeyword.Name}'?\n\nThe keyword will be removed from all assets.",
+            "Delete",
+            "Cancel",
+            isDestructive: true);
+        if (!confirmed) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new DeleteKeywordRequest { Id = SelectedKeyword.KeywordId.ToString() },
+                    MessageTypeCode.DeleteKeywordRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected delete keyword: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                SelectedKeyword = null;
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var kw = await db.Keywords.FirstOrDefaultAsync(k => k.Id == SelectedKeyword.KeywordId).ConfigureAwait(false);
+            if (kw == null) return;
+            db.Keywords.Remove(kw);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            SelectedKeyword = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete keyword");
+        }
+    }
+
+    private async Task PromptCreateCategoryAsync()
+    {
+        var parentId = SelectedMetadataCategory?.CategoryId;
+        var name = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "New Category",
+            "Enter category name:",
+            "Create",
+            "Cancel");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new CreateCategoryRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
+                    MessageTypeCode.CreateCategoryRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected create category: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            db.Categories.Add(new Category
+            {
+                Id = Guid.NewGuid(),
+                Name = name.Trim(),
+                NormalizedName = name.Trim().ToUpperInvariant(),
+                ParentId = parentId
+            });
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create category");
+        }
+    }
+
+    private async Task PromptRenameCategoryAsync()
+    {
+        if (SelectedMetadataCategory == null) return;
+
+        var newName = await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            "Rename Category",
+            $"Rename '{SelectedMetadataCategory.Name}' to:",
+            "Rename",
+            "Cancel",
+            defaultValue: SelectedMetadataCategory.Name);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new UpdateCategoryRequest { Id = SelectedMetadataCategory.CategoryId.ToString(), Name = newName.Trim() },
+                    MessageTypeCode.UpdateCategoryRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected rename category: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var cat = await db.Categories.FirstOrDefaultAsync(c => c.Id == SelectedMetadataCategory.CategoryId).ConfigureAwait(false);
+            if (cat == null) return;
+            cat.Name = newName.Trim();
+            cat.NormalizedName = newName.Trim().ToUpperInvariant();
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rename category");
+        }
+    }
+
+    private async Task PromptDeleteCategoryAsync()
+    {
+        if (SelectedMetadataCategory == null) return;
+
+        var owner = GetOwnerWindow();
+        if (owner == null) return;
+        var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Category",
+            $"Are you sure you want to delete '{SelectedMetadataCategory.Name}'?\n\nThe category will be removed from all assets.",
+            "Delete",
+            "Cancel",
+            isDestructive: true);
+        if (!confirmed) return;
+
+        try
+        {
+            if (_modeManager.IsMultiUser)
+            {
+                var resp = await SendBrokerRequestAsync(
+                    new DeleteCategoryRequest { Id = SelectedMetadataCategory.CategoryId.ToString() },
+                    MessageTypeCode.DeleteCategoryRequest);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected delete category: status={StatusCode}", resp?.StatusCode);
+                    return;
+                }
+                SelectedMetadataCategory = null;
+                await LoadAsync();
+                return;
+            }
+
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var cat = await db.Categories.FirstOrDefaultAsync(c => c.Id == SelectedMetadataCategory.CategoryId).ConfigureAwait(false);
+            if (cat == null) return;
+            db.Categories.Remove(cat);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            SelectedMetadataCategory = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete category");
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

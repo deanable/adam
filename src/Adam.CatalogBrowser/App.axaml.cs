@@ -20,6 +20,11 @@ public partial class App : Application
     /// </summary>
     internal static AdamConfig Config { get; private set; } = AdamConfig.Load();
 
+    /// <summary>
+    /// The DI service provider, set after container build.
+    /// </summary>
+    internal static System.IServiceProvider? ServiceProvider { get; private set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -75,6 +80,7 @@ public partial class App : Application
             services.AddSingleton<ChecksumService>();
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();
+            services.AddSingleton<ToastService>();
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
 
@@ -98,8 +104,10 @@ public partial class App : Application
             services.AddTransient<PropertyInspectorViewModel>();
             services.AddTransient<ConnectionViewModel>();
             services.AddTransient<StatusBarViewModel>();
+            services.AddTransient<TrashViewModel>();
 
             var provider = services.BuildServiceProvider();
+            ServiceProvider = provider;
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow = new MainWindow

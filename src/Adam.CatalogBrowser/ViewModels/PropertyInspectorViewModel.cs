@@ -52,6 +52,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     private string? _selectedAssetGpsLatitude;
     private string? _selectedAssetGpsLongitude;
     private bool _gpsDirty;
+    private bool _canEdit = true;
 
     private CancellationTokenSource? _metadataCts;
 
@@ -63,10 +64,21 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
-            _ => _selectedAsset != null && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty));
+            _ => _selectedAsset != null && CanEdit && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty));
 
         SelectedAssetTags = _selectedAssetTags;
         SelectedAssetCategories = _selectedAssetCategories;
+    }
+
+    /// <summary>
+    /// Whether the current user has permission to edit metadata.
+    /// Set by MainWindowViewModel.RefreshPermissionsAsync().
+    /// When false, all editing controls in the right panel are disabled (T7.2).
+    /// </summary>
+    public bool CanEdit
+    {
+        get => _canEdit;
+        set { _canEdit = value; OnPropertyChanged(); }
     }
 
     public RelayCommand SaveTagsCommand { get; }

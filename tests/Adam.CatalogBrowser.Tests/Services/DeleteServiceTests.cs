@@ -110,6 +110,74 @@ public class DeleteServiceTests : IDisposable
         result.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task BulkSoftDeleteAsync_DeletesMultipleAssets()
+    {
+        // Arrange: seed two more assets
+        var id2 = Guid.NewGuid();
+        var id3 = Guid.NewGuid();
+        _db.DigitalAssets.Add(new DigitalAsset
+        {
+            Id = id2,
+            FileName = "test2.jpg",
+            FileExtension = ".jpg",
+            MimeType = "image/jpeg",
+            FileSize = 2048,
+            ChecksumSha256 = new string('b', 64),
+            StoragePath = "test2.jpg",
+            Title = "Test Asset 2",
+            Type = AssetType.Image,
+            CollectionId = _db.Collections.First().Id,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ModifiedAt = DateTimeOffset.UtcNow,
+        });
+        _db.DigitalAssets.Add(new DigitalAsset
+        {
+            Id = id3,
+            FileName = "test3.jpg",
+            FileExtension = ".jpg",
+            MimeType = "image/jpeg",
+            FileSize = 3072,
+            ChecksumSha256 = new string('c', 64),
+            StoragePath = "test3.jpg",
+            Title = "Test Asset 3",
+            Type = AssetType.Image,
+            CollectionId = _db.Collections.First().Id,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ModifiedAt = DateTimeOffset.UtcNow,
+        });
+        _db.SaveChanges();
+
+        // Act
+        var count = await _sut.BulkSoftDeleteAsync([_assetId, id2, id3]);
+
+        // Assert
+        count.Should().Be(3);
+        var deleted = await _sut.GetDeletedAssetsAsync();
+        deleted.Should().HaveCount(3);
+        deleted.Select(a => a.Id).Should().Contain([_assetId, id2, id3]);
+    }
+
+    [Fact]
+    public async Task BulkSoftDeleteAsync_EmptyList_ReturnsZero()
+    {
+        var count = await _sut.BulkSoftDeleteAsync([]);
+        count.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task BulkSoftDeleteAsync_MixedExistence_ReturnsOnlyExisting()
+    {
+        // Act — _assetId exists, bogus does not
+        var bogusId = Guid.NewGuid();
+        var count = await _sut.BulkSoftDeleteAsync([_assetId, bogusId]);
+
+        // Assert
+        count.Should().Be(1);
+        var deleted = await _sut.GetDeletedAssetsAsync();
+        deleted.Should().ContainSingle(a => a.Id == _assetId);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

@@ -19,8 +19,10 @@
         <TextBlock Text="{Binding FileName}" FontSize="14" FontWeight="SemiBold" Foreground="#555" />
 
         <Grid ColumnDefinitions="1*,1*" ColumnSpacing="16">
-          <!-- Editable fields -->
-          <StackPanel Grid.Column="0" Spacing="8">
+          <!-- Editable fields — Phase 7: gated by CanEdit -->
+          <StackPanel Grid.Column="0" Spacing="8"
+                      IsEnabled="{Binding CanEdit}"
+                      ToolTip.Tip="{Binding EditPermissionTooltip}">
             <TextBlock Text="Editable Metadata" FontWeight="SemiBold" FontSize="14" />
             <Separator />
 

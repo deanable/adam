@@ -56,6 +56,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
             propertyInspector,
             connection,
             statusBar,
+            new DeleteService(_modeManager), new ToastService(),
             startUp: false);
     }
 
@@ -429,6 +430,162 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
         });
 
         vm.CurrentUserRole.Should().Be("Editor");
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Nav button permission tooltips (Ingest/Metadata/Audit/Admin)
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NavTooltips_Standalone_AllAreNull()
+    {
+        var vm = await CreateVmAsync();
+
+        // Standalone mode grants all permissions → no tooltips needed
+        vm.IngestPermissionTooltip.Should().BeNull();
+        vm.MetadataPermissionTooltip.Should().BeNull();
+        vm.AuditPermissionTooltip.Should().BeNull();
+        vm.AdminPermissionTooltip.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NavTooltips_NotLoggedIn_ShowSignInMessages()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        // No auth session → not logged in
+
+        vm.IngestPermissionTooltip.Should().Be("Sign in to ingest assets");
+        vm.MetadataPermissionTooltip.Should().Be("Sign in to edit metadata");
+        vm.AuditPermissionTooltip.Should().Be("Sign in to view audit log");
+        vm.AdminPermissionTooltip.Should().Be("Sign in to manage server");
+    }
+
+    [Fact]
+    public async Task NavTooltips_Administrator_AllAreNull()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        SetToken(_auth, "admin-jwt");
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "admin",
+            Role = "Administrator",
+            Id = Guid.NewGuid().ToString()
+        });
+        SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400);
+
+        // Administrator has all permissions → no tooltips
+        vm.IngestPermissionTooltip.Should().BeNull();
+        vm.MetadataPermissionTooltip.Should().BeNull();
+        vm.AuditPermissionTooltip.Should().BeNull();
+        vm.AdminPermissionTooltip.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NavTooltips_Editor_IngestAndMetadataNull_AuditAndAdminShowRequiresAdmin()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        SetToken(_auth, "editor-jwt");
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "editor",
+            Role = "Editor",
+            Id = Guid.NewGuid().ToString()
+        });
+        SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400);
+
+        // Editor has asset:create and asset:update → Ingest/Metadata tooltips are null
+        vm.IngestPermissionTooltip.Should().BeNull("Editor has asset:create");
+        vm.MetadataPermissionTooltip.Should().BeNull("Editor has asset:update");
+
+        // Editor does NOT have audit:read or user:* → Audit/Admin show requirement
+        vm.AuditPermissionTooltip.Should().Be("Requires Administrator role");
+        vm.AdminPermissionTooltip.Should().Be("Requires Administrator role");
+    }
+
+    [Fact]
+    public async Task NavTooltips_Viewer_AllShowRoleRequirement()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        SetToken(_auth, "viewer-jwt");
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "viewer",
+            Role = "Viewer",
+            Id = Guid.NewGuid().ToString()
+        });
+        SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400);
+
+        // Viewer lacks all non-read permissions
+        vm.IngestPermissionTooltip.Should().Be("Requires Editor or Administrator role");
+        vm.MetadataPermissionTooltip.Should().Be("Requires Editor or Administrator role");
+        vm.AuditPermissionTooltip.Should().Be("Requires Administrator role");
+        vm.AdminPermissionTooltip.Should().Be("Requires Administrator role");
+    }
+
+    [Fact]
+    public async Task NavTooltips_TokenExpired_ShowExpiredMessageWithAction()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        SetToken(_auth, "expired-jwt");
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "editor",
+            Role = "Editor",
+            Id = Guid.NewGuid().ToString()
+        });
+        // Set expiry in the past
+        SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 3600);
+
+        // Expired token disables all permissions → all tooltips show expired message
+        vm.IngestPermissionTooltip.Should().Be("Session expired — re-login required to ingest assets");
+        vm.MetadataPermissionTooltip.Should().Be("Session expired — re-login required to edit metadata");
+        vm.AuditPermissionTooltip.Should().Be("Session expired — re-login required to view audit log");
+        vm.AdminPermissionTooltip.Should().Be("Session expired — re-login required to manage server");
+    }
+
+    [Fact]
+    public async Task NavTooltips_ValuesUpdate_WhenUserRoleChanges()
+    {
+        var vm = await CreateVmAsync();
+
+        SetMultiUserMode(_modeManager);
+        SetToken(_auth, "viewer-jwt");
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "viewer",
+            Role = "Viewer",
+            Id = Guid.NewGuid().ToString()
+        });
+        SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400);
+
+        // Start as Viewer → all tooltips show role requirement
+        vm.IngestPermissionTooltip.Should().Be("Requires Editor or Administrator role");
+        vm.AdminPermissionTooltip.Should().Be("Requires Administrator role");
+
+        // Change role to Administrator — values are computed properties,
+        // so they update on next read regardless of PropertyChanged timing.
+        SetCurrentUser(_auth, new UserProfile
+        {
+            Username = "admin",
+            Role = "Administrator",
+            Id = Guid.NewGuid().ToString()
+        });
+
+        // Values should reflect new role immediately
+        vm.IngestPermissionTooltip.Should().BeNull("Administrator has all permissions");
+        vm.MetadataPermissionTooltip.Should().BeNull();
+        vm.AuditPermissionTooltip.Should().BeNull();
+        vm.AdminPermissionTooltip.Should().BeNull();
     }
 
     public async ValueTask DisposeAsync()

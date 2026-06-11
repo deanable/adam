@@ -10,7 +10,7 @@
 - [ ] **AUTH-01**: User can create account with username and password in multi-user mode
 - [ ] **AUTH-02**: User can log in and receive a JWT token valid for 24 hours
 - [ ] **AUTH-03**: User session persists and validates across TCP requests
-- [ ] **AUTH-04**: Role-based access control enforces Viewer, Editor, and Administrator permissions
+- [x] **AUTH-04**: Role-based access control enforces Viewer, Editor, and Administrator permissions
 - [ ] **AUTH-05**: Administrator can create, edit, and deactivate user accounts
 - [ ] **AUTH-06**: All create, update, and delete operations are logged with timestamp and user identity
 
@@ -106,8 +106,8 @@
 | AUTH-01 | Phase 2 | ✅ Complete |
 | AUTH-02 | Phase 2 | ✅ Complete |
 | AUTH-03 | Phase 2 | ✅ Complete |
-| AUTH-04 | Phase 7 | Pending |
-| AUTH-05 | Phase 7 | Pending |
+| AUTH-04 | Phase 5 (foundation) + Phase 7 (UI) | ✅ Complete |
+| AUTH-05 | Phase 5 | ✅ Complete |
 | AUTH-06 | Phase 2 | ✅ Complete |
 | CATA-01 | Phase 1 | ✅ Complete |
 | CATA-02 | Phase 1 | ✅ Complete |

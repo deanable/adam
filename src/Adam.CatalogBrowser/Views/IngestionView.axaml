@@ -9,8 +9,10 @@
 
       <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" Foreground="#333" />
 
-      <!-- File picker buttons -->
-      <Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="16" CornerRadius="4" Background="#FAFAFA">
+      <!-- File picker buttons — Phase 7: gated by CanIngest -->
+      <Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="16" CornerRadius="4" Background="#FAFAFA"
+              IsEnabled="{Binding DataContext.CanIngest, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+              ToolTip.Tip="{Binding DataContext.IngestPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}">
         <StackPanel Spacing="12">
           <TextBlock Text="Select source files or folders to import into the catalog." FontSize="12" Foreground="#555" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">

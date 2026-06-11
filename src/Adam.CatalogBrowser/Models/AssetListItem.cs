@@ -1,5 +1,9 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using Adam.CatalogBrowser.Controls;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
 namespace Adam.CatalogBrowser.Models;
@@ -12,6 +16,10 @@ public class AssetListItem : INotifyPropertyChanged
     private string _fileType = string.Empty;
     private bool _isSelected;
     private Bitmap? _thumbnail;
+    private int _rating;
+    private string _colorLabel = string.Empty;
+    private IBrush? _colorBrush;
+    private bool _isFlagged;
 
     public Guid Id { get; set; }
     public string StoragePath { get; set; } = string.Empty;
@@ -92,6 +100,49 @@ public class AssetListItem : INotifyPropertyChanged
         get => _isSelected;
         set { _isSelected = value; OnPropertyChanged(); }
     }
+
+    // ── Tile affordances (T8.20) ──
+
+    /// <summary>
+    /// Asset rating (0-5). Bound to the rating slot on the tile.
+    /// </summary>
+    public int Rating
+    {
+        get => _rating;
+        set { _rating = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Color label text (e.g. "Red", "Blue"). Shown as a swatch on the tile.
+    /// </summary>
+    public string ColorLabel
+    {
+        get => _colorLabel;
+        set { _colorLabel = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Brush for the colour swatch indicator on the tile.
+    /// </summary>
+    public IBrush? ColorBrush
+    {
+        get => _colorBrush;
+        set { _colorBrush = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Whether the asset is flagged (Pick/Reject).
+    /// </summary>
+    public bool IsFlagged
+    {
+        get => _isFlagged;
+        set { _isFlagged = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Toolbar action buttons for the tile (e.g., quick rate, label, flag).
+    /// </summary>
+    public ObservableCollection<ToolbarAction> ToolbarActions { get; set; } = [];
 
     public long FileSize { get; set; }
     public int? Width { get; set; }

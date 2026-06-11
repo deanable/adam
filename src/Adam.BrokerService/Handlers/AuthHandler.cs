@@ -134,7 +134,53 @@ public sealed class AuthHandler
             var principal = tokenHandler.ValidateToken(request.AuthToken, GetTokenValidationParameters(), out _);
             var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
             var username = principal.FindFirst(ClaimTypes.Name)?.Value ?? "";
-            var role = principal.FindFirst(ClaimTypes.Role)?.Value ?? "";
+            var jwtRole = principal.FindFirst(ClaimTypes.Role)?.Value ?? "";
+
+            // Phase 7: Query DB for current user status and role (T7.5)
+            string role = jwtRole;
+            bool isValid = true;
+
+            if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userGuid))
+            {
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var user = db.Users.Include(u => u.Role)
+                        .AsNoTracking()
+                        .FirstOrDefault(u => u.Id == userGuid);
+
+                    if (user == null || !user.IsActive)
+                    {
+                        // Account deactivated or deleted
+                        isValid = false;
+                    }
+                    else if (user.Role != null && !string.Equals(user.Role.Name, jwtRole, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Role changed in DB — return the updated role
+                        role = user.Role.Name;
+                        _logger.LogInformation("Role change detected for user {UserId}: JWT role '{JwtRole}' -> DB role '{DbRole}'",
+                            userId, jwtRole, role);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // DB query failure is non-fatal — fall back to JWT role
+                    _logger.LogWarning(ex, "DB lookup failed during token validation for user {UserId}; using JWT role", userId);
+                }
+            }
+
+            if (!isValid)
+            {
+                var invalidResponse = new ValidateTokenResponse { IsValid = false };
+                return new Envelope
+                {
+                    CorrelationId = request.CorrelationId,
+                    MessageType = MessageTypeCode.ValidateTokenResponse,
+                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(invalidResponse)),
+                    StatusCode = 7
+                };
+            }
 
             var response = new ValidateTokenResponse
             {

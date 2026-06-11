@@ -299,6 +299,210 @@ public sealed class CategoryInfo : IProtoSerializable
     }
 }
 
+// ─── Keyword CRUD ───
+
+public sealed class CreateKeywordRequest : IProtoSerializable
+{
+    public string Name { get; set; } = string.Empty;
+    public string ParentId { get; set; } = string.Empty;
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, Name);
+        if (!string.IsNullOrEmpty(ParentId)) size += ProtoHelper.FieldSize(2, ParentId);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Name);
+        if (!string.IsNullOrEmpty(ParentId)) ProtoHelper.WriteField(output, 2, ParentId);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Name = input.ReadString(); break;
+                case 2: ParentId = input.ReadString(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class CreateKeywordResponse : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            if (WireFormat.GetTagFieldNumber(tag) == 1)
+                Id = input.ReadString();
+            else
+                input.SkipLastField();
+        }
+    }
+}
+
+public sealed class UpdateKeywordRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, Id);
+        size += ProtoHelper.FieldSize(2, Name);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Id);
+        ProtoHelper.WriteField(output, 2, Name);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Id = input.ReadString(); break;
+                case 2: Name = input.ReadString(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class DeleteKeywordRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) != 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+}
+
+public sealed class DeleteKeywordResponse : IProtoSerializable
+{
+    public int CalculateSize() => 0;
+    public void WriteTo(CodedOutputStream output) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) != 0) input.SkipLastField(); }
+}
+
+// ─── Category CRUD ───
+
+public sealed class CreateCategoryRequest : IProtoSerializable
+{
+    public string Name { get; set; } = string.Empty;
+    public string ParentId { get; set; } = string.Empty;
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, Name);
+        if (!string.IsNullOrEmpty(ParentId)) size += ProtoHelper.FieldSize(2, ParentId);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Name);
+        if (!string.IsNullOrEmpty(ParentId)) ProtoHelper.WriteField(output, 2, ParentId);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Name = input.ReadString(); break;
+                case 2: ParentId = input.ReadString(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class CreateCategoryResponse : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            if (WireFormat.GetTagFieldNumber(tag) == 1)
+                Id = input.ReadString();
+            else
+                input.SkipLastField();
+        }
+    }
+}
+
+public sealed class UpdateCategoryRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, Id);
+        size += ProtoHelper.FieldSize(2, Name);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Id);
+        ProtoHelper.WriteField(output, 2, Name);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Id = input.ReadString(); break;
+                case 2: Name = input.ReadString(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class DeleteCategoryRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) != 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+}
+
+public sealed class DeleteCategoryResponse : IProtoSerializable
+{
+    public int CalculateSize() => 0;
+    public void WriteTo(CodedOutputStream output) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) != 0) input.SkipLastField(); }
+}
+
 // ─── Date Taken Tree ───
 
 public sealed class ListDateTakenTreeRequest : IProtoSerializable

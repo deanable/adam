@@ -8,10 +8,14 @@ using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using Avalonia;
+using Avalonia.Input;
 using Avalonia.Threading;
 using LiquidVision.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TextCopy;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -22,6 +26,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly MetadataWritebackService _writeback;
     private readonly AiTaggingService? _aiTaggingService;
     private readonly BulkOperationQueue _bulkQueue;
+    private readonly DeleteService _deleteService;
+    internal readonly ToastService ToastService;
     private object? _currentView;
     private readonly DispatcherTimer _sessionCheckTimer;
 
@@ -38,6 +44,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         PropertyInspectorViewModel propertyInspector,
         ConnectionViewModel connection,
         StatusBarViewModel statusBar,
+        DeleteService deleteService,
+        ToastService toastService,
         AiTaggingService? aiTaggingService = null,
         bool startUp = true)
     {
@@ -45,6 +53,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _modeManager = modeManager;
         _writeback = writeback;
         _bulkQueue = bulkQueue;
+        _deleteService = deleteService;
+        ToastService = toastService;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
@@ -118,6 +128,51 @@ public class MainWindowViewModel : INotifyPropertyChanged
         RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw), _ => CanEditMetadata);
         FlipHorizontalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipHorizontal), _ => CanEditMetadata);
         FlipVerticalCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.ToggleFlipVertical), _ => CanEditMetadata);
+
+        // Wave 1: Delete / Trash (T8.17)
+        DeleteSelectedCommand = new RelayCommand(async _ => await DeleteSelectedAssetsAsync(),
+            _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        ShowTrashCommand = new RelayCommand(async _ => await ShowTrashViewAsync());
+
+        // Wave 1: Reveal / Copy / Add-to-collection (T8.19)
+        RevealInFolderCommand = new RelayCommand(_ => RevealInFolder(), _ => AssetGallery.SelectedAssets.Count > 0);
+        CopyFilePathCommand = new RelayCommand(_ => CopyFilePath(), _ => AssetGallery.SelectedAssets.Count > 0);
+        CopyFileCommand = new RelayCommand(async _ => await CopyFileAsync(), _ => AssetGallery.SelectedAssets.Count > 0);
+        AddToCollectionCommand = new RelayCommand(async _ => await AddToCollectionAsync(), _ => AssetGallery.SelectedAssets.Count > 0);
+
+        // Wave 1: Per-asset rate/label/flag commands (T8.16)
+        RateAssetCommand = new RelayCommand(async _ => await RateSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetLabelCommand = new RelayCommand(async _ => await SetLabelSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetFlagCommand = new RelayCommand(async _ => await SetFlagSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+
+        // T8.21: Keyboard rating digits — sets exact rating value via command parameter
+        SetRatingCommand = new RelayCommand(async p => await SetRatingByKeyAsync(p), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+
+        // Re-evaluate delete/trash/reveal/copy commands when selection changes
+        assetGallery.MultiSelectionChanged += _ =>
+        {
+            (DeleteSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RevealInFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (CopyFilePathCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (CopyFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (AddToCollectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RateAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        };
+        assetGallery.SelectionChanged += _ =>
+        {
+            (DeleteSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RevealInFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (CopyFilePathCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (CopyFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (AddToCollectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RateAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        };
 
         sidebar.FilterChanged += () =>
         {
@@ -345,6 +400,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand AssignKeywordDropCommand { get; }
     public ICommand AssignCategoryDropCommand { get; }
     public ICommand AiTagSelectedCommand { get; }
+    public ICommand DeleteSelectedCommand { get; }
+    public ICommand ShowTrashCommand { get; }
+    public ICommand RevealInFolderCommand { get; }
+    public ICommand CopyFilePathCommand { get; }
+    public ICommand CopyFileCommand { get; }
+    public ICommand AddToCollectionCommand { get; }
+    public ICommand RateAssetCommand { get; }
+    public ICommand SetLabelCommand { get; }
+    public ICommand SetFlagCommand { get; }
+    public ICommand SetRatingCommand { get; }
 
     public object? CurrentView
     {
@@ -573,6 +638,292 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     // ─────────────────────────────────────────────────────────────────
+    //  Wave 1: Delete / Trash / Reveal / Copy (T8.17, T8.19)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Soft-deletes the currently selected assets after confirmation (T8.17).
+    /// Uses a single database transaction for bulk operations.
+    /// </summary>
+    private async Task DeleteSelectedAssetsAsync()
+    {
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
+
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+        if (mainWindow == null) return;
+
+        var message = selected.Count == 1
+            ? $"Are you sure you want to delete '{selected[0].Title}'?\n\nThe asset will be moved to the Trash and can be restored later."
+            : $"Are you sure you want to delete {selected.Count} selected assets?\n\nAll assets will be moved to the Trash and can be restored later.";
+
+        var confirmed = await Views.ConfirmationDialog.ShowAsync(mainWindow,
+            "Delete Assets", message, "Delete", "Cancel", isDestructive: true);
+
+        if (!confirmed) return;
+
+        try
+        {
+            var succeeded = await _deleteService.BulkSoftDeleteAsync(selected.Select(a => a.Id).ToList());
+            var failed = selected.Count - succeeded;
+
+            ToastService.Show($"Deleted {succeeded} asset(s)" + (failed > 0 ? $" ({failed} failed)" : ""),
+                failed > 0 ? Services.ToastLevel.Warning : Services.ToastLevel.Success);
+
+            // Refresh gallery and sidebar
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Bulk delete operation failed");
+            ToastService.Show("Delete operation failed", Services.ToastLevel.Error);
+        }
+    }
+
+    /// <summary>
+    /// Switches to the Trash view to browse deleted assets (T8.17).
+    /// </summary>
+    private async Task ShowTrashViewAsync()
+    {
+        if (CurrentView is TrashViewModel trashVm)
+        {
+            await trashVm.LoadDeletedAssetsAsync();
+            return;
+        }
+
+        var provider = App.ServiceProvider;
+        if (provider == null)
+        {
+            // Fallback: manually create with the available services
+            trashVm = new TrashViewModel(_deleteService, ToastService,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<TrashViewModel>.Instance);
+        }
+        else
+        {
+            trashVm = provider.GetRequiredService<TrashViewModel>();
+        }
+
+        await trashVm.LoadDeletedAssetsAsync();
+        CurrentView = trashVm;
+    }
+
+    /// <summary>
+    /// Opens the file explorer to reveal the first selected asset (T8.19).
+    /// </summary>
+    private void RevealInFolder()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null || string.IsNullOrEmpty(asset.StoragePath)) return;
+
+        try
+        {
+            var dir = Path.GetDirectoryName(asset.StoragePath);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{asset.StoragePath}\"") { UseShellExecute = true });
+                }
+                else
+                {
+                    Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reveal asset in folder");
+            ToastService.Show("Could not open file location", Services.ToastLevel.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Copies the file path of the first selected asset to the clipboard (T8.19).
+    /// </summary>
+    private void CopyFilePath()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null || string.IsNullOrEmpty(asset.StoragePath)) return;
+
+        try
+        {
+            ClipboardService.SetText(asset.StoragePath);
+            ToastService.Show("Path copied to clipboard", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to copy file path to clipboard");
+            ToastService.Show("Failed to copy path", Services.ToastLevel.Error);
+        }
+    }
+
+    /// <summary>
+    /// Copies the file path of the first selected asset to the clipboard (T8.19).
+    /// Shows the filename as confirmation.
+    /// </summary>
+    private async Task CopyFileAsync()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null || string.IsNullOrEmpty(asset.StoragePath) || !File.Exists(asset.StoragePath)) return;
+
+        try
+        {
+            var name = Path.GetFileName(asset.StoragePath);
+            ClipboardService.SetText(asset.StoragePath);
+            ToastService.Show($"'{name}' path copied to clipboard", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to copy file path to clipboard");
+            ToastService.Show("Failed to copy path", Services.ToastLevel.Error);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds the selected assets to a collection (placeholder for T8.19).
+    /// Collections are currently read-only in the UI; this will be expanded in T8.18.
+    /// </summary>
+    private async Task AddToCollectionAsync()
+    {
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
+
+        // Placeholder: Show a toast indicating the action is not yet fully implemented
+        ToastService.Show("Add to collection coming soon — collections management is in development", Services.ToastLevel.Info);
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Rates the first selected asset with the given rating value (T8.16).
+    /// </summary>
+    private async Task RateSelectedAsync()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            // Cycle rating: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
+            dbAsset.Rating = (dbAsset.Rating + 1) % 6;
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            ToastService.Show(dbAsset.Rating > 0
+                ? $"Rated '{asset.Title}' {dbAsset.Rating}/5"
+                : $"Rating cleared for '{asset.Title}'", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to rate asset");
+        }
+    }
+
+    /// <summary>
+    /// Sets a color label on the first selected asset (T8.16).
+    /// </summary>
+    private async Task SetLabelSelectedAsync()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            // Cycle label: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
+            var labels = Enum.GetValues<AssetLabel>();
+            var currentIndex = Array.IndexOf(labels, dbAsset.Label);
+            var nextIndex = (currentIndex + 1) % labels.Length;
+            dbAsset.Label = labels[nextIndex];
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            ToastService.Show(dbAsset.Label != AssetLabel.None
+                ? $"Label set to '{dbAsset.Label}' for '{asset.Title}'"
+                : $"Label cleared for '{asset.Title}'", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set label");
+        }
+    }
+
+    /// <summary>
+    /// Sets the rating of the first selected asset to a specific value (T8.21 keyboard digits).
+    /// The parameter is the rating value as a string ("0"-"5").
+    /// </summary>
+    private async Task SetRatingByKeyAsync(object? parameter)
+    {
+        if (parameter is not string ratingStr || !int.TryParse(ratingStr, out var rating))
+            return;
+        rating = Math.Clamp(rating, 0, 5);
+
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            dbAsset.Rating = rating;
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            ToastService.Show(rating > 0
+                ? $"Rated '{asset.Title}' {rating}/5"
+                : $"Rating cleared for '{asset.Title}'", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set rating via keyboard");
+        }
+    }
+
+    /// <summary>
+    /// Sets a flag (Pick/Reject) on the first selected asset (T8.16).
+    /// </summary>
+    private async Task SetFlagSelectedAsync()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            // Cycle flag: Unflagged -> Pick -> Reject -> Unflagged
+            dbAsset.Flag = dbAsset.Flag switch
+            {
+                AssetFlag.Unflagged => AssetFlag.Pick,
+                AssetFlag.Pick => AssetFlag.Reject,
+                AssetFlag.Reject => AssetFlag.Unflagged,
+                _ => AssetFlag.Unflagged
+            };
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            ToastService.Show(dbAsset.Flag != AssetFlag.Unflagged
+                ? $"Flag set to '{dbAsset.Flag}' for '{asset.Title}'"
+                : $"Flag cleared for '{asset.Title}'", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set flag");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     //  Phase 7: Permission-aware UI properties (T7.2, T7.3, T7.4, T7.5)
     // ─────────────────────────────────────────────────────────────────
 
@@ -637,6 +988,95 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Tooltip text shown when hovering over disabled metadata editing controls.
+    /// Explains why the control is disabled based on the current user's role and session state.
+    /// (Phase 7 T7.2 — permission tooltips)
+    /// </summary>
+    public string? EditPermissionTooltip
+    {
+        get
+        {
+            if (_modeManager.IsStandalone)
+                return null;
+
+            if (!EvaluatePermission("asset:update"))
+                return GetEditPermissionTooltipText();
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the human-readable tooltip text explaining why edit controls are disabled.
+    /// Shared between the right-panel (EditPermissionTooltip) and MetadataEditorView.
+    /// </summary>
+    private string GetEditPermissionTooltipText()
+    {
+        return GetNavTooltipText("edit metadata", "Requires Editor or Administrator role");
+    }
+
+    /// <summary>
+    /// Returns session-state-aware tooltip text for permission-gated navigation buttons.
+    /// </summary>
+    /// <param name="actionDescription">Lowercase verb phrase, e.g. "ingest assets", "view audit log".</param>
+    /// <param name="requiredRole">The role requirement, e.g. "Requires Editor or Administrator role".</param>
+    private string GetNavTooltipText(string actionDescription, string requiredRole)
+    {
+        var auth = _modeManager.AuthSession;
+        if (auth == null || !auth.IsLoggedIn)
+            return $"Sign in to {actionDescription}";
+
+        if (auth.IsTokenExpired())
+            return $"Session expired — re-login required to {actionDescription}";
+
+        return requiredRole;
+    }
+
+    /// <summary>
+    /// Tooltip for the Ingest navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? IngestPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("asset:create") ? GetNavTooltipText("ingest assets", "Requires Editor or Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Metadata navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? MetadataPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("asset:update") ? GetNavTooltipText("edit metadata", "Requires Editor or Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Audit navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? AuditPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("audit:read") ? GetNavTooltipText("view audit log", "Requires Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the Server Admin button. Returns <c>null</c> in standalone mode or when permission is granted.
+    /// </summary>
+    public string? AdminPermissionTooltip
+        => !_modeManager.IsStandalone && !EvaluatePermission("user:*") ? GetNavTooltipText("manage server", "Requires Administrator role") : null;
+
+    /// <summary>
+    /// Tooltip for the AI Tag Selected button in the gallery toolbar.
+    /// Returns <c>null</c> when the full condition (service available + permission granted) is met.
+    /// Returns session-state text when permission is lacking but the service is available.
+    /// Returns <c>null</c> when the service itself is unavailable (button remains hidden).
+    /// </summary>
+    public string? AiTagPermissionTooltip
+    {
+        get
+        {
+            if (_aiTaggingService == null)
+                return null;
+
+            if (_modeManager.IsStandalone)
+                return null;
+
+            return !EvaluatePermission("asset:update") ? GetNavTooltipText("AI tag assets", "Requires Editor or Administrator role") : null;
+        }
+    }
+
     private bool EvaluatePermission(string permission)
     {
         // Standalone mode: all permissions granted
@@ -670,6 +1110,23 @@ public class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanAdminister));
             OnPropertyChanged(nameof(CanAiTag));
             OnPropertyChanged(nameof(SessionStatusText));
+            OnPropertyChanged(nameof(EditPermissionTooltip));
+            OnPropertyChanged(nameof(IngestPermissionTooltip));
+            OnPropertyChanged(nameof(MetadataPermissionTooltip));
+            OnPropertyChanged(nameof(AuditPermissionTooltip));
+            OnPropertyChanged(nameof(AdminPermissionTooltip));
+            OnPropertyChanged(nameof(AiTagPermissionTooltip));
+
+            // Update PropertyInspector per-edit permission (Phase 7 T7.2)
+            PropertyInspector.CanEdit = EvaluatePermission("asset:update");
+
+            // Gate MetadataEditorView editing controls (Phase 7 T7.2)
+            // Set tooltip text FIRST, then toggle CanEdit which fires PropertyChanged for EditPermissionTooltip
+            var canEdit = EvaluatePermission("asset:update");
+            MetadataEditor.EditPermissionTooltip = canEdit
+                ? string.Empty
+                : GetEditPermissionTooltipText();
+            MetadataEditor.CanEdit = canEdit;
 
             // Re-evaluate command CanExecute for permission-gated commands
             (ShowIngestionCommand as RelayCommand)?.RaiseCanExecuteChanged();
@@ -682,6 +1139,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (FlipHorizontalCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (FlipVerticalCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (AiTagSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (DeleteSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RateAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
         });
 
         // If token is expired, show a warning in the status bar
@@ -693,7 +1155,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Periodic timer tick — checks token expiry and refreshes permissions (T7.3).
+    /// Periodic timer tick — validates token with broker to detect role changes
+    /// or account deactivation (Phase 7 T7.3, T7.5).
+    ///
+    /// Calls <c>ValidateTokenAsync</c> which queries the DB for the user's current
+    /// role and active status. If the role changed, <c>CurrentUser</c> is updated
+    /// and triggers <c>RefreshPermissionsAsync</c> automatically via PropertyChanged.
+    /// If the account was deactivated, the session is cleared and ForceLogout fires.
     /// </summary>
     private async void OnSessionCheckTick(object? sender, EventArgs e)
     {
@@ -704,7 +1172,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (auth == null || !auth.IsLoggedIn)
             return;
 
-        // Check token expiry
+        // Check token expiry first (fast, local check)
         if (auth.IsTokenExpired())
         {
             _logger.LogWarning("Session token expired (detected by timer)");
@@ -712,9 +1180,34 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 StatusBar.StatusText = "Session expired — please log out and reconnect";
             });
-
-            // Refire permission checks so the UI disables gated features
             await RefreshPermissionsAsync();
+            return;
+        }
+
+        // Phase 7 T7.5: Validate token with broker to detect role changes or deactivation.
+        // ValidateTokenAsync now queries the DB on the broker side, so if an admin
+        // changed the role or deactivated the account, this will detect it.
+        try
+        {
+            var profile = await Connection.ValidateSessionAsync();
+
+            if (profile != null)
+            {
+                // CurrentUser.Role was already updated by ValidateTokenAsync if it changed.
+                // The PropertyChanged handler in the constructor fires RefreshPermissionsAsync automatically.
+                _logger.LogDebug("Session check: user={Username}, role={Role}", profile.Username, profile.Role);
+
+                // Update session status text in the status bar
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    OnPropertyChanged(nameof(SessionStatusText));
+                });
+            }
+            // If profile is null, ForceLogout was already fired by ValidateSessionAsync
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Session validation failed during periodic check");
         }
     }
 

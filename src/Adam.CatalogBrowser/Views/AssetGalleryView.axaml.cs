@@ -37,6 +37,11 @@ public partial class AssetGalleryView : UserControl
         ListViewBox.PointerPressed += OnGalleryPointerPressed;
         ListViewBox.PointerMoved += OnGalleryPointerMoved;
 
+        // Wire context menus programmatically (T8.16) — avoids
+        // FindAncestor Window bindings that break in MenuFlyout popup roots.
+        GridViewBox.ContextRequested += OnContextRequested;
+        ListViewBox.ContextRequested += OnContextRequested;
+
         _dragTimer.Tick += OnDragTimerTick;
 
         Unloaded += OnUnloaded;
@@ -193,6 +198,78 @@ public partial class AssetGalleryView : UserControl
         var pos = e.GetPosition(sourceControl);
         var screenPos = sourceControl.PointToScreen(pos);
         _dragGhost.UpdatePosition(screenPos);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Context menu (T8.16)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Handles right-click / context key on gallery items.
+    /// Selects the right-clicked item (if not already selected) and shows
+    /// a fully programmatic MenuFlyout whose commands are bound directly
+    /// to the MainWindowViewModel — no XAML FindAncestor bindings needed.
+    /// </summary>
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not ListBox listBox) return;
+
+        // Find which item was right-clicked
+        var source = e.Source as Control;
+        var listBoxItem = source?.FindAncestorOfType<ListBoxItem>();
+        if (listBoxItem == null) return;
+
+        var window = this.FindAncestorOfType<Window>();
+        if (window?.DataContext is not MainWindowViewModel vm) return;
+
+        // If the right-clicked item isn't already selected, select only it.
+        // This preserves multi-selection when right-clicking within an existing selection.
+        var clickedItem = listBoxItem.DataContext;
+        if (clickedItem != null && listBox.SelectedItems != null)
+        {
+            var alreadySelected = listBox.SelectedItems
+                .Cast<object>()
+                .Any(x => ReferenceEquals(x, clickedItem));
+
+            if (!alreadySelected)
+            {
+                listBox.SelectedItems.Clear();
+                listBox.SelectedItems.Add(clickedItem);
+            }
+        }
+
+        var flyout = BuildContextMenu(vm);
+        flyout.ShowAt(listBoxItem);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Builds the gallery item context menu with commands from MainWindowViewModel.
+    /// All commands are wired directly as ICommand references — no XAML bindings.
+    /// </summary>
+    private static MenuFlyout BuildContextMenu(MainWindowViewModel vm)
+    {
+        var flyout = new MenuFlyout();
+
+        flyout.Items.Add(new MenuItem { Header = "Rate (cycle)", Command = vm.RateAssetCommand });
+        flyout.Items.Add(new MenuItem { Header = "Set Color Label", Command = vm.SetLabelCommand });
+        flyout.Items.Add(new MenuItem { Header = "Set Flag", Command = vm.SetFlagCommand });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = "AI Tag", Command = vm.AiTagSelectedCommand });
+        flyout.Items.Add(new MenuItem { Header = "Export…", Command = vm.ExportCommand });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = "Rotate 90° CW", Command = vm.RotateClockwiseCommand });
+        flyout.Items.Add(new MenuItem { Header = "Rotate 90° CCW", Command = vm.RotateCounterClockwiseCommand });
+        flyout.Items.Add(new MenuItem { Header = "Flip Horizontal", Command = vm.FlipHorizontalCommand });
+        flyout.Items.Add(new MenuItem { Header = "Flip Vertical", Command = vm.FlipVerticalCommand });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = "Reveal in Folder", Command = vm.RevealInFolderCommand });
+        flyout.Items.Add(new MenuItem { Header = "Copy File Path", Command = vm.CopyFilePathCommand });
+        flyout.Items.Add(new MenuItem { Header = "Copy File", Command = vm.CopyFileCommand });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = "Delete…", Command = vm.DeleteSelectedCommand });
+
+        return flyout;
     }
 
     // ──────────────────────────────────────────────

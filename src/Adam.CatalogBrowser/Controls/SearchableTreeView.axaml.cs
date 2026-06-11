@@ -48,6 +48,11 @@ public class DropPayload
 /// </summary>
 public partial class SearchableTreeView : UserControl
 {
+    /// <summary>
+    /// Exposed for context menu wiring from parent controls (T8.18).
+    /// </summary>
+    internal TreeView TreeViewBoxAccessor => TreeViewBox;
+
     private bool _isUpdatingSelection;
 
     // ──────────────────────────────────────────────
@@ -139,6 +144,13 @@ public partial class SearchableTreeView : UserControl
         AvaloniaProperty.Register<SearchableTreeView, ICommand?>(nameof(DropCommand));
 
     /// <summary>
+    /// Optional command invoked when a tree node is right-clicked (T8.18).
+    /// The command parameter is the clicked node's DataContext.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> NodeContextMenuCommandProperty =
+        AvaloniaProperty.Register<SearchableTreeView, ICommand?>(nameof(NodeContextMenuCommand));
+
+    /// <summary>
     /// Optional label to show next to the count (e.g. "Assets" or "Count").
     /// Leave empty to just show the number.
     /// </summary>
@@ -163,6 +175,16 @@ public partial class SearchableTreeView : UserControl
         set => SetValue(DropCommandProperty, value);
     }
 
+    /// <summary>
+    /// Command invoked when a tree node is right-clicked.
+    /// Receives the node's DataContext as the command parameter.
+    /// </summary>
+    public ICommand? NodeContextMenuCommand
+    {
+        get => GetValue(NodeContextMenuCommandProperty);
+        set => SetValue(NodeContextMenuCommandProperty, value);
+    }
+
     public string CountLabel
     {
         get => GetValue(CountLabelProperty);
@@ -185,8 +207,49 @@ public partial class SearchableTreeView : UserControl
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
 
+        // T8.18: Context menu on tree items
+        TreeViewBox.ContextRequested += OnTreeViewContextRequested;
+        FlatListBox.ContextRequested += OnFlatListContextRequested;
+
         ItemsSourceProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.RebuildFilteredList());
         SelectedItemProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.SyncSelection());
+    }
+
+    // ──────────────────────────────────────────────
+    //  Context menu (T8.18)
+    // ──────────────────────────────────────────────
+
+    private void OnTreeViewContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (NodeContextMenuCommand == null) return;
+
+        var source = e.Source as Visual;
+        var treeItem = source?.FindAncestorOfType<TreeViewItem>();
+        if (treeItem == null) return;
+
+        var node = treeItem.DataContext;
+        if (node != null && NodeContextMenuCommand.CanExecute(node))
+        {
+            NodeContextMenuCommand.Execute(node);
+            e.Handled = true;
+        }
+    }
+
+    private void OnFlatListContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (NodeContextMenuCommand == null) return;
+
+        var source = e.Source as Visual;
+        var listItem = source?.FindAncestorOfType<ListBoxItem>();
+        if (listItem == null) return;
+
+        var flatItem = listItem.DataContext as FlatItem;
+        var node = flatItem?.Node ?? listItem.DataContext;
+        if (node != null && NodeContextMenuCommand.CanExecute(node))
+        {
+            NodeContextMenuCommand.Execute(node);
+            e.Handled = true;
+        }
     }
 
     // ──────────────────────────────────────────────

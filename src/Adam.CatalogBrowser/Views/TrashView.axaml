@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.TrashView"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,Auto,*" Background="White">
+    <!-- Header -->
+    <Border Grid.Row="0" Background="#FFF3E0" Padding="12,8" BorderBrush="#FFE0B2" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+        <TextBlock Text="Trash" FontSize="16" FontWeight="Bold" Foreground="#E65100" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding DeletedAssets.Count, StringFormat={}{0} deleted asset(s)}"
+                   FontSize="12" Foreground="#BF360C" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <Button Grid.Column="2" Content="Refresh" Command="{Binding RefreshCommand}"
+                FontSize="11" Padding="8,2" Margin="0,0,6,0"
+                Background="#F5F5F5" BorderBrush="#D0D0D0" CornerRadius="4"
+                VerticalAlignment="Center" />
+        <Button Grid.Column="3" Content="Restore Selected"
+                Command="{Binding RestoreSelectedCommand}"
+                FontSize="11" Padding="8,2" Margin="0,0,6,0"
+                Background="#2E7D32" Foreground="White" BorderThickness="0" CornerRadius="4"
+                VerticalAlignment="Center" Cursor="Hand" />
+        <Button Grid.Column="4" Content="Permanently Delete"
+                Command="{Binding PermanentlyDeleteSelectedCommand}"
+                FontSize="11" Padding="8,2"
+                Background="#D32F2F" Foreground="White" BorderThickness="0" CornerRadius="4"
+                VerticalAlignment="Center" Cursor="Hand" />
+      </Grid>
+    </Border>
+
+    <!-- Deleted assets list -->
+    <ListBox Grid.Row="1"
+             ItemsSource="{Binding DeletedAssets}"
+             SelectionMode="Multiple"
+             Background="Transparent"
+             BorderThickness="0"
+             IsVisible="{Binding HasItems}">
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem">
+          <Setter Property="Padding" Value="6,4" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+          <Setter Property="Background" Value="#FFF8E1" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+          <Setter Property="Background" Value="#FFE0B2" />
+        </Style>
+      </ListBox.Styles>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Vertical">
+              <TextBlock Text="{Binding FileName}" FontSize="12" FontWeight="Medium" Foreground="#555" />
+              <TextBlock Text="{Binding StoragePath}" FontSize="10" Foreground="#999" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="{Binding FileType}" FontSize="11" Foreground="#888" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{Binding DeletedAtFormatted}" FontSize="11" Foreground="#888" VerticalAlignment="Center" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <!-- Empty state (shown when HasItems is false) -->
+    <Border Grid.Row="1"
+            Background="Transparent"
+            VerticalAlignment="Center"
+            HorizontalAlignment="Center"
+            IsVisible="{Binding HasItems, Converter={x:Static views:InverseBoolConverter3.Instance}}">
+      <StackPanel Spacing="6" HorizontalAlignment="Center">
+        <TextBlock Text="Trash is empty" FontSize="18" Foreground="#CCC" HorizontalAlignment="Center" />
+        <TextBlock Text="Deleted assets will appear here" FontSize="13" Foreground="#DDD" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

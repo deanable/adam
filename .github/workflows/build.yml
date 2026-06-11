@@ -43,13 +43,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libharfbuzz0b
 
       - name: Restore
-        run: dotnet restore src/Adam.slnx
+        run: dotnet restore Adam.slnx
 
       - name: Build
-        run: dotnet build src/Adam.slnx -c Release --no-restore
+        run: dotnet build Adam.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test src/Adam.slnx -c Release --no-build
+        run: dotnet test Adam.slnx -c Release --no-build
         timeout-minutes: 15
 
       - name: Publish (self-contained)

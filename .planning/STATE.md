@@ -1,23 +1,8 @@
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Polish & Ship
-current_phase: 7 — Client RBAC & Hardening
-status: completed
-last_updated: "2026-06-08T11:07:53.228Z"
-progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
----
-
 # State: adam
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 7 — Client RBAC & Hardening
+**Current Phase:** 8 — v1.0 Polish & Ship
 **Current Milestone:** v1.2 — Client Polish
 
 ## Project Reference
@@ -25,7 +10,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Permission-aware client UI and session stability in multi-user mode
+**Current focus:** Final stabilization, performance audit, and distribution packaging
 
 ## Phase Progress
 
@@ -37,15 +22,15 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 4 | ✅ | 1/1 | 100% | Archived |
 | 5 | ✅ | 1/1 | 100% | Archived |
 | 6 | ✅ | 1/1 | 100% | Archived |
-| 7 | 🚧 | 0/1 | 0% | Current |
-| 8 | ○ | 0/1 | 0% |
+| 7 | ✅ | 1/1 | 100% | Archived |
+| 8 | 🚧 | 0/1 | 0% | Current |
 | 9 | ✅ | 1/1 | 100% | Archived |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
-
 - Phase 9 added (2026-06-07): AI Image Tagging — integrate in-repo `LiquidVision.Core` (LFM2-VL ONNX) for local image auto-tagging. Triggers: opt-in during ingest, per-asset Auto-tag button, bulk re-tag. Auto-apply/union/no-provenance; status-bar download progress; Q4F16/CPU defaults.
+- Phase 8 expanded (2026-06-10): added **Work Stream 4 — UI Polish & Interaction** (T8.15–T8.26) following a UI audit (`.planning/phases/08-v1-0-polish-ship/08-UI-REVIEW.md`, 13/24, Experience Design 1/4). Audit found zero context menus app-wide, `DeleteService` built but unwired to any UI, and gallery tiles binding none of the affordances their control draws. Blockers: T8.16 (gallery context menu), T8.17 (wire delete), T8.20 (bind tile affordances).
 
 ## Active Decisions
 
@@ -68,7 +53,6 @@ None.
 5 domains analyzed, 47 findings identified, 30 recommendations made.
 
 ### Critical Issues Found (Must Fix in Phase 2)
-
 - **✅ CRITICAL-4:** No TLS — JWT and passwords in plaintext over TCP → **FIXED** (T2.1)
 - **✅ CRITICAL-5:** Hardcoded JWT secret committed to source control → **FIXED** (T2.2 — env var required, documented)
 - **✅ CRITICAL-6:** No authorization on Asset/Collection/Change handlers → **FIXED** (T2.3)
@@ -106,7 +90,6 @@ None.
 **Estimated Effort:** ~15.5 days
 
 ### Work Streams
-
 1. **Security Hardening** — TLS, JWT secret removal, authorization, protocol fixes
 2. **Broker Reliability** — Task observation, graceful shutdown, write timeout, idle detection
 3. **Auth Layer Fixes** — Signing key race fix, brute-force protection, structured security logging
@@ -122,7 +105,6 @@ None.
 **Status:** Complete
 
 ### Work Streams
-
 1. **Connection Registry** — Per-connection tracking, thread-safe broadcast
 2. **Change Notifications** — Push-based real-time updates, fire-and-forget broadcast
 3. **Conflict Resolution** — ExpectedVersion optimistic concurrency
@@ -136,7 +118,6 @@ None.
 **Status:** Complete — all tasks T4.1–T4.10 implemented and committed
 
 ### Work Streams
-
 1. **Metadata Round-Trip** — Ratings, labels, flags, GPS, copyright + XMP write-back
 2. **RAW Sidecar** — XMP sidecar for CR2/NEF/ARW/DNG
 3. **Image Adjustments** — Rotate 90/180/270, flip horizontal/vertical
@@ -191,10 +172,26 @@ None.
 - **T9.8:** Tests — 7 unit tests covering image-only guard, keyword/category merge, description fill-only-when-empty, cancellation, batch progress, analyze-only path
 - All **7 AI Tagging tests pass**; all projects build cleanly (0 warnings)
 
+## Phase 7 Completion Summary
+
+- **T7.1:** Permission-aware properties (`CanIngest`, `CanEditMetadata`, `CanAudit`, `CanAdminister`, `CanAiTag`, `SessionStatusText`) with `EvaluatePermission()` helper and `RefreshPermissionsAsync()` — fires PropertyChanged and raises CanExecuteChanged for all permission-gated commands
+- **T7.2:** UI gating with `IsEnabled` on right panel Tags StackPanel — gates 14+ editing controls (description, date picker, categories/keywords, rating, label, flag, copyright, GPS, rotate/flip, export, save) by `CanEditMetadata`. MetadataEditorView left-column editing controls gated with `IsEnabled="{Binding CanEdit}"` and defense-in-depth `SaveCommand` CanExecute checking `CanEdit`. Permission tooltips (`EditPermissionTooltip`) show contextual explanation on hover when controls are disabled: "Sign in to edit metadata", "Session expired — re-login required to edit metadata", "Requires Editor or Administrator role"
+- **T7.3:** 60-second `_sessionCheckTimer` — calls `ValidateTokenAsync()` which now queries the DB on the broker side for the user's current role and active status
+- **T7.4:** `ForceLogout` event handling — `ConnectionViewModel.ValidateSessionAsync` fires `ForceLogout` on deactivation → `MainWindowViewModel` clears session state, updates status bar, refreshes permissions
+- **T7.5:** Dynamic role change detection — `AuthHandler.ValidateToken` now queries DB for current role via `AppDbContext`, returning updated claims (not stale JWT). `SessionInvalidated` opcode (115) pushed to affected connections via `ConnectionRegistry.GetConnectionIdsByUserId` when role changes or account is deactivated in `UserHandler`. `BrokerClient.SessionInvalidated` event triggers `ConnectionViewModel.ValidateSessionAsync`. Three-tier detection: instant push (SessionInvalidated), periodic (60s timer), and defense (token expiry)
+- **T7.6:** `SessionStatusText` visible in status bar — shows "Local mode — full access", "Username — Role", "Not logged in", or "Session expired — Role (relogin required)"
+- **Nav button tooltips:** Ingest, Metadata, Audit, and Server Admin buttons changed from `IsVisible` (hidden) to `IsEnabled` with `Classes="NavButton"` — users see all features even when locked. `GetNavTooltipText(actionDescription, requiredRole)` shared helper returns session-state-aware tooltips (not logged in / token expired / no permission). `IngestPermissionTooltip`, `MetadataPermissionTooltip`, `AuditPermissionTooltip`, `AdminPermissionTooltip` properties with PropertyChanged notifications. Disabled state styled with `Opacity="0.35"`.
+- **Service infrastructure:** `ConnectionRegistry.GetConnectionIdsByUserId` for targeted push notifications. `UserHandler` injects `ConnectionRegistry` and calls `NotifySessionInvalidatedAsync` after role change or deactivation
+- **IngestionView defense-in-depth:** Select Files, Select Folder, and drag-drop area gated by `IsEnabled="{Binding DataContext.CanIngest}"` with `ToolTip.Tip` for permission tooltip, ensuring a Viewer user cannot initiate a folder scan even if they navigate to the page. Gallery toolbar AI Tag Selected button changed from `IsVisible` to `IsEnabled` with `ToolTip.Tip` binding.
+- **Tests:** 23 permission tests (nav tooltips, session status, token expiry, dynamic role changes), 20 MetadataEditorViewModel CanEdit tests — all passing
+
 ## Next Actions
 
-1. **Begin Phase 7**: Client RBAC & Hardening — permission-aware UI, token expiry handling, graceful degradation.
-2. **Continue milestone v1.2**: Client Polish — Phase 7 (RBAC) and Phase 8 (v1.0 Polish & Ship).
+1. **Execute Phase 8**: v1.0 Polish & Ship — four work streams: Performance (T8.1–T8.6), Documentation (T8.7–T8.9), Packaging (T8.10–T8.14), and **UI Polish & Interaction (T8.15–T8.26)**. Plan at `.planning/phases/08-v1-0-polish-ship/08-PLAN.md`.
+2. **UI blockers first**: T8.16 gallery context menu, T8.17 wire delete + Trash view, T8.20 bind tile affordances — these close most of the perceived UI incompleteness.
+3. **Open scope decision**: T8.18 (sidebar CRUD) is the largest UI item and touches the broker/multi-user path — keep in Phase 8 or split per ALT-005. [POLISH] tasks T8.23–T8.26 deferrable to v2 per ALT-006.
+4. **Continue milestone v1.2**: Client Polish — Phase 8 (v1.0 Polish & Ship).
 
 ---
-*State updated: 2026-06-08 after Phase 5, 6 & 9 completion*
+*State updated: 2026-06-10 — Phase 8 UI audit complete, Work Stream 4 added to plan*
+

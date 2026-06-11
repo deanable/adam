@@ -450,6 +450,105 @@ public sealed class AssetHandler
         };
     }
 
+    public async Task<Envelope> RestoreAssetAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<RestoreAssetRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = await db.DigitalAssets
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id) && a.IsDeleted, ct);
+
+        if (asset == null)
+            return ErrorResponse(request, 5, "Deleted asset not found");
+
+        asset.IsDeleted = false;
+        asset.ModifiedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.RestoreAssetResponse,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> ListDeletedAssetsAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<ListDeletedAssetsRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var query = db.DigitalAssets
+            .IgnoreQueryFilters()
+            .Where(a => a.IsDeleted)
+            .AsNoTracking()
+            .AsSplitQuery()
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(req.Search))
+        {
+            var search = req.Search;
+            query = query.Where(a =>
+                a.Title.Contains(search) || a.FileName.Contains(search) || a.Description!.Contains(search));
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var assets = await query
+            .OrderByDescending(a => a.ModifiedAt)
+            .ThenBy(a => a.Id)
+            .Skip((req.Page - 1) * req.PageSize)
+            .Take(req.PageSize)
+            .ToListAsync(ct);
+
+        var response = new ListDeletedAssetsResponse
+        {
+            TotalCount = total
+        };
+
+        foreach (var asset in assets)
+        {
+            response.Items.Add(new AssetSummary
+            {
+                Id = asset.Id.ToString(),
+                FileName = asset.FileName,
+                MimeType = asset.MimeType,
+                FileSize = asset.FileSize,
+                Title = asset.Title,
+                Type = asset.Type.ToString(),
+                CollectionId = asset.CollectionId?.ToString() ?? "",
+                UploadedBy = asset.UploadedByUserId?.ToString() ?? "",
+                CreatedAt = asset.CreatedAt.ToUnixTimeSeconds(),
+                ModifiedAt = asset.ModifiedAt.ToUnixTimeSeconds(),
+                Rating = asset.Rating,
+                Label = (int)asset.Label,
+                Flag = (int)asset.Flag
+            });
+        }
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.ListDeletedAssetsResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
     public async Task<Envelope> DeleteAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
@@ -600,6 +699,87 @@ public sealed class AssetHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.GetFileChunkResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> PermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<PermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var asset = await db.DigitalAssets
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id) && a.IsDeleted, ct);
+
+        if (asset == null)
+            return ErrorResponse(request, 5, "Deleted asset not found");
+
+        db.DigitalAssets.Remove(asset);
+        await db.SaveChangesAsync(ct);
+
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyDeletedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.PermanentDeleteAssetResponse,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> BulkPermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<BulkPermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+
+        if (req.Ids.Count == 0)
+            return ErrorResponse(request, 14, "No asset IDs provided");
+
+        var parsedIds = new List<Guid>(req.Ids.Count);
+        foreach (var idStr in req.Ids)
+        {
+            if (!Guid.TryParse(idStr, out var guid))
+                return ErrorResponse(request, 14, $"Invalid asset ID: {idStr}");
+            parsedIds.Add(guid);
+        }
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var assets = await db.DigitalAssets
+            .IgnoreQueryFilters()
+            .Where(a => parsedIds.Contains(a.Id) && a.IsDeleted)
+            .ToListAsync(ct);
+
+        if (assets.Count == 0)
+            return ErrorResponse(request, 5, "No matching deleted assets found");
+
+        db.DigitalAssets.RemoveRange(assets);
+        await db.SaveChangesAsync(ct);
+
+        var userId = _authHandler.GetUserId(request);
+        foreach (var asset in assets)
+            _ = _notificationService.NotifyDeletedAsync(asset.Id.ToString(), userId, request.ConnectionId);
+
+        var response = new BulkPermanentDeleteAssetResponse
+        {
+            DeletedCount = assets.Count
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.BulkPermanentDeleteAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
             StatusCode = 0
         };
