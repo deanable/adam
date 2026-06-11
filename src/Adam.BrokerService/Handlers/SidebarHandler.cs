@@ -226,6 +226,180 @@ public sealed class SidebarHandler
         };
     }
 
+    // ─────────────────────────────────────────────────────────────
+    //  Keyword CRUD
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<Envelope> CreateKeywordAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<CreateKeywordRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var keyword = new Keyword
+        {
+            Id = Guid.NewGuid(),
+            Name = req.Name,
+            NormalizedName = req.Name.ToUpperInvariant(),
+            ParentId = string.IsNullOrEmpty(req.ParentId) ? null : Guid.Parse(req.ParentId)
+        };
+
+        db.Keywords.Add(keyword);
+        await db.SaveChangesAsync(ct);
+
+        var response = new CreateKeywordResponse { Id = keyword.Id.ToString() };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.CreateKeywordResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> UpdateKeywordAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<UpdateKeywordRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
+        if (keyword == null)
+            return ErrorResponse(request, 5, "Keyword not found");
+
+        keyword.Name = req.Name;
+        keyword.NormalizedName = req.Name.ToUpperInvariant();
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.UpdateKeywordRequest,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> DeleteKeywordAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<DeleteKeywordRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
+        if (keyword == null)
+            return ErrorResponse(request, 5, "Keyword not found");
+
+        db.Keywords.Remove(keyword);
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.DeleteKeywordResponse,
+            StatusCode = 0
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Category CRUD
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<Envelope> CreateCategoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<CreateCategoryRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var category = new Category
+        {
+            Id = Guid.NewGuid(),
+            Name = req.Name,
+            NormalizedName = req.Name.ToUpperInvariant(),
+            ParentId = string.IsNullOrEmpty(req.ParentId) ? null : Guid.Parse(req.ParentId)
+        };
+
+        db.Categories.Add(category);
+        await db.SaveChangesAsync(ct);
+
+        var response = new CreateCategoryResponse { Id = category.Id.ToString() };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.CreateCategoryResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> UpdateCategoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<UpdateCategoryRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
+        if (category == null)
+            return ErrorResponse(request, 5, "Category not found");
+
+        category.Name = req.Name;
+        category.NormalizedName = req.Name.ToUpperInvariant();
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.UpdateCategoryRequest,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> DeleteCategoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<DeleteCategoryRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
+        if (category == null)
+            return ErrorResponse(request, 5, "Category not found");
+
+        db.Categories.Remove(category);
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.DeleteCategoryResponse,
+            StatusCode = 0
+        };
+    }
+
     // ─── Helpers ───
 
     private static string GetDirectoryName(string path)

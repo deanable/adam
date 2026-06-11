@@ -88,6 +88,60 @@ public sealed class CollectionHandler
         };
     }
 
+    public async Task<Envelope> UpdateCollectionAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "collection:update", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<UpdateCollectionRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
+        if (collection == null)
+            return ErrorResponse(request, 5, "Collection not found");
+
+        if (!string.IsNullOrEmpty(req.Name))
+            collection.Name = req.Name;
+        if (!string.IsNullOrEmpty(req.Description))
+            collection.Description = req.Description;
+
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.UpdateCollectionRequest,
+            StatusCode = 0
+        };
+    }
+
+    public async Task<Envelope> DeleteCollectionAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "collection:delete", ct))
+            return ErrorResponse(request, 7, "Forbidden");
+
+        var req = ProtoHelper.Deserialize<DeleteCollectionRequest>(request.Payload.ToByteArray());
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
+        if (collection == null)
+            return ErrorResponse(request, 5, "Collection not found");
+
+        db.Collections.Remove(collection);
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.DeleteCollectionResponse,
+            StatusCode = 0
+        };
+    }
+
     private static CollectionNode BuildNode(Collection collection, List<Collection> allCollections)
     {
         var node = new CollectionNode

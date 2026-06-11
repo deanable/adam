@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        x:Class="Adam.CatalogBrowser.Views.ConfirmationDialog"
+        x:DataType="vm:ConfirmationDialogViewModel"
+        Title="{Binding Title}"
+        Width="400"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Topmost="False">
+
+  <Border Padding="20" Background="White">
+    <StackPanel Spacing="16">
+      <!-- Title -->
+      <TextBlock Text="{Binding Title}"
+                 FontSize="16"
+                 FontWeight="SemiBold"
+                 Foreground="#333" />
+
+      <!-- Message -->
+      <TextBlock Text="{Binding Message}"
+                 FontSize="13"
+                 Foreground="#555"
+                 TextWrapping="Wrap" />
+
+      <!-- Buttons -->
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="{Binding CancelText}"
+                Command="{Binding CancelCommand}"
+                IsCancel="True"
+                Padding="16,6"
+                FontSize="12"
+                Background="#F0F0F0"
+                BorderBrush="#D0D0D0"
+                CornerRadius="4"
+                MinWidth="80" />
+
+        <Button Content="{Binding ConfirmText}"
+                Command="{Binding ConfirmCommand}"
+                IsDefault="True"
+                Padding="16,6"
+                FontSize="12"
+                FontWeight="SemiBold"
+                Background="#D32F2F"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4"
+                MinWidth="80"
+                Cursor="Hand">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="#C62828" />
+            </Style>
+            <Style Selector="Button:pressed">
+              <Setter Property="Background" Value="#B71C1C" />
+            </Style>
+          </Button.Styles>
+        </Button>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

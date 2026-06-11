@@ -28,6 +28,10 @@ public enum MessageTypeCode : ushort
     GetFileResponse = 23,
     GetFileChunkRequest = 24,
     GetFileChunkResponse = 25,
+    RestoreAssetRequest = 26,
+    RestoreAssetResponse = 27,
+    ListDeletedAssetsRequest = 28,
+    ListDeletedAssetsResponse = 29,
 
     // Collections (30-39)
     ListCollectionsRequest = 30,
@@ -63,6 +67,18 @@ public enum MessageTypeCode : ushort
     ListDateTakenTreeRequest = 68,
     ListDateTakenTreeResponse = 69,
 
+    // Sidebar CRUD (80-89)
+    CreateKeywordRequest = 80,
+    CreateKeywordResponse = 81,
+    UpdateKeywordRequest = 82,
+    DeleteKeywordRequest = 83,
+    DeleteKeywordResponse = 84,
+    CreateCategoryRequest = 85,
+    CreateCategoryResponse = 86,
+    UpdateCategoryRequest = 87,
+    DeleteCategoryRequest = 88,
+    DeleteCategoryResponse = 89,
+
     // Watched Folders (70-79)
     ListWatchedFoldersRequest = 70,
     ListWatchedFoldersResponse = 71,
@@ -87,6 +103,10 @@ public enum MessageTypeCode : ushort
     StartServiceResponse = 93,
     StopServiceRequest = 94,
     StopServiceResponse = 95,
+    PermanentDeleteAssetRequest = 96,
+    PermanentDeleteAssetResponse = 97,
+    BulkPermanentDeleteAssetRequest = 100,
+    BulkPermanentDeleteAssetResponse = 101,
     NoData = 98,
     GeneralError = 99
 }

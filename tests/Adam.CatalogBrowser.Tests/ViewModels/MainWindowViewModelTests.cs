@@ -61,6 +61,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             ingestion, metadataEditor,
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
+            new DeleteService(_modeManager), new ToastService(),
             startUp: false);
 
         // Open a DB connection for seeding/verifying test data
@@ -979,6 +980,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             propertyInspector,
             connection,
             statusBar,
+            new DeleteService(_modeManager), new ToastService(),
             startUp: false);
 
         // Set connected state via reflection to simulate a connected service

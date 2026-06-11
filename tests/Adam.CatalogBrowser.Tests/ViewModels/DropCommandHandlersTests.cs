@@ -60,7 +60,8 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
             _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
             ingestion, metadataEditor,
             auditLog, _bulkQueue,
-            propertyInspector, connection, statusBar);
+            propertyInspector, connection, statusBar,
+            new DeleteService(_modeManager), new ToastService());
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false
         // dispatch (it would hang without a pumping dispatcher).

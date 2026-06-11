@@ -5,6 +5,18 @@
       "type": "remote",
       "enabled": true,
       "url": "https://mcp.context7.com/mcp"
+    },
+    "openwork-browser": {
+      "type": "remote",
+      "url": "http://127.0.0.1:64883/mcp"
+    },
+    "chrome": {
+      "type": "remote",
+      "url": "http://127.0.0.1:64884/mcp"
+    },
+    "openwork-ui": {
+      "type": "remote",
+      "url": "http://127.0.0.1:51051/mcp"
     }
   }
 }

@@ -145,6 +145,7 @@ public sealed class AssetSummary : IProtoSerializable
     public int Rating { get; set; }
     public int Label { get; set; }
     public int Flag { get; set; }
+    public long ModifiedAt { get; set; }
 
     public int CalculateSize()
     {
@@ -161,6 +162,7 @@ public sealed class AssetSummary : IProtoSerializable
         if (Rating != 0) size += ProtoHelper.FieldSize(10, Rating);
         if (Label != 0) size += ProtoHelper.FieldSize(11, Label);
         if (Flag != 0) size += ProtoHelper.FieldSize(12, Flag);
+        if (ModifiedAt != 0) size += ProtoHelper.FieldSize(13, ModifiedAt);
         return size;
     }
 
@@ -178,6 +180,7 @@ public sealed class AssetSummary : IProtoSerializable
         if (Rating != 0) ProtoHelper.WriteField(output, 10, Rating);
         if (Label != 0) ProtoHelper.WriteField(output, 11, Label);
         if (Flag != 0) ProtoHelper.WriteField(output, 12, Flag);
+        if (ModifiedAt != 0) ProtoHelper.WriteField(output, 13, ModifiedAt);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -560,6 +563,86 @@ public sealed class DeleteAssetResponse : IProtoSerializable
     public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
 }
 
+public sealed class RestoreAssetRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+}
+
+public sealed class RestoreAssetResponse : IProtoSerializable
+{
+    public int CalculateSize() => 0;
+    public void WriteTo(CodedOutputStream output) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
+}
+
+public sealed class PermanentDeleteAssetRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+}
+
+public sealed class PermanentDeleteAssetResponse : IProtoSerializable
+{
+    public int CalculateSize() => 0;
+    public void WriteTo(CodedOutputStream output) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
+}
+
+public sealed class BulkPermanentDeleteAssetRequest : IProtoSerializable
+{
+    public List<string> Ids { get; } = [];
+
+    public int CalculateSize() => ProtoHelper.RepeatedFieldSize(1, Ids);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteRepeatedField(output, 1, Ids);
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            if (WireFormat.GetTagFieldNumber(tag) == 1)
+                Ids.Add(input.ReadString());
+            else
+                input.SkipLastField();
+        }
+    }
+}
+
+public sealed class BulkPermanentDeleteAssetResponse : IProtoSerializable
+{
+    public int DeletedCount { get; set; }
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        if (DeletedCount != 0) size += ProtoHelper.FieldSize(1, DeletedCount);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        if (DeletedCount != 0) ProtoHelper.WriteField(output, 1, DeletedCount);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: DeletedCount = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
 public sealed class GetFileRequest : IProtoSerializable
 {
     public string Id { get; set; } = string.Empty;
@@ -650,6 +733,87 @@ public sealed class GetFileChunkRequest : IProtoSerializable
                 case 1: Id = input.ReadString(); break;
                 case 2: ChunkIndex = input.ReadInt32(); break;
                 case 3: ChunkSize = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class ListDeletedAssetsRequest : IProtoSerializable
+{
+    public string Search { get; set; } = string.Empty;
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        if (!string.IsNullOrEmpty(Search)) size += ProtoHelper.FieldSize(1, Search);
+        if (Page != 1) size += ProtoHelper.FieldSize(2, Page);
+        if (PageSize != 50) size += ProtoHelper.FieldSize(3, PageSize);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        if (!string.IsNullOrEmpty(Search)) ProtoHelper.WriteField(output, 1, Search);
+        if (Page != 1) ProtoHelper.WriteField(output, 2, Page);
+        if (PageSize != 50) ProtoHelper.WriteField(output, 3, PageSize);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Search = input.ReadString(); break;
+                case 2: Page = input.ReadInt32(); break;
+                case 3: PageSize = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class ListDeletedAssetsResponse : IProtoSerializable
+{
+    public List<AssetSummary> Items { get; } = [];
+    public int TotalCount { get; set; }
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        size += ProtoHelper.RepeatedFieldSize(1, Items);
+        size += ProtoHelper.FieldSize(2, TotalCount);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteRepeatedField(output, 1, Items);
+        ProtoHelper.WriteField(output, 2, TotalCount);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1:
+                    {
+                        var item = new AssetSummary();
+                        var buf = input.ReadBytes().ToByteArray();
+                        using var ms = new MemoryStream(buf);
+                        using var cis = new CodedInputStream(ms);
+                        item.MergeFrom(cis);
+                        Items.Add(item);
+                        break;
+                    }
+                case 2: TotalCount = input.ReadInt32(); break;
                 default: input.SkipLastField(); break;
             }
         }

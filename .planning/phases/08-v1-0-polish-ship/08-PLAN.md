@@ -44,9 +44,9 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four work
 |------|-------------|-----------|------|
 | T8.1 | **Benchmark baseline** — Create a `BenchmarkService` or script that ingests 100K synthetic assets with varied metadata (keywords, categories, EXIF), then measures search query times (full-text, filtered, sorted) and gallery load times. Consider `BenchmarkDotNet` for rigorous micro-benchmarks or a stopwatch-based console app for scenario-level measurements. Seed the 100K DB once and reuse across runs to avoid regenerating per execution. | ✅ | 2026-06-09 |
 | T8.2 | **Search index audit** — Review EF Core query plans for all `DigitalAssets` queries (sidebar filters, keyword search, date range). Add missing composite indexes for common filter combinations (e.g., `Type + MimeType + FileName`, `CreatedAt + Type`). | ✅ | 2026-06-09 |
-| T8.3 | **Full-text search optimization** — Investigate SQLite FTS5 virtual table for full-text search across Title, Description, FileName, and keyword names. If feasible, implement FTS5 with triggers keeping it in sync. For PostgreSQL, leverage `tsvector`/`tsquery`. | | |
-| T8.4 | **Thumbnail cache optimization** — Profile `ThumbnailService.GenerateThumbnailAsync` for memory/CPU hot spots. Consider: lazy-loading thumbnails with virtualized `ListBox`, pre-generating thumbnails on ingest in batches, caching thumbnail metadata in DB to avoid repeated `File.Exists` checks. | | |
-| T8.5 | **Gallery virtualized scrolling** — Verify `VirtualizingStackPanel` in ListView mode handles 10K+ items without memory pressure. Add `AsyncImageLoader` pattern to load thumbnails on-demand as items scroll into view. | | |
+| T8.3 | **Full-text search optimization** — Investigate SQLite FTS5 virtual table for full-text search across Title, Description, FileName, and keyword names; for PostgreSQL leverage `tsvector`/`tsquery`. **Exit (binary):** either FTS5 implemented with triggers keeping it in sync AND benchmark shows full-text search <2s at 100K assets (PERF-01), OR a documented decision to use the `LIKE`-based fallback per ALT-001 with the measured numbers justifying it. | | |
+| T8.4 | **Thumbnail cache optimization** — Profile `ThumbnailService.GenerateThumbnailAsync` for memory/CPU hot spots. **Exit (binary):** a recorded before/after profiling result naming the chosen optimization(s) from {lazy-load via virtualized list, batch pre-generation on ingest, DB-cached thumbnail metadata to drop repeated `File.Exists`} AND gallery scroll stays smooth (no UI freeze) at 100K per PERF-02. | | |
+| T8.5 | **Gallery virtualized scrolling** — Verify `VirtualizingStackPanel` (ListView mode) handles 10K+ items without memory pressure; add on-demand thumbnail loading as items scroll into view. **Exit (binary):** measured working-set stays bounded while scrolling a 10K-item gallery (no linear growth), OR the page-based "Load More" fallback per RISK-002 is implemented; result recorded. | | |
 | T8.6 | **Startup time optimization** — Profile app startup (DI container resolution, `ModeManager.InitializeAsync`, sidebar loading). Implement lazy initialization for non-critical services. Target <3s cold start. | | |
 
 ### Work Stream 2: Final Documentation
@@ -78,9 +78,9 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four work
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | T8.15 | **[HIGH] Feedback components** — Reusable confirmation dialog + transient toast/notification surface. None exist today (audit Pillar 6 / table F); prerequisite for safe delete and async feedback (AI-tag, export, ingest, delete). | | |
-| T8.16 | **[BLOCK] Gallery asset context menu** — Add `ContextFlyout` to gallery items (`AssetGalleryView.axaml:113-189`) exposing Rate / Label / Flag / Tag / AI-Tag / Export / Rotate / Flip. Most commands already exist in the VM and only need an affordance (table A). | | |
+| T8.16 | **[BLOCK] Gallery asset context menu + per-asset commands** — Add `ContextFlyout` to gallery items (`AssetGalleryView.axaml:113-189`). AI-Tag (`AiTagSelectedCommand`), Export (`ExportCommand`), Rotate/Flip already exist and only need an affordance. **Rate / Set color label / Set flag exist ONLY as right-panel combos, not as commands (audit table A)** — this task must create per-asset `RateCommand`/`SetLabelCommand`/`SetFlagCommand` on the gallery VM (multi-select variants land in T8.22). Menu wiring of Delete/Reveal/Copy/Add-to-collection entries depends on T8.17 and T8.19 (see Execution Waves). | | |
 | T8.17 | **[BLOCK] Wire up Delete** — `DeleteService` (`Services/DeleteService.cs`, DI-registered `App.axaml.cs:77`, tested) is referenced by no UI. Add `DeleteSelectedCommand` + confirmation (T8.15) + `Delete` key + context-menu entry, and a Trash/Deleted view surfacing `GetDeletedAssetsAsync`/`RestoreAsync`/`PermanentlyDeleteAsync`. | | |
-| T8.18 | **[HIGH] Sidebar tree context menus + CRUD** — New/Rename/Delete + inline rename for Collections, Keywords, Categories (`MainWindow.axaml:217-292`, `SearchableTreeView.axaml`). These commands do NOT exist in `SidebarViewModel` today — add the commands (and broker-side handlers for multi-user mode). Largest item; candidate to split into its own slice if scope tightens. | | |
+| T8.18 | **[HIGH] Sidebar tree context menus + CRUD** — New/Rename/Delete + inline rename for Collections, Keywords, Categories (`MainWindow.axaml:217-292`, `SearchableTreeView.axaml`). These commands do NOT exist in `SidebarViewModel` today — add the commands (and broker-side handlers for multi-user mode). Also (audit table B): a **Folders** context menu (Reveal in Explorer, Re-scan folder) and explicit **"Filter by this" / "Clear filter"** entries on tree nodes (filter is implicit-on-selection today). Largest item; candidate to split into its own slice if scope tightens (ALT-005). | | |
 | T8.19 | **[HIGH] New asset commands** — Reveal-in-folder / Open (`Process.Start` on `StoragePath`), Copy path / Copy file (no clipboard usage exists today), Add-to-collection (collections are currently read-only in the UI). Surfaced via T8.16 context menu (table A). | | |
 | T8.20 | **[BLOCK] Bind tile affordances** — `AssetTileControl` exposes Rating/ColorLabel/ColorBrush/IsFlagged/ToolbarActions and the template draws them (`AssetTileControlStyles.axaml:43-122`), but the gallery binds only thumbnail + 3 text fields (`AssetGalleryView.axaml:115-124`), so every tile shows empty slots. Bind these + add hover-reveal action overlay (table D). | | |
 | T8.21 | **[HIGH] Keyboard model** — Extend `Window.KeyBindings` (only `Ctrl+S`×2 today) with Delete, F2 rename, Ctrl+A/C/E/F, Enter open, rating digits 0–5, P/X flag (table C). | | |
@@ -89,6 +89,26 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four work
 | T8.24 | **[POLISH] Color palette resources** — Extract a shared `ResourceDictionary` palette (60+ hardcoded hex literals today; blocks theming/dark mode) and rein in competing accents (audit Pillar 3). | | |
 | T8.25 | **[POLISH] Type scale + spacing tokens** — Collapse 8+ ad-hoc font sizes into ≤4 `TextBlock` style classes; introduce spacing tokens for the 4/8/12/16 rhythm (audit Pillars 4 & 5). | | |
 | T8.26 | **[POLISH] Copywriting cleanup** — Dedupe empty-state strings, replace bare "Clear"/"Refresh", standardize Save labels (audit Pillar 1). | | |
+
+### Work Stream 5: Release Stabilization
+
+**GOAL:** Satisfy the release gate CON-001 — zero Critical/High-severity bugs remaining.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| T8.27 | **[BLOCK] Critical/High bug triage & bug-bash** — Dedicated stabilization pass that owns CON-001 (passing the test suite proves regression safety, not absence of High-severity defects). Triage open issues + carried tech debt (`X509Certificate2` SYSLIB0057 obsolete-ctor warnings; CatalogBrowser CI test timeouts), run a manual bug-bash across the golden paths exercised by the new UI work (delete/trash, context menus, bulk actions), and record results. **Exit:** a triage log shows zero open Critical or High items before any packaging task (T8.10–T8.14) ships. | | |
+
+### Execution Waves
+
+Sequencing commitment (resolves the menu-before-commands inversion and de-risks the v1.0 date). Later waves are blocked on earlier ones only where noted.
+
+| Wave | Tasks | Rationale |
+|------|-------|-----------|
+| **Wave 1 — UI blockers** | T8.15 → (T8.16 per-asset commands, T8.17, T8.19) → T8.16 menu wiring; T8.20 | T8.15 (confirmation/toast) precedes T8.17 (delete needs confirmation). Delete (T8.17) and reveal/copy/add-to-collection (T8.19) commands must exist before the T8.16 `ContextFlyout` can wire their entries. T8.20 (tile bindings) is independent. |
+| **Wave 2 — UX (HIGH)** | T8.18, T8.21, T8.22 | Sidebar CRUD, keyboard model, bulk actions. T8.22 reuses the per-asset rate/label/flag commands from T8.16. T8.18 may split out per ALT-005. |
+| **Wave 3 — Performance + Docs** | T8.3–T8.6, T8.7–T8.9 | Independent of the UI streams; can run in parallel with Waves 1–2. |
+| **Wave 4 — Stabilization gate + POLISH** | T8.27; POLISH T8.23–T8.26 (defer-eligible per ALT-006) | CON-001 triage runs after all features land (Waves 1–3). Gates Wave 5. |
+| **Wave 5 — Packaging & release** | T8.10–T8.14 | Runs only after T8.27 clears CON-001 (zero Critical/High) AND PAT-002 (full suite green). This keeps the W4 release gate and the wave invariant consistent — packaging is strictly downstream of stabilization. |
 
 ## 3. Alternatives
 
@@ -158,6 +178,6 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four work
 - `.planning/ROADMAP.md` — Phase 8 deliverables and success criteria
 - `.planning/STATE.md` — Current project state
 - `.planning/milestones/v1.1-audit-report.md` — Previous milestone audit
-- `.planning/plans/phase-8/08-UI-REVIEW.md` — Phase 8 UI audit (6-pillar, 13/24) backing Work Stream 4
+- `.planning/phases/08-v1-0-polish-ship/08-UI-REVIEW.md` — Phase 8 UI audit (6-pillar, 13/24) backing Work Stream 4
 - `src/Adam.Shared/Data/AppDbContext.cs` — Index definitions for performance audit
 - `src/Adam.Shared/Services/ThumbnailService.cs` — Thumbnail cache service

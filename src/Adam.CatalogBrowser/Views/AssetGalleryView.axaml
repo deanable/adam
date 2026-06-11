@@ -121,6 +121,11 @@
                 TextField2="{Binding FileType}"
                 TextField3Label="Size"
                 TextField3="{Binding FileSizeFormatted}"
+                Rating="{Binding Rating}"
+                ColorLabel="{Binding ColorLabel}"
+                ColorBrush="{Binding ColorBrush}"
+                IsFlagged="{Binding IsFlagged}"
+                ToolbarActions="{Binding ToolbarActions}"
                 Margin="4" />
             </DataTemplate>
           </ListBox.ItemTemplate>

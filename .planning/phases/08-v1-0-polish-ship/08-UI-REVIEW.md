@@ -1,7 +1,7 @@
 # Phase 8 — UI Review
 
 **Audited:** 2026-06-10
-**Baseline:** Abstract 6-pillar standards (no UI-SPEC.md exists). Cross-referenced against `.planning/ROADMAP.md`, `.planning/STATE.md`, and `.planning/plans/phase-8/PLAN.md`.
+**Baseline:** Abstract 6-pillar standards (no UI-SPEC.md exists). Cross-referenced against `.planning/ROADMAP.md`, `.planning/STATE.md`, and `.planning/phases/08-v1-0-polish-ship/08-PLAN.md`.
 **Screenshots:** Not captured — this is an Avalonia 12 desktop app (XAML/MVVM), not a web app. No dev server applies. Audit is code-grounded against `.axaml` views/styles and their ViewModels.
 **Scope note:** Phase 8 PLAN.md has **three work streams — Performance, Documentation, Packaging — and zero UI work stream.** The user's stated concern (interaction incompleteness) is currently unrepresented in Phase 8 and must be folded in.
 
@@ -158,5 +158,5 @@ Registry audit: `components.json` not present (not a shadcn project) — registr
 - `src/Adam.CatalogBrowser/ViewModels/AssetGalleryViewModel.cs`
 - `src/Adam.CatalogBrowser/ViewModels/SidebarViewModel.cs`
 - `src/Adam.CatalogBrowser/Services/DeleteService.cs`
-- `.planning/plans/phase-8/PLAN.md` (baseline / scope cross-reference)
+- `.planning/phases/08-v1-0-polish-ship/08-PLAN.md` (baseline / scope cross-reference)
 - Grep sweeps: `ContextMenu|ContextFlyout|MenuFlyout|MenuItem` (zero), `KeyBinding|Gesture|ToolTip.Tip`, `DeleteService|Clipboard|MessageBox|Reveal`.

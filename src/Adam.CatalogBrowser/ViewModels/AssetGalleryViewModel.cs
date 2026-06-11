@@ -1,17 +1,20 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using System.Windows.Input;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -39,11 +42,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private List<Guid> _activeCategoryIds = [];
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
+    public ICommand SelectAllCommand { get; }
 
     public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger)
     {
         _modeManager = modeManager;
         _logger = logger;
+
+        SelectAllCommand = new RelayCommand(_ => SelectAll());
     }
 
     public ObservableCollection<AssetListItem> Assets { get; } = [];
@@ -196,6 +202,16 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    /// <summary>
+    /// Selects all assets in the current view (T8.21 keyboard shortcut).
+    /// </summary>
+    private void SelectAll()
+    {
+        // Select all assets
+        var items = Assets.ToList();
+        UpdateSelection(items.Cast<object?>().ToList());
+    }
+
     public async Task LoadAssetsAsync(CancellationToken ct = default)
     {
         _logger.LogInformation("[LoadAssetsAsync] Starting - page reset to 0, sort={SortBy}", _sortBy);
@@ -300,6 +316,17 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                     _logger.LogDebug("[Thumbnail] AssetId={AssetId}, StoragePath={StoragePath}, ThumbnailPath={ThumbnailPath}, ThumbnailExists={Exists}", 
                         asset.Id, asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
 
+                    // Map label to color display (T8.20)
+                    var (colorLabel, colorBrush) = asset.Label switch
+                    {
+                        AssetLabel.Red => ("Red", new SolidColorBrush(Colors.Red)),
+                        AssetLabel.Green => ("Green", new SolidColorBrush(Colors.Green)),
+                        AssetLabel.Blue => ("Blue", new SolidColorBrush(Colors.Blue)),
+                        AssetLabel.Yellow => ("Yellow", new SolidColorBrush(Color.FromArgb(255, 218, 165, 32))),
+                        AssetLabel.Purple => ("Purple", new SolidColorBrush(Colors.Purple)),
+                        _ => (string.Empty, null)
+                    };
+
                     var item = new AssetListItem
                     {
                         Id = asset.Id,
@@ -311,8 +338,36 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                         Width = asset.Width,
                         Height = asset.Height,
                         CreatedAt = asset.CreatedAt,
-                        ThumbnailPath = thumbnailPath
+                        ThumbnailPath = thumbnailPath,
+                        Rating = asset.Rating,
+                        ColorLabel = colorLabel,
+                        ColorBrush = colorBrush,
+                        IsFlagged = asset.Flag != AssetFlag.Unflagged
                     };
+
+                    // Quick action toolbar buttons (T8.20)
+                    var assetId = asset.Id; // capture for closure
+                    item.ToolbarActions =
+                    [
+                        new ToolbarAction
+                        {
+                            Icon = "\u2605",  // ★
+                            ToolTipText = "Quick rate (cycle)",
+                            Command = new RelayCommand(async _ =>
+                            {
+                                await QuickRateAssetAsync(assetId, item);
+                            })
+                        },
+                        new ToolbarAction
+                        {
+                            Icon = "\u2691",  // ⚑
+                            ToolTipText = "Toggle flag",
+                            Command = new RelayCommand(async _ =>
+                            {
+                                await ToggleFlagAssetAsync(assetId, item);
+                            })
+                        }
+                    ];
 
                     newItems.Add(item);
                 }
@@ -479,6 +534,70 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         _filterDateFrom = dateFrom;
         _filterDateTo = dateTo;
         _ = LoadAssetsAsync();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Toolbar quick actions (T8.20)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Cycles the rating of the specified asset (0 → 1 → … → 5 → 0)
+    /// and updates the tile's display properties in-place.
+    /// </summary>
+    private async Task QuickRateAssetAsync(Guid assetId, AssetListItem item)
+    {
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == assetId).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            dbAsset.Rating = (dbAsset.Rating + 1) % 6;
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            // Update the tile in-place so the UI reflects the new rating immediately
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                item.Rating = dbAsset.Rating;
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Quick-rate failed for asset {Id}", assetId);
+        }
+    }
+
+    /// <summary>
+    /// Cycles the flag of the specified asset (Unflagged → Pick → Reject → Unflagged)
+    /// and updates the tile's display properties in-place.
+    /// </summary>
+    private async Task ToggleFlagAssetAsync(Guid assetId, AssetListItem item)
+    {
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == assetId).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            dbAsset.Flag = dbAsset.Flag switch
+            {
+                AssetFlag.Unflagged => AssetFlag.Pick,
+                AssetFlag.Pick => AssetFlag.Reject,
+                AssetFlag.Reject => AssetFlag.Unflagged,
+                _ => AssetFlag.Unflagged
+            };
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            // Update the tile in-place so the UI reflects the new flag state immediately
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                item.IsFlagged = dbAsset.Flag != AssetFlag.Unflagged;
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Toggle-flag failed for asset {Id}", assetId);
+        }
     }
 
     public async Task LoadCollectionsAsync(CancellationToken ct = default)

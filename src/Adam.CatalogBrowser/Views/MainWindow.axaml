@@ -20,6 +20,9 @@
     <DataTemplate DataType="{x:Type vm:AuditLogViewModel}">
       <views:AuditLogView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:TrashViewModel}">
+      <views:TrashView />
+    </DataTemplate>
 
   </Window.DataTemplates>
 
@@ -40,6 +43,19 @@
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+S" Command="{Binding PropertyInspector.SaveTagsCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding PropertyInspector.SaveTagsCommand}" />
+    <!-- Wave 1: Keyboard shortcuts (T8.21) -->
+    <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedCommand}" />
+    <KeyBinding Gesture="Ctrl+A" Command="{Binding AssetGallery.SelectAllCommand}" />
+    <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyFilePathCommand}" />
+    <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+T" Command="{Binding ShowTrashCommand}" />
+    <!-- T8.21: Rating digit keys 0-5 -->
+    <KeyBinding Gesture="D0" Command="{Binding SetRatingCommand}" CommandParameter="0" />
+    <KeyBinding Gesture="D1" Command="{Binding SetRatingCommand}" CommandParameter="1" />
+    <KeyBinding Gesture="D2" Command="{Binding SetRatingCommand}" CommandParameter="2" />
+    <KeyBinding Gesture="D3" Command="{Binding SetRatingCommand}" CommandParameter="3" />
+    <KeyBinding Gesture="D4" Command="{Binding SetRatingCommand}" CommandParameter="4" />
+    <KeyBinding Gesture="D5" Command="{Binding SetRatingCommand}" CommandParameter="5" />
   </Window.KeyBindings>
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
@@ -230,7 +246,8 @@
 
             <!-- Collections -->
             <Expander Header="Collections" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <TreeView ItemsSource="{Binding Sidebar.Collections}" SelectedItem="{Binding Sidebar.SelectedCollection}"
+              <TreeView x:Name="CollectionsTreeView"
+                        ItemsSource="{Binding Sidebar.Collections}" SelectedItem="{Binding Sidebar.SelectedCollection}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -245,10 +262,11 @@
 
             <!-- Keywords -->
             <Expander Header="Keywords" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <controls:SearchableTreeView
+              <controls:SearchableTreeView x:Name="KeywordsTreeView"
                 ItemsSource="{Binding Sidebar.Keywords}"
                 SelectedItem="{Binding Sidebar.SelectedKeyword}"
                 DropCommand="{Binding AssignKeywordDropCommand}"
+                NodeContextMenuCommand="{Binding Sidebar.ShowKeywordMenuCommand}"
                 Margin="0,4,0,0" />
             </Expander>
 
@@ -269,10 +287,11 @@
 
             <!-- Categories -->
             <Expander Header="Categories" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <controls:SearchableTreeView
+              <controls:SearchableTreeView x:Name="CategoriesTreeView"
                 ItemsSource="{Binding Sidebar.MetadataCategories}"
                 SelectedItem="{Binding Sidebar.SelectedMetadataCategory}"
                 DropCommand="{Binding AssignCategoryDropCommand}"
+                NodeContextMenuCommand="{Binding Sidebar.ShowCategoryMenuCommand}"
                 Margin="0,4,0,0" />
             </Expander>
 
@@ -478,10 +497,10 @@
 
                 <!-- Rotate / Flip controls (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="4" Orientation="Horizontal" HorizontalAlignment="Center">
-                  <Button Content="↻ 90°" Command="{Binding RotateClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
-                  <Button Content="↺ 90°" Command="{Binding RotateCounterClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
-                  <Button Content="⇄" Command="{Binding FlipHorizontalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
-                  <Button Content="⇅" Command="{Binding FlipVerticalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" />
+                  <Button Content="↻ 90°" Command="{Binding RotateClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" ToolTip.Tip="Rotate 90° clockwise" />
+                  <Button Content="↺ 90°" Command="{Binding RotateCounterClockwiseCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" ToolTip.Tip="Rotate 90° counter-clockwise" />
+                  <Button Content="⇄" Command="{Binding FlipHorizontalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" ToolTip.Tip="Flip horizontal" />
+                  <Button Content="⇅" Command="{Binding FlipVerticalCommand}" FontSize="11" Padding="8,2" CornerRadius="4" Background="#F0F0F0" BorderBrush="#D0D0D0" ToolTip.Tip="Flip vertical" />
                 </StackPanel>
 
                 <!-- Export button (single-asset mode) -->
@@ -575,6 +594,38 @@
         </Grid>
       </Border>
     </Grid>
+
+    <!-- Toast notification overlay -->
+    <Border Grid.Row="0" Grid.RowSpan="4"
+            IsVisible="{Binding ToastService.HasNotifications}"
+            Background="Transparent"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="0,0,12,36"
+            ZIndex="100">
+      <ItemsControl ItemsSource="{Binding ToastService.Notifications}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="6" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Background="{Binding BackgroundColor}"
+                    CornerRadius="6"
+                    Padding="12,8"
+                    Opacity="{Binding Opacity}"
+                    MinWidth="220"
+                    MaxWidth="400">
+              <TextBlock Text="{Binding Message}"
+                         FontSize="12"
+                         Foreground="White"
+                         TextWrapping="Wrap" />
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
 
     <!-- Status bar -->
     <Border Grid.Row="3" Background="#F0F0F0" Padding="4,2">

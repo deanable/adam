@@ -81,11 +81,29 @@ public sealed class ConnectionHandler : IConnectionHandler
                 case MessageTypeCode.DeleteAssetRequest:
                     response = await _assetHandler.DeleteAssetAsync(request, ct);
                     break;
+                case MessageTypeCode.RestoreAssetRequest:
+                    response = await _assetHandler.RestoreAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListDeletedAssetsRequest:
+                    response = await _assetHandler.ListDeletedAssetsAsync(request, ct);
+                    break;
+                case MessageTypeCode.PermanentDeleteAssetRequest:
+                    response = await _assetHandler.PermanentDeleteAssetAsync(request, ct);
+                    break;
+                case MessageTypeCode.BulkPermanentDeleteAssetRequest:
+                    response = await _assetHandler.BulkPermanentDeleteAssetAsync(request, ct);
+                    break;
                 case MessageTypeCode.CreateCollectionRequest:
                     response = await _collectionHandler.CreateCollectionAsync(request, ct);
                     break;
                 case MessageTypeCode.ListCollectionsRequest:
                     response = await _collectionHandler.ListCollectionsAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateCollectionRequest:
+                    response = await _collectionHandler.UpdateCollectionAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteCollectionRequest:
+                    response = await _collectionHandler.DeleteCollectionAsync(request, ct);
                     break;
                 case MessageTypeCode.GetChangesRequest:
                     response = await _changeHandler.GetChangesAsync(request, ct);
@@ -122,6 +140,24 @@ public sealed class ConnectionHandler : IConnectionHandler
                     break;
                 case MessageTypeCode.ListKeywordsRequest:
                     response = await _sidebarHandler.ListKeywordsAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateKeywordRequest:
+                    response = await _sidebarHandler.CreateKeywordAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateKeywordRequest:
+                    response = await _sidebarHandler.UpdateKeywordAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteKeywordRequest:
+                    response = await _sidebarHandler.DeleteKeywordAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateCategoryRequest:
+                    response = await _sidebarHandler.CreateCategoryAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateCategoryRequest:
+                    response = await _sidebarHandler.UpdateCategoryAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteCategoryRequest:
+                    response = await _sidebarHandler.DeleteCategoryAsync(request, ct);
                     break;
                 case MessageTypeCode.ListMediaFormatCountsRequest:
                     response = await _sidebarHandler.ListMediaFormatCountsAsync(request, ct);

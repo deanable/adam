@@ -56,6 +56,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
             propertyInspector,
             connection,
             statusBar,
+            new DeleteService(_modeManager), new ToastService(),
             startUp: false);
     }
 
