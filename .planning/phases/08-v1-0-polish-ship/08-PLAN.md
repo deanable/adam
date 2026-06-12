@@ -88,9 +88,9 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four acti
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
 | T8.10 | **Self-contained publish** — Create `scripts/publish.sh` that runs `dotnet publish -r <rid> --self-contained` for all three projects targeting `win-x64`, `osx-x64`, `linux-x64`. Configure trim mode, ready-to-run, single-file. | ✅ | 2026-06-12 |
-| T8.11 | **Windows MSI package** — Set up WiX Toolset project. Configure Start Menu shortcut, file association, uninstaller. | ⬜ | |
-| T8.12 | **macOS DMG package** — Create `create-dmg` script that bundles `.app` into compressed DMG. Configure code signing placeholder. | ⬜ | |
-| T8.13 | **Linux DEB package** — Create `scripts/build-deb.sh` that structures publish output into DEB layout. Use `dpkg-deb` for packaging. | ⬜ | |
+| T8.11 | **Windows MSI package** — Set up WiX Toolset project. Configure Start Menu shortcut, file association, uninstaller. | ✅ | 2026-06-12 |
+| T8.12 | **macOS DMG package** — Create `create-dmg` script that bundles `.app` into compressed DMG. Configure code signing placeholder. | ✅ | 2026-06-12 |
+| T8.13 | **Linux DEB package** — Create `scripts/build-deb.sh` that structures publish output into DEB layout. Use `dpkg-deb` for packaging. | ✅ | 2026-06-12 |
 | T8.14 | **CI/CD integration** — Add `.github/workflows/release.yml` that runs on tag push (`v*`): builds all platforms, runs full test suite, creates MSI/DMG/DEB artifacts, uploads to GitHub Releases. | ✅ | 2026-06-12 |
 
 ### Work Stream 4: Release Stabilization
