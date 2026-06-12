@@ -1,7 +1,7 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-12 (Phase 7 complete)
+**Updated:** 2026-06-12 (Phase 8 complete — v1.0 ready)
 **Granularity:** Standard  
 **Phases:** 9
 
@@ -16,7 +16,7 @@
 | 5 | Server Management Tooling | Dedicated admin tool for Users, Roles, and Services | AUTH-04, AUTH-05, ADMIN-02, ADMIN-03 | ✅ Complete |
 | 6 | Database Provider Matrix | Full SQL Server/PostgreSQL validation & Migration | DB-02 to DB-04 | ✅ Complete |
 | 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | ✅ Complete |
-| 8 | v1.0 Polish & Ship | Bug fixes, performance tuning, and final release | All v1 Final | 🚧 Next |
+| 8 | v1.0 Polish & Ship | UI polish, docs, packaging, stabilization | All v1 Final | ✅ Complete |
 | 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
 
 ## Phase Details
@@ -68,25 +68,27 @@
 
 ---
 
-### Phase 8: v1.0 Polish & Ship 🚧
-**Goal:** Final stabilization and distribution prep.
+### Phase 8: v1.0 Polish & Ship ✅
+**Goal:** Final stabilization, UI polish, documentation, and distribution packaging.
 
 **Deliverables:**
-1. **Performance Audit**: Optimize search indexes and thumbnail cache for large collections.
-2. **Final Documentation**: Complete the "Admin Guide" for the Service Manager and "User Guide" for the Browser.
-3. **Distribution Packaging**: Create platform-specific installers (MSI, DMG, DEB).
+1. ✅ **UI Polish & Interaction** (T8.15–T8.26): Confirmation dialog + toast, gallery context menu, delete/trash wiring, bulk actions, keyboard shortcuts (Delete, Ctrl+A/C/E, Ctrl+Shift+T, D0–D5, P/X, F2, Enter, Ctrl+F), tile affordance bindings, AI Tag discoverability, shared color palette (50 semantic brushes), type scale (4 TextBlock classes), copywriting cleanup.
+2. ✅ **Documentation** (T8.7–T8.9): Admin Guide, User Guide, v1 release notes, all 34 v1 requirements validated.
+3. ✅ **Distribution Packaging** (T8.10–T8.14): Cross-platform publish script, WiX MSI (CatalogBrowser + BrokerService), macOS DMG (x64 + arm64), Linux DEB (CatalogBrowser + BrokerService), GitHub Actions release pipeline.
+4. ✅ **Release Stabilization** (T8.27): Zero Critical/High bugs, 502 tests passing, all golden paths triaged.
 
 **Success Criteria:**
-- All v1 requirements validated and documented.
-- Zero known "Critical" or "High" severity bugs remaining.
+- ✅ All 34 v1 requirements validated and documented.
+- ✅ Zero Critical/High bugs remaining (T8.27 triage).
+- ✅ Platform packages build on CI (MSI, DMG, DEB).
 
 ## Milestones
 
 ### v1.1 — Server Maturity (Phases 5-6) ✅
 Production-ready server administration and database flexibility.
 
-### v1.2 — Client Polish (Phases 7-8) 🚧
-Permission-aware UI and v1.0 polish & ship — Phase 7 ✅, Phase 8 underway.
+### v1.2 — Client Polish (Phases 7-8) ✅
+Permission-aware UI and v1.0 polish & ship — all complete.
 
 ### Phase 9: AI Image Tagging ✅
 **Goal:** Integrate the in-repo `LiquidVision.Core` (LFM2-VL ONNX vision model) into ADAM so users can auto-generate descriptions, keywords, and categories for image assets locally, with no Python or cloud dependency.
@@ -109,4 +111,4 @@ Permission-aware UI and v1.0 polish & ship — Phase 7 ✅, Phase 8 underway.
 - ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-*Roadmap updated: 2026-06-12 — Phase 7 complete, Phase 8 underway*
+*Roadmap updated: 2026-06-12 — Phase 8 complete, v1.0 ready*

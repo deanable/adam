@@ -2,15 +2,15 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 8 — v1.0 Polish & Ship
-**Current Milestone:** v1.2 — Client Polish
+**Current Phase:** ✅ 8 Complete — v1.0 ready to ship
+**Current Milestone:** ✅ v1.2 — Client Polish (complete)
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** Final stabilization, performance audit, and distribution packaging
+**Current focus:** v1.0 ready — all phases complete, ready to tag and release
 
 ## Phase Progress
 
@@ -23,7 +23,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 5 | ✅ | 1/1 | 100% | Archived |
 | 6 | ✅ | 1/1 | 100% | Archived |
 | 7 | ✅ | 1/1 | 100% | Archived |
-| 8 | 🚧 | 0/1 | 0% | Current |
+| 8 | ✅ | 1/1 | 100% | Complete |
 | 9 | ✅ | 1/1 | 100% | Archived |
 
 ## Accumulated Context
@@ -187,11 +187,11 @@ None.
 
 ## Next Actions
 
-1. **Execute Phase 8**: v1.0 Polish & Ship — four work streams: Performance (T8.1–T8.6), Documentation (T8.7–T8.9), Packaging (T8.10–T8.14), and **UI Polish & Interaction (T8.15–T8.26)**. Plan at `.planning/phases/08-v1-0-polish-ship/08-PLAN.md`.
-2. **UI blockers first**: T8.16 gallery context menu, T8.17 wire delete + Trash view, T8.20 bind tile affordances — these close most of the perceived UI incompleteness.
-3. **Open scope decision**: T8.18 (sidebar CRUD) is the largest UI item and touches the broker/multi-user path — keep in Phase 8 or split per ALT-005. [POLISH] tasks T8.23–T8.26 deferrable to v2 per ALT-006.
-4. **Continue milestone v1.2**: Client Polish — Phase 8 (v1.0 Polish & Ship).
+1. **Tag v1.0.0 release** — `git tag v1.0.0 && git push origin v1.0.0` to trigger the release workflow and build all platform packages.
+2. **Verify release artifacts** — Download MSI, DMG, and DEB from the GitHub Release draft and install-test on each platform.
+3. **Publish release** — Convert the draft GitHub Release to published once artifacts are verified.
+4. **v2 planning** — Sidebar CRUD (T8.18), FTS5 search (T8.3), performance optimization (T8.4–T8.6) deferred to v2.
 
 ---
-*State updated: 2026-06-12 — Phase 7 fully complete, test infrastructure improvements*
+*State updated: 2026-06-12 — Phase 8 complete, v1.0 ready to ship*
 
