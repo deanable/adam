@@ -11,17 +11,17 @@
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Toolbar -->
-    <Border Grid.Row="0" Background="#FAFAFA" Padding="8" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceLightBrush}" Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-          <TextBlock Text="View:" VerticalAlignment="Center" Classes="Body" Foreground="#555" />
+          <TextBlock Text="View:" VerticalAlignment="Center" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
           <ComboBox ItemsSource="{Binding ViewOptions}"
                     SelectedItem="{Binding ViewMode}"
                     Width="100" />
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-          <TextBlock Text="Sort:" VerticalAlignment="Center" Classes="Body" Foreground="#555" />
+          <TextBlock Text="Sort:" VerticalAlignment="Center" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
           <ComboBox ItemsSource="{Binding SortOptions}"
                     SelectedItem="{Binding SortBy}"
                     Width="130" />
@@ -30,7 +30,7 @@
           <TextBlock Text="{Binding ThumbnailSizeText}"
                      VerticalAlignment="Center"
                      Classes="Body"
-                     Foreground="#888"
+                     Foreground="{DynamicResource TextTertiaryBrush}"
                      Width="40" />
         </StackPanel>
 
@@ -44,7 +44,7 @@
                 FontSize="11"
                 Padding="8,2"
                 Margin="4,0"
-                Background="#7B1FA2"
+                Background="{DynamicResource AiTagBrush}"
                 Foreground="White"
                 BorderThickness="0"
                 CornerRadius="4"
@@ -52,17 +52,17 @@
                 Cursor="Hand">
           <Button.Styles>
             <Style Selector="Button:disabled">
-              <Setter Property="Background" Value="#E0E0E0" />
-              <Setter Property="Foreground" Value="#999" />
+              <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextPlaceholderBrush}" />
             </Style>
             <Style Selector="Button.AiTagButton:disabled">
               <Setter Property="Opacity" Value="0.35" />
             </Style>
             <Style Selector="Button:pointerover:not(:disabled)">
-              <Setter Property="Background" Value="#8E24AA" />
+              <Setter Property="Background" Value="{DynamicResource AiTagHoverBrush}" />
             </Style>
             <Style Selector="Button:pressed:not(:disabled)">
-              <Setter Property="Background" Value="#6A1B9A" />
+              <Setter Property="Background" Value="{DynamicResource AiTagPressedBrush}" />
             </Style>
           </Button.Styles>
         </Button>
@@ -71,7 +71,7 @@
                    Text="{Binding StatusText}"
                    VerticalAlignment="Center"
                    Classes="Body"
-                   Foreground="#888"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
                    Margin="8,0,0,0" />
       </Grid>
     </Border>
@@ -96,13 +96,13 @@
               <Setter Property="Padding" Value="0" />
             </Style>
             <Style Selector="ListBoxItem:pointerover">
-              <Setter Property="Background" Value="#EFF2F7" />
+              <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
             </Style>
             <Style Selector="ListBoxItem:selected">
-              <Setter Property="Background" Value="#E3EDFA" />
+              <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
             </Style>
             <Style Selector="ListBoxItem:selected:pointerover">
-              <Setter Property="Background" Value="#D8E5F7" />
+              <Setter Property="Background" Value="{DynamicResource SelectionActiveBrush}" />
             </Style>
           </ListBox.Styles>
           <ListBox.ItemsPanel>
@@ -146,20 +146,20 @@
               <Setter Property="Padding" Value="0" />
             </Style>
             <Style Selector="ListBoxItem:pointerover">
-              <Setter Property="Background" Value="#EFF2F7" />
+              <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
             </Style>
             <Style Selector="ListBoxItem:selected">
-              <Setter Property="Background" Value="#E3EDFA" />
+              <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
             </Style>
             <Style Selector="ListBoxItem:selected:pointerover">
-              <Setter Property="Background" Value="#D8E5F7" />
+              <Setter Property="Background" Value="{DynamicResource SelectionActiveBrush}" />
             </Style>
             <!-- Left accent bar on selected rows -->
             <Style Selector="ListBoxItem:selected Border.LeftAccent">
-              <Setter Property="Background" Value="#1976D2" />
+              <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
             </Style>
             <Style Selector="ListBoxItem:selected:pointerover Border.LeftAccent">
-              <Setter Property="Background" Value="#1565C0" />
+              <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
             </Style>
           </ListBox.Styles>
           <ListBox.ItemsPanel>
@@ -171,7 +171,7 @@
             <DataTemplate>
               <Grid>
                 <!-- Row content (rendered first, behind) -->
-                <Border BorderBrush="#E8E8E8"
+                <Border BorderBrush="{DynamicResource BorderHoverBrush}"
                         BorderThickness="0,0,0,1"
                         Background="Transparent">
                   <controls:AssetListRowControl
@@ -199,20 +199,20 @@
                 Background="Transparent">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
                       IsVisible="{Binding IsLoadingMore}">
-            <controls:LoadingSpinner Width="16" Height="16" Foreground="#1976D2" DotSize="5" />
-            <TextBlock Text="Loading more..." Classes="Body" Foreground="#999" VerticalAlignment="Center" />
+            <controls:LoadingSpinner Width="16" Height="16" Foreground="{DynamicResource PrimaryBrush}" DotSize="5" />
+            <TextBlock Text="Loading more..." Classes="Body" Foreground="{DynamicResource TextPlaceholderBrush}" VerticalAlignment="Center" />
           </StackPanel>
         </Border>
       </StackPanel>
     </ScrollViewer>
 
     <!-- Full-loading overlay (initial load / filter changes) -->
-    <Border Background="#CCFFFFFF" IsVisible="{Binding IsLoading}"
+    <Border Background="{DynamicResource OverlayBrush}" IsVisible="{Binding IsLoading}"
             HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
       <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
-        <controls:LoadingSpinner Grid.Row="0" Width="36" Height="36" Foreground="#1976D2"
+        <controls:LoadingSpinner Grid.Row="0" Width="36" Height="36" Foreground="{DynamicResource PrimaryBrush}"
                                   HorizontalAlignment="Center" />
-        <TextBlock Grid.Row="1" Text="Loading..." Classes="Body" Foreground="#888"
+        <TextBlock Grid.Row="1" Text="Loading..." Classes="Body" Foreground="{DynamicResource TextTertiaryBrush}"
                    HorizontalAlignment="Center" />
       </Grid>
     </Border>
@@ -227,18 +227,18 @@
       <StackPanel Spacing="8" HorizontalAlignment="Center">
         <TextBlock Text="No assets found"
                    Classes="Title"
-                   Foreground="#BBB"
+                   Foreground="{DynamicResource TextEmptyBrush}"
                    HorizontalAlignment="Center" />
         <TextBlock Text="Select a root folder to scan for digital assets"
                    Classes="Subheading"
-                   Foreground="#CCC"
+                   Foreground="{DynamicResource TextEmptySecondaryBrush}"
                    HorizontalAlignment="Center" />
       </StackPanel>
     </Border>
 
     <!-- Status bar info -->
     <Border Grid.Row="2" Background="Transparent" Padding="4">
-      <TextBlock Classes="Body" Foreground="#888" Text="{Binding StatusText}" />
+      <TextBlock Classes="Body" Foreground="{DynamicResource TextTertiaryBrush}" Text="{Binding StatusText}" />
     </Border>
   </Grid>
 </UserControl>

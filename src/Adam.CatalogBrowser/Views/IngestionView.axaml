@@ -7,22 +7,22 @@
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
 
-      <TextBlock Text="Ingest Assets" Classes="Title" FontWeight="Bold" Foreground="#333" />
+      <TextBlock Text="Ingest Assets" Classes="Title" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
 
       <!-- File picker buttons — Phase 7: gated by CanIngest -->
-      <Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="16" CornerRadius="4" Background="#FAFAFA"
+      <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16" CornerRadius="4" Background="{DynamicResource SurfaceLightBrush}"
               IsEnabled="{Binding DataContext.CanIngest, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
               ToolTip.Tip="{Binding DataContext.IngestPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}">
         <StackPanel Spacing="12">
-          <TextBlock Text="Select source files or folders to import into the catalog." Classes="Body" Foreground="#555" TextWrapping="Wrap" />
+          <TextBlock Text="Select source files or folders to import into the catalog." Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
             <Button Content="Select Files" Click="OnSelectFilesClick"
                     HorizontalAlignment="Stretch" Height="32" />
             <Button Grid.Column="1" Content="Select Folder" Click="OnSelectFolderClick"
                     HorizontalAlignment="Stretch" Height="32" />
           </Grid>
-          <Border BorderBrush="#CCC" BorderThickness="1" Padding="16" CornerRadius="4" Background="#F0F0F0">
-            <TextBlock Text="Or drag and drop files or folders here" Classes="Body" Foreground="#999"
+          <Border BorderBrush="{DynamicResource TextEmptySecondaryBrush}" BorderThickness="1" Padding="16" CornerRadius="4" Background="{DynamicResource SurfaceDisabledBrush}">
+            <TextBlock Text="Or drag and drop files or folders here" Classes="Body" Foreground="{DynamicResource TextPlaceholderBrush}"
                        HorizontalAlignment="Center" />
           </Border>
         </StackPanel>
@@ -32,7 +32,7 @@
       <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#FAFAFA" Padding="8">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="Ingested Folders" Classes="Subheading" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" />
+            <TextBlock Text="Ingested Folders" Classes="Subheading" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
             <Button Grid.Column="1" Content="Refresh Folders" Command="{Binding RefreshFolderBrowserCommand}"
                     FontSize="11" Padding="8,2" />
           </Grid>
@@ -42,7 +42,7 @@
               <TreeDataTemplate ItemsSource="{Binding Children}">
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Text="📁" Classes="Body" Margin="0,0,4,0" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" Foreground="#333" VerticalAlignment="Center"
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                              ToolTip.Tip="{Binding Path}" />
                 </Grid>
               </TreeDataTemplate>
@@ -58,7 +58,7 @@
           <ItemsControl ItemsSource="{Binding PendingFiles}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding}" Classes="Body" Foreground="#555" Margin="6,2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding}" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,2" TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -75,13 +75,13 @@
       <!-- Progress -->
       <StackPanel Spacing="4" IsVisible="{Binding IsIngesting}">
         <ProgressBar Value="{Binding ProgressValue}" MinWidth="400" />
-        <TextBlock Text="{Binding ProgressText}" Classes="Body" Foreground="#555" />
+        <TextBlock Text="{Binding ProgressText}" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
       </StackPanel>
 
       <!-- Status -->
-      <Border Background="#E8F5E9" Padding="8" CornerRadius="4"
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" Padding="8" CornerRadius="4"
               IsVisible="{Binding IngestionStatus, Converter={x:Static local:StringNotEmptyConverter.Instance}}">
-        <TextBlock Text="{Binding IngestionStatus}" Classes="Body" Foreground="#2E7D32" />
+        <TextBlock Text="{Binding IngestionStatus}" Classes="Body" Foreground="{DynamicResource SuccessBrush}" />
       </Border>
 
     </StackPanel>

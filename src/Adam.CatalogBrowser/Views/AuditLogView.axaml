@@ -9,7 +9,7 @@
       <TextBlock Text="Audit Log" Classes="Title" FontWeight="Bold" />
 
       <!-- Filters -->
-      <Border BorderBrush="#DDD" BorderThickness="1" Padding="8" CornerRadius="4">
+      <Border BorderBrush="{DynamicResource TextEmptyTertiaryBrush}" BorderThickness="1" Padding="8" CornerRadius="4">
         <StackPanel Spacing="8">
           <TextBlock Text="Filters" Classes="Body" FontWeight="SemiBold" />
           <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="8">
@@ -33,12 +33,12 @@
       <ListBox ItemsSource="{Binding Logs}" MinHeight="300">
         <ListBox.ItemTemplate>
           <DataTemplate>
-            <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="4">
+            <Border BorderBrush="{DynamicResource BorderLightBrush}" BorderThickness="0,0,0,1" Padding="4">
               <Grid ColumnDefinitions="150,80,80,200,*">
-                <TextBlock Grid.Column="0" Text="{Binding Timestamp}" Classes="Body" Foreground="Gray" />
+                <TextBlock Grid.Column="0" Text="{Binding Timestamp}" Classes="Body" Foreground="{DynamicResource TextTertiaryBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding Username}" FontWeight="Medium" Classes="Body" />
                 <TextBlock Grid.Column="2" Text="{Binding Action}" Classes="Body" />
-                <TextBlock Grid.Column="3" Text="{Binding EntityType}" Classes="Body" Foreground="#555" />
+                <TextBlock Grid.Column="3" Text="{Binding EntityType}" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
                 <TextBlock Grid.Column="4" Text="{Binding Details}" Classes="Body" TextTrimming="CharacterEllipsis" />
               </Grid>
             </Border>
@@ -46,23 +46,23 @@
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="Gray" />
+      <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="{DynamicResource TextTertiaryBrush}" />
 
       <!-- Operation Log -->
-      <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
+      <Border BorderBrush="{DynamicResource TextEmptyTertiaryBrush}" BorderThickness="1" Padding="16" CornerRadius="4">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="Operation Log" Classes="Subheading" FontWeight="SemiBold" />
             <Button Grid.Column="1" Content="Clear Log" FontSize="11" Padding="8,2"
                     Command="{Binding ClearLogCommand}" />
           </Grid>
-          <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="2" MaxHeight="240">
+          <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="2" MaxHeight="240">
             <ScrollViewer>
               <ItemsControl ItemsSource="{Binding LogMessages}" Margin="4">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding}" Classes="Body" FontFamily="Consolas, Courier New, monospace"
-                               TextWrapping="NoWrap" Foreground="#333" />
+                               TextWrapping="NoWrap" Foreground="{DynamicResource TextPrimaryBrush}" />
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -74,9 +74,9 @@
   </ScrollViewer>
 
   <!-- Loading overlay -->
-  <Border Background="#CCFFFFFF" IsVisible="{Binding IsLoading}"
+  <Border Background="{DynamicResource OverlayBrush}" IsVisible="{Binding IsLoading}"
           HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-    <controls:LoadingSpinner Width="40" Height="40" Foreground="#1976D2"
+    <controls:LoadingSpinner Width="40" Height="40" Foreground="{DynamicResource PrimaryBrush}"
                               HorizontalAlignment="Center" VerticalAlignment="Center" />
   </Border>
   </Grid>
