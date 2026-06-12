@@ -25,6 +25,8 @@
 # ─────────────────────────────────────────────────────────────────
 
 set -uo pipefail
+n# Verify dotnet CLI is available
+command -v dotnet &>/dev/null || { echo "ERROR: dotnet CLI not found"; exit 2; }
 
 # ── Defaults ──────────────────────────────────────────────────
 
@@ -112,7 +114,7 @@ echo ""
 
 # ── Step 1: Kill stale testhost processes ─────────────────────
 
-echo "==> Cleaning up stale testhost processes..."
+  if ! $SKIP_CLEANUP; then echo "==> Cleaning up stale testhost processes..."; fi
 kill_testhost
 echo ""
 
@@ -146,7 +148,7 @@ for proj_path in "${TEST_PROJECTS[@]}"; do
   echo "--- $proj_name ---"
 
   # Build test arguments
-  TEST_ARGS=("$full_path" -c "$CONFIGURATION" --no-build)
+  TEST_ARGS=("$full_path" -c "$CONFIGURATION" --no-build --no-restore)
   if [[ -n "$FILTER" ]]; then
     TEST_ARGS+=(--filter "$FILTER")
   fi
