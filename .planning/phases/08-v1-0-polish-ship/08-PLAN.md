@@ -67,9 +67,9 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four acti
 | T8.21 | **Keyboard model** — Delete, Ctrl+A/C/E, Ctrl+Shift+T, D0–D5 rating digits. | HIGH | ✅ | 2026-06-12 |
 | T8.22 | **Bulk actions** — Rate/label/flag/key operate on ALL selected assets, single DB round-trip, in-memory tile updates. | HIGH | ✅ | 2026-06-12 |
 | T8.23 | **Discoverability** — Permission-aware AI Tag tooltip with descriptive text. | POLISH | ✅ | 2026-06-12 |
-| T8.24 | **Color palette resources** — Extract shared `ResourceDictionary` palette (60+ hardcoded hex literals today; blocks theming/dark mode). | POLISH | ⬜ | |
-| T8.25 | **Type scale + spacing tokens** — Collapse 8+ ad-hoc font sizes into ≤4 `TextBlock` style classes; introduce spacing tokens for 4/8/12/16 rhythm. | POLISH | ⬜ | |
-| T8.26 | **Copywriting cleanup** — Dedupe empty-state strings, replace bare "Clear"/"Refresh", standardize Save labels. | POLISH | ⬜ | |
+| T8.24 | **Color palette resources** — Extract shared `ResourceDictionary` palette (60+ hardcoded hex literals today; blocks theming/dark mode). | POLISH | ✅ | 2026-06-12 |
+| T8.25 | **Type scale + spacing tokens** — Collapse 8+ ad-hoc font sizes into ≤4 `TextBlock` style classes; introduce spacing tokens for 4/8/12/16 rhythm. | POLISH | ✅ | 2026-06-12 |
+| T8.26 | **Copywriting cleanup** — Dedupe empty-state strings, replace bare "Clear"/"Refresh", standardize Save labels. | POLISH | ✅ | 2026-06-12 |
 
 ### Work Stream 2: Documentation
 
