@@ -1,0 +1,112 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+
+  <!--
+    Shared color palette — semantic tokens for the adam DAM UI.
+
+    Usage: {DynamicResource PrimaryBrush} in AXAML attributes.
+    All colors are defined as x:SolidColorBrush for direct AXAML binding.
+    For Dark Mode support in v2, swap this dictionary with a dark variant.
+
+    Naming convention:
+      *Color    — x:Color (for programmatic use)
+      *Brush    — x:SolidColorBrush (for AXAML binding)
+  -->
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Brand / Primary                           -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="PrimaryBrush"               Color="#1976D2" />
+  <SolidColorBrush x:Key="PrimaryHoverBrush"          Color="#1565C0" />
+  <SolidColorBrush x:Key="PrimaryPressedBrush"        Color="#0D47A1" />
+  <SolidColorBrush x:Key="TitleBarBrush"              Color="#005A9E" />
+  <SolidColorBrush x:Key="TitleBarSeparatorBrush"     Color="#55FFFFFF" />
+  <SolidColorBrush x:Key="TitleBarTextBrush"          Color="#99FFFFFF" />
+  <SolidColorBrush x:Key="TitleBarTextSubtleBrush"    Color="#AAFFFFFF" />
+  <SolidColorBrush x:Key="TitleBarStatusBrush"        Color="#DDDDDD" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Success / Green                            -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="SuccessBrush"               Color="#2E7D32" />
+  <SolidColorBrush x:Key="SuccessHoverBrush"          Color="#388E3C" />
+  <SolidColorBrush x:Key="SuccessLightBrush"          Color="#81C784" />
+  <SolidColorBrush x:Key="SuccessBackgroundBrush"     Color="#E8F5E9" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Danger / Red                               -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="DangerBrush"                Color="#D32F2F" />
+  <SolidColorBrush x:Key="DangerHoverBrush"           Color="#C62828" />
+  <SolidColorBrush x:Key="DangerPressedBrush"         Color="#B71C1C" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Warning / Orange                           -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="WarningBrush"               Color="#E65100" />
+  <SolidColorBrush x:Key="WarningTextBrush"           Color="#BF360C" />
+  <SolidColorBrush x:Key="WarningHoverBrush"          Color="#EF6C00" />
+  <SolidColorBrush x:Key="WarningBackgroundBrush"     Color="#FFF3E0" />
+  <SolidColorBrush x:Key="WarningBorderBrush"         Color="#FFE0B2" />
+  <SolidColorBrush x:Key="WarningHoverBackgroundBrush" Color="#FFF8E1" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  AI Tag Purple                              -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="AiTagBrush"                 Color="#7B1FA2" />
+  <SolidColorBrush x:Key="AiTagHoverBrush"            Color="#8E24AA" />
+  <SolidColorBrush x:Key="AiTagPressedBrush"          Color="#6A1B9A" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Admin / Teal                               -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="AdminBrush"                 Color="#004D40" />
+  <SolidColorBrush x:Key="AdminHoverBrush"            Color="#00695C" />
+  <SolidColorBrush x:Key="AdminTextBrush"             Color="#CCFFCC" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Text                                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="TextPrimaryBrush"           Color="#333333" />
+  <SolidColorBrush x:Key="TextSecondaryBrush"         Color="#555555" />
+  <SolidColorBrush x:Key="TextMutedBrush"             Color="#666666" />
+  <SolidColorBrush x:Key="TextTertiaryBrush"          Color="#888888" />
+  <SolidColorBrush x:Key="TextPlaceholderBrush"       Color="#999999" />
+  <SolidColorBrush x:Key="TextDisabledBrush"          Color="#AAAAAA" />
+  <SolidColorBrush x:Key="TextEmptyBrush"             Color="#BBBBBB" />
+  <SolidColorBrush x:Key="TextEmptySecondaryBrush"    Color="#CCCCCC" />
+  <SolidColorBrush x:Key="TextEmptyTertiaryBrush"     Color="#DDDDDD" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Surface / Background                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="SurfaceBrush"               Color="#FFFFFF" />
+  <SolidColorBrush x:Key="SurfaceLightBrush"          Color="#FAFAFA" />
+  <SolidColorBrush x:Key="SurfaceSubtleBrush"         Color="#F5F5F5" />
+  <SolidColorBrush x:Key="SurfaceDisabledBrush"       Color="#F0F0F0" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Border                                     -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="BorderBrush"                Color="#E0E0E0" />
+  <SolidColorBrush x:Key="BorderLightBrush"           Color="#EEEEEE" />
+  <SolidColorBrush x:Key="InputBorderBrush"           Color="#D0D0D0" />
+  <SolidColorBrush x:Key="BorderHoverBrush"           Color="#E8E8E8" />
+  <SolidColorBrush x:Key="DisabledButtonBrush"        Color="#BDBDBD" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Selection / Interactive                    -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="SelectionHoverBrush"        Color="#EFF2F7" />
+  <SolidColorBrush x:Key="SelectionBrush"             Color="#E3EDFA" />
+  <SolidColorBrush x:Key="SelectionActiveBrush"       Color="#D8E5F7" />
+  <SolidColorBrush x:Key="ServiceModeBrush"           Color="#E3F2FD" />
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  Overlay                                    -->
+  <!-- ═══════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="OverlayBrush"               Color="#CCFFFFFF" />
+
+  </Styles.Resources>
+</Styles>
