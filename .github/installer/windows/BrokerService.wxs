@@ -17,9 +17,5 @@
     </StandardDirectory>
   </Package>
 
-  <Fragment>
-    <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)\**" />
-    </ComponentGroup>
-  </Fragment>
+
 </Wix>

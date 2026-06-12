@@ -64,10 +64,16 @@ jobs:
         run: Copy-Item -Path publish/ServiceManager/* -Destination publish/CatalogBrowser/ -Recurse -Force
       - name: Install WiX
         run: dotnet tool install --global wix --version 4.0.5
+      - name: Harvest CatalogBrowser files
+        shell: pwsh
+        run: scripts/generate-wix-heat.ps1 -SourceDir publish/CatalogBrowser -OutputFile heat-catalogbrowser.wxs -DirectoryRefId INSTALLDIR -ComponentGroupId PublishedFiles
       - name: Build CatalogBrowser MSI
-        run: wix build .github/installer/windows/Product.wxs -o "Adam.CatalogBrowser-v${{ needs.validate.outputs.version }}-win-x64.msi" -d PublishDir=publish/CatalogBrowser -d Version=${{ needs.validate.outputs.version }}
+        run: wix build .github/installer/windows/Product.wxs heat-catalogbrowser.wxs -o "Adam.CatalogBrowser-v${{ needs.validate.outputs.version }}-win-x64.msi" -d Version=${{ needs.validate.outputs.version }}
+      - name: Harvest BrokerService files
+        shell: pwsh
+        run: scripts/generate-wix-heat.ps1 -SourceDir publish/BrokerService -OutputFile heat-brokerservice.wxs -DirectoryRefId INSTALLFOLDER -ComponentGroupId PublishedFiles
       - name: Build BrokerService MSI
-        run: wix build .github/installer/windows/BrokerService.wxs -o "Adam.BrokerService-v${{ needs.validate.outputs.version }}-win-x64.msi" -d PublishDir=publish/BrokerService -d Version=${{ needs.validate.outputs.version }}
+        run: wix build .github/installer/windows/BrokerService.wxs heat-brokerservice.wxs -o "Adam.BrokerService-v${{ needs.validate.outputs.version }}-win-x64.msi" -d Version=${{ needs.validate.outputs.version }}
       - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath "Adam-v${{ needs.validate.outputs.version }}-win-x64.zip"
@@ -168,7 +174,7 @@ jobs:
           mkdir -p deb-catalogbrowser/usr/share/applications
           cp -r publish/CatalogBrowser/* deb-catalogbrowser/usr/bin/
           cp .github/installer/linux/catalogbrowser.desktop deb-catalogbrowser/usr/share/applications/
-          sed "s/\\${VERSION}/$VERSION/g" .github/installer/linux/control > deb-catalogbrowser/DEBIAN/control
+          cat .github/installer/linux/control | tr -d '\r' | sed "s/\${VERSION}/$VERSION/g" > deb-catalogbrowser/DEBIAN/control
           dpkg-deb --build deb-catalogbrowser "adam-catalogbrowser_${VERSION}_amd64.deb"
       - name: Build BrokerService DEB
         run: |
@@ -188,6 +194,7 @@ jobs:
           Description: Adam BrokerService
            Cross-platform digital asset management broker service.
           EOF
+          tr -d '\r' < deb-brokerservice/DEBIAN/control > deb-brokerservice/DEBIAN/control.tmp && mv deb-brokerservice/DEBIAN/control.tmp deb-brokerservice/DEBIAN/control
           cat > deb-brokerservice/lib/systemd/system/adam-brokerservice.service << EOF
           [Unit]
           Description=Adam BrokerService
@@ -203,7 +210,9 @@ jobs:
           [Install]
           WantedBy=multi-user.target
           EOF
+          tr -d '\r' < deb-brokerservice/lib/systemd/system/adam-brokerservice.service > deb-brokerservice/lib/systemd/system/adam-brokerservice.service.tmp && mv deb-brokerservice/lib/systemd/system/adam-brokerservice.service.tmp deb-brokerservice/lib/systemd/system/adam-brokerservice.service
           cp .github/installer/linux/postinst deb-brokerservice/DEBIAN/postinst
+          tr -d '\r' < deb-brokerservice/DEBIAN/postinst > deb-brokerservice/DEBIAN/postinst.tmp && mv deb-brokerservice/DEBIAN/postinst.tmp deb-brokerservice/DEBIAN/postinst
           chmod 755 deb-brokerservice/DEBIAN/postinst
           dpkg-deb --build deb-brokerservice "adam-brokerservice_${VERSION}_amd64.deb"
       - name: Create TAR.GZ

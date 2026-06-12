@@ -20,13 +20,9 @@
       </Directory>
     </StandardDirectory>
 
-    <StandardDirectory Id="CommonDesktopFolder" />
+    <StandardDirectory Id="DesktopFolder" />
 
-    <ComponentGroup Id="PublishedFiles" Directory="INSTALLDIR">
-      <Files Include="$(var.PublishDir)\**" />
-    </ComponentGroup>
-
-    <Component Id="DesktopShortcut" Directory="CommonDesktopFolder">
+    <Component Id="DesktopShortcut" Directory="DesktopFolder">
       <Shortcut
           Id="DesktopShortcut"
           Name="Adam CatalogBrowser"
