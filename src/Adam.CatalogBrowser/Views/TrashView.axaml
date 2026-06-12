@@ -8,9 +8,9 @@
     <!-- Header -->
     <Border Grid.Row="0" Background="#FFF3E0" Padding="12,8" BorderBrush="#FFE0B2" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-        <TextBlock Text="Trash" FontSize="16" FontWeight="Bold" Foreground="#E65100" VerticalAlignment="Center" />
+        <TextBlock Text="Trash" Classes="Title" FontWeight="Bold" Foreground="#E65100" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding DeletedAssets.Count, StringFormat={}{0} deleted asset(s)}"
-                   FontSize="12" Foreground="#BF360C" VerticalAlignment="Center" Margin="8,0,0,0" />
+                   Classes="Body" Foreground="#BF360C" VerticalAlignment="Center" Margin="8,0,0,0" />
         <Button Grid.Column="2" Content="Refresh" Command="{Binding RefreshCommand}"
                 FontSize="11" Padding="8,2" Margin="0,0,6,0"
                 Background="#F5F5F5" BorderBrush="#D0D0D0" CornerRadius="4"
@@ -51,11 +51,11 @@
           <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
             <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Vertical">
-              <TextBlock Text="{Binding FileName}" FontSize="12" FontWeight="Medium" Foreground="#555" />
-              <TextBlock Text="{Binding StoragePath}" FontSize="10" Foreground="#999" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding FileName}" Classes="Body" FontWeight="Medium" Foreground="#555" />
+              <TextBlock Text="{Binding StoragePath}" Classes="Caption" Foreground="#999" TextTrimming="CharacterEllipsis" />
             </StackPanel>
-            <TextBlock Grid.Column="2" Text="{Binding FileType}" FontSize="11" Foreground="#888" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="3" Text="{Binding DeletedAtFormatted}" FontSize="11" Foreground="#888" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{Binding FileType}" Classes="Body" Foreground="#888" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{Binding DeletedAtFormatted}" Classes="Body" Foreground="#888" VerticalAlignment="Center" />
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>
@@ -68,8 +68,8 @@
             HorizontalAlignment="Center"
             IsVisible="{Binding HasItems, Converter={x:Static views:InverseBoolConverter3.Instance}}">
       <StackPanel Spacing="6" HorizontalAlignment="Center">
-        <TextBlock Text="Trash is empty" FontSize="18" Foreground="#CCC" HorizontalAlignment="Center" />
-        <TextBlock Text="Deleted assets will appear here" FontSize="13" Foreground="#DDD" HorizontalAlignment="Center" />
+        <TextBlock Text="Trash is empty" Classes="Title" Foreground="#CCC" HorizontalAlignment="Center" />
+        <TextBlock Text="Deleted assets will appear here" Classes="Subheading" Foreground="#DDD" HorizontalAlignment="Center" />
       </StackPanel>
     </Border>
   </Grid>

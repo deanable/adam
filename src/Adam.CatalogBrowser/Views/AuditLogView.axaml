@@ -6,12 +6,12 @@
   <Grid>
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
-      <TextBlock Text="Audit Log" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="Audit Log" Classes="Title" FontWeight="Bold" />
 
       <!-- Filters -->
       <Border BorderBrush="#DDD" BorderThickness="1" Padding="8" CornerRadius="4">
         <StackPanel Spacing="8">
-          <TextBlock Text="Filters" FontSize="12" FontWeight="SemiBold" />
+          <TextBlock Text="Filters" Classes="Body" FontWeight="SemiBold" />
           <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="8">
             <TextBlock Grid.Column="0" Text="Action:" VerticalAlignment="Center" />
             <TextBox Grid.Column="1" Text="{Binding FilterAction}" PlaceholderText="e.g., Create" />
@@ -20,10 +20,10 @@
             <Button Grid.Column="4" Content="Refresh" Command="{Binding RefreshCommand}" />
           </Grid>
           <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
-            <TextBlock Grid.Column="0" Text="From:" VerticalAlignment="Center" FontSize="11" />
-            <DatePicker Grid.Column="1" SelectedDate="{Binding FilterFrom}" FontSize="11" />
-            <TextBlock Grid.Column="2" Text="To:" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0" />
-            <DatePicker Grid.Column="3" SelectedDate="{Binding FilterTo}" FontSize="11" />
+            <TextBlock Grid.Column="0" Text="From:" VerticalAlignment="Center" Classes="Body" />
+            <DatePicker Grid.Column="1" SelectedDate="{Binding FilterFrom}" Classes="Body" />
+            <TextBlock Grid.Column="2" Text="To:" VerticalAlignment="Center" Classes="Body" Margin="8,0,0,0" />
+            <DatePicker Grid.Column="3" SelectedDate="{Binding FilterTo}" Classes="Body" />
             <Button Grid.Column="4" Content="Export CSV" Command="{Binding ExportCsvCommand}" Margin="8,0,0,0" />
           </Grid>
         </StackPanel>
@@ -35,25 +35,25 @@
           <DataTemplate>
             <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="4">
               <Grid ColumnDefinitions="150,80,80,200,*">
-                <TextBlock Grid.Column="0" Text="{Binding Timestamp}" FontSize="11" Foreground="Gray" />
-                <TextBlock Grid.Column="1" Text="{Binding Username}" FontWeight="Medium" FontSize="12" />
-                <TextBlock Grid.Column="2" Text="{Binding Action}" FontSize="12" />
-                <TextBlock Grid.Column="3" Text="{Binding EntityType}" FontSize="11" Foreground="#555" />
-                <TextBlock Grid.Column="4" Text="{Binding Details}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="0" Text="{Binding Timestamp}" Classes="Body" Foreground="Gray" />
+                <TextBlock Grid.Column="1" Text="{Binding Username}" FontWeight="Medium" Classes="Body" />
+                <TextBlock Grid.Column="2" Text="{Binding Action}" Classes="Body" />
+                <TextBlock Grid.Column="3" Text="{Binding EntityType}" Classes="Body" Foreground="#555" />
+                <TextBlock Grid.Column="4" Text="{Binding Details}" Classes="Body" TextTrimming="CharacterEllipsis" />
               </Grid>
             </Border>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Gray" />
+      <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="Gray" />
 
       <!-- Operation Log -->
       <Border BorderBrush="#DDD" BorderThickness="1" Padding="16" CornerRadius="4">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="Operation Log" FontSize="14" FontWeight="SemiBold" />
-            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,2"
+            <TextBlock Grid.Column="0" Text="Operation Log" Classes="Subheading" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="Clear Log" FontSize="11" Padding="8,2"
                     Command="{Binding ClearLogCommand}" />
           </Grid>
           <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="2" MaxHeight="240">
@@ -61,7 +61,7 @@
               <ItemsControl ItemsSource="{Binding LogMessages}" Margin="4">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, Courier New, monospace"
+                    <TextBlock Text="{Binding}" Classes="Body" FontFamily="Consolas, Courier New, monospace"
                                TextWrapping="NoWrap" Foreground="#333" />
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>

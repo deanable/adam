@@ -63,7 +63,7 @@
     <!-- Title bar -->
     <Border Grid.Row="0" Background="#005A9E" Padding="8">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
-        <TextBlock Text="adam" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+        <TextBlock Text="adam" Classes="Title" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
           <!-- Navigation -->
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
@@ -87,7 +87,6 @@
                   Foreground="#CCFFCC" Background="#004D40" BorderThickness="0"
                   FontSize="11" Padding="8,2" CornerRadius="3" Margin="0,0,8,0"
                   Cursor="Hand"
-                  Classes="NavButton"
                   IsEnabled="{Binding CanAdminister}"
                   ToolTip.Tip="{Binding AdminPermissionTooltip}">
             <Button.Styles>
@@ -101,7 +100,7 @@
           <Rectangle Width="1" Height="16" Fill="#55FFFFFF" Margin="8,0" VerticalAlignment="Center" />
 
           <!-- Mode toggle -->
-          <TextBlock Text="Mode:" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <TextBlock Text="Mode:" Classes="Body" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,4,0" />
           <Button Content="Local" Command="{Binding Connection.ToggleLocalModeCommand}"
                   Background="{Binding Connection.IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
                   Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
@@ -112,16 +111,16 @@
                   CornerRadius="3" Cursor="Hand" />
         </StackPanel>
 
-        <TextBlock Grid.Column="2" Text="{Binding StatusBar.StatusText}" FontSize="11" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
+        <TextBlock Grid.Column="2" Text="{Binding StatusBar.StatusText}" Classes="Body" Foreground="#DDD" VerticalAlignment="Center" Margin="8,0" />
 
         <!-- Connection status indicator – green dot for local DB, green/gray for service -->
         <Ellipse Grid.Column="3" Width="8" Height="8" Fill="LimeGreen"
                  VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
           <ToolTip.Tip>
             <StackPanel Spacing="2">
-              <TextBlock Text="Local Database" FontSize="12" FontWeight="Bold" Foreground="#2E7D32" />
-              <TextBlock Text="Status: Connected" FontSize="11" Foreground="#555" />
-              <TextBlock FontSize="11" Foreground="#555">
+              <TextBlock Text="Local Database" Classes="Body" FontWeight="Bold" Foreground="#2E7D32" />
+              <TextBlock Text="Status: Connected" Classes="Body" Foreground="#555" />
+              <TextBlock Classes="Body" Foreground="#555">
                 <Run Text="Path: " />
                 <Run Text="{Binding ModeManager.DbPath}" />
               </TextBlock>
@@ -133,29 +132,29 @@
                  VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsServiceMode}">
           <ToolTip.Tip>
             <StackPanel Spacing="2">
-              <TextBlock Text="Service Connection" FontSize="12" FontWeight="Bold" Foreground="#1565C0" />
-              <TextBlock FontSize="11" Foreground="#555">
+              <TextBlock Text="Service Connection" Classes="Body" FontWeight="Bold" Foreground="#1565C0" />
+              <TextBlock Classes="Body" Foreground="#555">
                 <Run Text="Status: " />
                 <Run Text="{Binding Connection.ServiceConnectionStatus}" />
               </TextBlock>
-              <TextBlock FontSize="11" Foreground="#555">
+              <TextBlock Classes="Body" Foreground="#555">
                 <Run Text="Host: " />
                 <Run Text="{Binding Connection.ServiceHost}" />
               </TextBlock>
-              <TextBlock FontSize="11" Foreground="#555">
+              <TextBlock Classes="Body" Foreground="#555">
                 <Run Text="Port: " />
                 <Run Text="{Binding Connection.ServicePort}" />
               </TextBlock>
             </StackPanel>
           </ToolTip.Tip>
         </Ellipse>
-        <TextBlock Grid.Column="4" Text="Local DB" FontSize="10" Foreground="#AAFFFFFF"
+        <TextBlock Grid.Column="4" Text="Local DB" Classes="Caption" Foreground="#AAFFFFFF"
                    VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
           <ToolTip.Tip>
-            <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="11" Foreground="#555" />
+            <TextBlock Text="{Binding ModeManager.DbPath}" Classes="Body" Foreground="#555" />
           </ToolTip.Tip>
         </TextBlock>
-        <TextBlock Grid.Column="4" Text="{Binding Connection.ServiceConnectionStatus}" FontSize="10"
+        <TextBlock Grid.Column="4" Text="{Binding Connection.ServiceConnectionStatus}" Classes="Caption"
                    Foreground="#AAFFFFFF" VerticalAlignment="Center" Margin="2,0"
                    IsVisible="{Binding Connection.IsServiceMode}" />
       </Grid>
@@ -165,16 +164,16 @@
     <Border Grid.Row="1" Background="#E8F5E9" Padding="6,4" IsVisible="{Binding Connection.IsLocalMode}">
       <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
         <Ellipse Width="8" Height="8" Fill="#2E7D32" VerticalAlignment="Center" />
-        <TextBlock Text="Using local database" FontSize="11" Foreground="#2E7D32" VerticalAlignment="Center" FontWeight="Medium" />
-        <TextBlock Text="{Binding ModeManager.DbPath}" FontSize="10" Foreground="#81C784" VerticalAlignment="Center" />
+        <TextBlock Text="Using local database" Classes="Body" Foreground="#2E7D32" VerticalAlignment="Center" FontWeight="Medium" />
+        <TextBlock Text="{Binding ModeManager.DbPath}" Classes="Caption" Foreground="#81C784" VerticalAlignment="Center" />
       </StackPanel>
     </Border>
     <Border Grid.Row="1" Background="#E3F2FD" Padding="6,4" IsVisible="{Binding Connection.IsServiceMode}">
       <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-        <TextBlock Text="Host:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+        <TextBlock Text="Host:" Classes="Body" Foreground="#333" VerticalAlignment="Center" />
         <TextBox Text="{Binding Connection.ServiceHost}" Width="120" FontSize="11" Padding="2,1"
                  IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
-        <TextBlock Text="Port:" FontSize="11" Foreground="#333" VerticalAlignment="Center" />
+        <TextBlock Text="Port:" Classes="Body" Foreground="#333" VerticalAlignment="Center" />
         <NumericUpDown Value="{Binding Connection.ServicePort}" Minimum="1" Maximum="65535" Increment="1"
                         Width="100" FontSize="11"
                         IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
@@ -217,7 +216,7 @@
             </Style>
           </Button.Styles>
         </Button>
-        <TextBlock Text="{Binding Connection.ServiceConnectionStatus}" FontSize="11" Foreground="#1565C0" VerticalAlignment="Center" Margin="4,0,0,0" />
+        <TextBlock Text="{Binding Connection.ServiceConnectionStatus}" Classes="Body" Foreground="#1565C0" VerticalAlignment="Center" Margin="4,0,0,0" />
       </StackPanel>
     </Border>
 
@@ -236,8 +235,8 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
-                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
+                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="#888" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
@@ -252,8 +251,8 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
-                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
+                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="#888" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
@@ -277,8 +276,8 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
-                      <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10" Foreground="#888" />
+                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding Count}" Classes="Caption" Foreground="#888" />
                     </Grid>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -302,8 +301,8 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
-                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" FontSize="10" Foreground="#888" Margin="4,0,0,0" />
+                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="#333" />
+                      <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="#888" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
@@ -330,7 +329,7 @@
           <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="12">
             <controls:LoadingSpinner Grid.Row="0" Width="48" Height="48" Foreground="#1976D2"
                                       HorizontalAlignment="Center" />
-            <TextBlock Grid.Row="1" Text="Loading assets..." FontSize="14" Foreground="#666"
+            <TextBlock Grid.Row="1" Text="Loading assets..." Classes="Subheading" Foreground="#666"
                        HorizontalAlignment="Center" />
           </Grid>
         </Border>
@@ -356,13 +355,13 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Grid ColumnDefinitions="Auto,*" Margin="0,1">
-                        <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="10" Foreground="#666" Margin="0,0,4,0" />
-                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="10" Foreground="#333" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="0" Text="{Binding Label}" Classes="Caption" Foreground="#666" Margin="0,0,4,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="Caption" Foreground="#333" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="No selection" FontSize="11" Foreground="#999" Margin="0,4,0,0"
+                <TextBlock Text="No selection" Classes="Body" Foreground="#999" Margin="0,4,0,0"
                            IsVisible="{Binding PropertyInspector.HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}"
                            HorizontalAlignment="Center" />
               </StackPanel>
@@ -376,7 +375,7 @@
 
                 <!-- Description (single-asset mode only) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Description:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Description:" Classes="Caption" Foreground="#666" />
                   <TextBox Text="{Binding PropertyInspector.SelectedAssetDescription}"
                            AcceptsReturn="True"
                            MinHeight="40"
@@ -390,7 +389,7 @@
 
                 <!-- Date taken (single-asset mode only) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Date taken:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Date taken:" Classes="Caption" Foreground="#666" />
                   <DatePicker SelectedDate="{Binding PropertyInspector.SelectedAssetDateTaken}"
                               FontSize="11"
                               BorderThickness="1"
@@ -400,7 +399,7 @@
 
                 <!-- Categories (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Categories:" Classes="Caption" Foreground="#666" />
                   <controls:TagEditorControl
                     Tags="{Binding PropertyInspector.SelectedAssetCategories}"
                     AutoCompleteSource="{Binding PropertyInspector.CategoryAutoCompleteSource}"
@@ -409,7 +408,7 @@
 
                 <!-- Keywords - single-asset mode: editable tag chips -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Keywords:" Classes="Caption" Foreground="#666" />
                   <controls:TagEditorControl
                     Tags="{Binding PropertyInspector.SelectedAssetTags}"
                     AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}" />
@@ -417,7 +416,7 @@
 
                 <!-- Rating (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Rating:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Rating:" Classes="Caption" Foreground="#666" />
                   <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetRating}"
                             FontSize="11"
                             BorderThickness="1"
@@ -434,7 +433,7 @@
 
                 <!-- Color Label (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Label:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Label:" Classes="Caption" Foreground="#666" />
                   <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetLabel}"
                             FontSize="11"
                             BorderThickness="1"
@@ -451,7 +450,7 @@
 
                 <!-- Flag (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Flag:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Flag:" Classes="Caption" Foreground="#666" />
                   <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetFlag}"
                             FontSize="11"
                             BorderThickness="1"
@@ -465,7 +464,7 @@
 
                 <!-- Copyright (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="Copyright:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Copyright:" Classes="Caption" Foreground="#666" />
                   <TextBox Text="{Binding PropertyInspector.SelectedAssetCopyright}"
                            FontSize="11"
                            BorderThickness="1"
@@ -476,7 +475,7 @@
 
                 <!-- GPS (single-asset mode) -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasSingleSelection}" Spacing="2">
-                  <TextBlock Text="GPS:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="GPS:" Classes="Caption" Foreground="#666" />
                   <Grid ColumnDefinitions="*,4,*">
                     <TextBox Grid.Column="0" Text="{Binding PropertyInspector.SelectedAssetGpsLatitude}"
                              PlaceholderText="Latitude"
@@ -527,7 +526,7 @@
                 </Button>
 
                 <!-- Save button (single-asset mode) -->
-                <Button Content="Save Changes"
+                <Button                        Content="Save Changes"
                         Command="{Binding PropertyInspector.SaveTagsCommand}"
                         IsVisible="{Binding PropertyInspector.HasSingleSelection}"
                         HorizontalAlignment="Right"
@@ -555,7 +554,7 @@
 
                 <!-- Multi-asset mode: aggregated categories -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
-                  <TextBlock Text="Categories:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Categories:" Classes="Caption" Foreground="#666" />
                   <controls:TagEditorControl
                     TagOccurrences="{Binding PropertyInspector.AggregatedCategories}"
                     AutoCompleteSource="{Binding PropertyInspector.CategoryAutoCompleteSource}"
@@ -564,7 +563,7 @@
 
                 <!-- Multi-asset mode: aggregated keyword occurrences -->
                 <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
-                  <TextBlock Text="Keywords:" FontSize="10" Foreground="#666" />
+                  <TextBlock Text="Keywords:" Classes="Caption" Foreground="#666" />
                   <controls:TagEditorControl
                     TagOccurrences="{Binding PropertyInspector.AggregatedTags}"
                     AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}"
@@ -572,7 +571,7 @@
                 </StackPanel>
 
                 <TextBlock Text="Select an asset to edit its metadata"
-                           FontSize="11" Foreground="#999"
+                           Classes="Body" Foreground="#999"
                            HorizontalAlignment="Center"
                            IsVisible="{Binding PropertyInspector.HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
 
@@ -587,7 +586,7 @@
           <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
             <controls:LoadingSpinner Grid.Row="0" Width="32" Height="32" Foreground="#1976D2"
                                       HorizontalAlignment="Center" />
-            <TextBlock Grid.Row="1" Text="Loading..." FontSize="12" Foreground="#888"
+            <TextBlock Grid.Row="1" Text="Loading..." Classes="Body" Foreground="#888"
                        HorizontalAlignment="Center" />
           </Grid>
         </Border>
@@ -618,7 +617,7 @@
                     MinWidth="220"
                     MaxWidth="400">
               <TextBlock Text="{Binding Message}"
-                         FontSize="12"
+                         Classes="Body"
                          Foreground="White"
                          TextWrapping="Wrap" />
             </Border>
@@ -630,10 +629,10 @@
     <!-- Status bar -->
     <Border Grid.Row="3" Background="#F0F0F0" Padding="4,2">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-        <TextBlock Text="{Binding StatusBar.StatusText}" FontSize="10" Foreground="#666" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding StatusBar.StatusText}" Classes="Caption" Foreground="#666" VerticalAlignment="Center" />
 
         <!-- Session info (Phase 7) -->
-        <TextBlock Grid.Column="1" Text="{Binding SessionStatusText}" FontSize="10" Foreground="#999"
+        <TextBlock Grid.Column="1" Text="{Binding SessionStatusText}" Classes="Caption" Foreground="#999"
                    VerticalAlignment="Center" Margin="4,0"
                    IsVisible="{Binding Connection.IsServiceMode}" />
 
@@ -646,12 +645,12 @@
                        Foreground="#1976D2"
                        Background="#E0E0E0" />
           <TextBlock Text="{Binding StatusBar.BulkProgressText}"
-                     FontSize="10"
+                     Classes="Caption"
                      Foreground="#1976D2"
                      VerticalAlignment="Center" />
         </StackPanel>
 
-        <TextBlock Grid.Column="3" Text="{Binding ModeManager.Mode}" FontSize="10" Foreground="#999" />
+        <TextBlock Grid.Column="3" Text="{Binding ModeManager.Mode}" Classes="Caption" Foreground="#999" />
       </Grid>
     </Border>
   </Grid>

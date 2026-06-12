@@ -7,14 +7,14 @@
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
 
-      <TextBlock Text="Ingest Assets" FontSize="20" FontWeight="Bold" Foreground="#333" />
+      <TextBlock Text="Ingest Assets" Classes="Title" FontWeight="Bold" Foreground="#333" />
 
       <!-- File picker buttons — Phase 7: gated by CanIngest -->
       <Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="16" CornerRadius="4" Background="#FAFAFA"
               IsEnabled="{Binding DataContext.CanIngest, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
               ToolTip.Tip="{Binding DataContext.IngestPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}">
         <StackPanel Spacing="12">
-          <TextBlock Text="Select source files or folders to import into the catalog." FontSize="12" Foreground="#555" TextWrapping="Wrap" />
+          <TextBlock Text="Select source files or folders to import into the catalog." Classes="Body" Foreground="#555" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
             <Button Content="Select Files" Click="OnSelectFilesClick"
                     HorizontalAlignment="Stretch" Height="32" />
@@ -22,7 +22,7 @@
                     HorizontalAlignment="Stretch" Height="32" />
           </Grid>
           <Border BorderBrush="#CCC" BorderThickness="1" Padding="16" CornerRadius="4" Background="#F0F0F0">
-            <TextBlock Text="Or drag and drop files or folders here" FontSize="12" Foreground="#999"
+            <TextBlock Text="Or drag and drop files or folders here" Classes="Body" Foreground="#999"
                        HorizontalAlignment="Center" />
           </Border>
         </StackPanel>
@@ -32,8 +32,8 @@
       <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#FAFAFA" Padding="8">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="Ingested Folders" FontSize="14" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshFolderBrowserCommand}"
+            <TextBlock Text="Ingested Folders" Classes="Subheading" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Refresh Folders" Command="{Binding RefreshFolderBrowserCommand}"
                     FontSize="11" Padding="8,2" />
           </Grid>
           <TreeView ItemsSource="{Binding IngestedFolders}" Background="Transparent" BorderThickness="0"
@@ -41,8 +41,8 @@
             <TreeView.ItemTemplate>
               <TreeDataTemplate ItemsSource="{Binding Children}">
                 <Grid ColumnDefinitions="Auto,*">
-                  <TextBlock Text="📁" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="#333" VerticalAlignment="Center"
+                  <TextBlock Text="📁" Classes="Body" Margin="0,0,4,0" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" Foreground="#333" VerticalAlignment="Center"
                              ToolTip.Tip="{Binding Path}" />
                 </Grid>
               </TreeDataTemplate>
@@ -58,7 +58,7 @@
           <ItemsControl ItemsSource="{Binding PendingFiles}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding}" FontSize="11" Foreground="#555" Margin="6,2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding}" Classes="Body" Foreground="#555" Margin="6,2" TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -69,19 +69,19 @@
       <StackPanel Orientation="Horizontal" Spacing="8"
                   IsVisible="{Binding HasPendingFiles}">
         <Button Content="Start Ingestion" Command="{Binding StartIngestionCommand}" />
-        <Button Content="Clear" Command="{Binding ClearCommand}" />
+        <Button Content="Clear List" Command="{Binding ClearCommand}" />
       </StackPanel>
 
       <!-- Progress -->
       <StackPanel Spacing="4" IsVisible="{Binding IsIngesting}">
         <ProgressBar Value="{Binding ProgressValue}" MinWidth="400" />
-        <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#555" />
+        <TextBlock Text="{Binding ProgressText}" Classes="Body" Foreground="#555" />
       </StackPanel>
 
       <!-- Status -->
       <Border Background="#E8F5E9" Padding="8" CornerRadius="4"
               IsVisible="{Binding IngestionStatus, Converter={x:Static local:StringNotEmptyConverter.Instance}}">
-        <TextBlock Text="{Binding IngestionStatus}" FontSize="12" Foreground="#2E7D32" />
+        <TextBlock Text="{Binding IngestionStatus}" Classes="Body" Foreground="#2E7D32" />
       </Border>
 
     </StackPanel>

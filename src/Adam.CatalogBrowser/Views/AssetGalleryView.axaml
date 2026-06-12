@@ -14,14 +14,14 @@
     <Border Grid.Row="0" Background="#FAFAFA" Padding="8" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-          <TextBlock Text="View:" VerticalAlignment="Center" FontSize="12" Foreground="#555" />
+          <TextBlock Text="View:" VerticalAlignment="Center" Classes="Body" Foreground="#555" />
           <ComboBox ItemsSource="{Binding ViewOptions}"
                     SelectedItem="{Binding ViewMode}"
                     Width="100" />
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-          <TextBlock Text="Sort:" VerticalAlignment="Center" FontSize="12" Foreground="#555" />
+          <TextBlock Text="Sort:" VerticalAlignment="Center" Classes="Body" Foreground="#555" />
           <ComboBox ItemsSource="{Binding SortOptions}"
                     SelectedItem="{Binding SortBy}"
                     Width="130" />
@@ -29,7 +29,7 @@
                   Value="{Binding ThumbnailSize}" />
           <TextBlock Text="{Binding ThumbnailSizeText}"
                      VerticalAlignment="Center"
-                     FontSize="11"
+                     Classes="Body"
                      Foreground="#888"
                      Width="40" />
         </StackPanel>
@@ -70,7 +70,7 @@
         <TextBlock Grid.Column="5"
                    Text="{Binding StatusText}"
                    VerticalAlignment="Center"
-                   FontSize="11"
+                   Classes="Body"
                    Foreground="#888"
                    Margin="8,0,0,0" />
       </Grid>
@@ -200,7 +200,7 @@
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
                       IsVisible="{Binding IsLoadingMore}">
             <controls:LoadingSpinner Width="16" Height="16" Foreground="#1976D2" DotSize="5" />
-            <TextBlock Text="Loading more..." FontSize="11" Foreground="#999" VerticalAlignment="Center" />
+            <TextBlock Text="Loading more..." Classes="Body" Foreground="#999" VerticalAlignment="Center" />
           </StackPanel>
         </Border>
       </StackPanel>
@@ -212,7 +212,7 @@
       <Grid VerticalAlignment="Center" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" RowSpacing="8">
         <controls:LoadingSpinner Grid.Row="0" Width="36" Height="36" Foreground="#1976D2"
                                   HorizontalAlignment="Center" />
-        <TextBlock Grid.Row="1" Text="Loading..." FontSize="12" Foreground="#888"
+        <TextBlock Grid.Row="1" Text="Loading..." Classes="Body" Foreground="#888"
                    HorizontalAlignment="Center" />
       </Grid>
     </Border>
@@ -226,11 +226,11 @@
             Background="Transparent">
       <StackPanel Spacing="8" HorizontalAlignment="Center">
         <TextBlock Text="No assets found"
-                   FontSize="18"
+                   Classes="Title"
                    Foreground="#BBB"
                    HorizontalAlignment="Center" />
         <TextBlock Text="Select a root folder to scan for digital assets"
-                   FontSize="13"
+                   Classes="Subheading"
                    Foreground="#CCC"
                    HorizontalAlignment="Center" />
       </StackPanel>
@@ -238,7 +238,7 @@
 
     <!-- Status bar info -->
     <Border Grid.Row="2" Background="Transparent" Padding="4">
-      <TextBlock FontSize="11" Foreground="#888" Text="{Binding StatusText}" />
+      <TextBlock Classes="Body" Foreground="#888" Text="{Binding StatusText}" />
     </Border>
   </Grid>
 </UserControl>

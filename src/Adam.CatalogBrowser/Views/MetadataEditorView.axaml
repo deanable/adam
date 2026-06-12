@@ -7,23 +7,23 @@
   <Grid>
   <ScrollViewer>
     <StackPanel Spacing="16" Margin="16">
-      <TextBlock Text="Metadata Editor" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="Metadata Editor" Classes="Title" FontWeight="Bold" />
 
       <!-- No asset state -->
       <Border IsVisible="{Binding HasAsset, Converter={x:Static local:InverseBoolConverter2.Instance}}"
               VerticalAlignment="Center" HorizontalAlignment="Center" Padding="32">
-        <TextBlock Text="Select an asset to edit its metadata" FontSize="14" Foreground="Gray" />
+        <TextBlock Text="Select an asset to edit its metadata" Classes="Subheading" Foreground="Gray" />
       </Border>
 
       <StackPanel IsVisible="{Binding HasAsset}" Spacing="16">
-        <TextBlock Text="{Binding FileName}" FontSize="14" FontWeight="SemiBold" Foreground="#555" />
+        <TextBlock Text="{Binding FileName}" Classes="Subheading" FontWeight="SemiBold" Foreground="#555" />
 
         <Grid ColumnDefinitions="1*,1*" ColumnSpacing="16">
           <!-- Editable fields — Phase 7: gated by CanEdit -->
           <StackPanel Grid.Column="0" Spacing="8"
                       IsEnabled="{Binding CanEdit}"
                       ToolTip.Tip="{Binding EditPermissionTooltip}">
-            <TextBlock Text="Editable Metadata" FontWeight="SemiBold" FontSize="14" />
+            <TextBlock Text="Editable Metadata" FontWeight="SemiBold" Classes="Subheading" />
             <Separator />
 
             <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto">
@@ -52,13 +52,13 @@
               </StackPanel>
             </Grid>
 
-            <Button Content="Save" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
-            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="Green" />
+            <Button Content="Save Changes" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+            <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="Green" />
           </StackPanel>
 
           <!-- Read-only EXIF/IPTC/XMP -->
           <StackPanel Grid.Column="1" Spacing="8">
-            <TextBlock Text="Camera Data (read-only)" FontWeight="SemiBold" FontSize="14" />
+            <TextBlock Text="Camera Data (read-only)" FontWeight="SemiBold" Classes="Subheading" />
             <Separator />
 
             <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
