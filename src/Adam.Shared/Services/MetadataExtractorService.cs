@@ -138,13 +138,17 @@ public class MetadataExtractorService
         if (dir.XmpMeta == null) return;
         var props = dir.GetXmpProperties();
 
-        // Extract descriptive XMP fields that belong on the profile
+        // Extract descriptive XMP fields that belong on the profile.
+        // MetadataExtractor flattens rdf:Alt/rdf:Bag arrays with indexed keys
+        // (e.g. "dc:creator[1]", "dc:rights[1]") so we match both exact and prefix.
         var creatorKey = props.Keys.FirstOrDefault(k =>
-            k.Equals("dc:creator", StringComparison.OrdinalIgnoreCase));
+            k.Equals("dc:creator", StringComparison.OrdinalIgnoreCase) ||
+            k.StartsWith("dc:creator[", StringComparison.OrdinalIgnoreCase));
         if (creatorKey != null) profile.Creator = props[creatorKey];
 
         var rightsKey = props.Keys.FirstOrDefault(k =>
-            k.Equals("dc:rights", StringComparison.OrdinalIgnoreCase));
+            k.Equals("dc:rights", StringComparison.OrdinalIgnoreCase) ||
+            k.StartsWith("dc:rights[", StringComparison.OrdinalIgnoreCase));
         if (rightsKey != null) profile.Copyright = props[rightsKey];
     }
 

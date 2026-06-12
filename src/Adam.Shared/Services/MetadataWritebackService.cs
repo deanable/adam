@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Xml.Linq;
 using Adam.Shared.Models;
@@ -277,8 +278,8 @@ public class MetadataWritebackService
         {
             var exifNs = XNamespace.Get("http://ns.adobe.com/exif/1.0/");
             description.Add(new XAttribute(XNamespace.Xmlns + "exif", exifNs.NamespaceName));
-            description.Add(new XElement(exifNs + "GPSLatitude", asset.GpsLatitude.Value.ToString("F6")));
-            description.Add(new XElement(exifNs + "GPSLongitude", asset.GpsLongitude.Value.ToString("F6")));
+            description.Add(new XElement(exifNs + "GPSLatitude", asset.GpsLatitude.Value.ToString("F6", CultureInfo.InvariantCulture)));
+            description.Add(new XElement(exifNs + "GPSLongitude", asset.GpsLongitude.Value.ToString("F6", CultureInfo.InvariantCulture)));
         }
 
         var xmpMeta = new XElement(xNs + "xmpmeta",
