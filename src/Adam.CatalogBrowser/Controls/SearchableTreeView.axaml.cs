@@ -191,6 +191,15 @@ public partial class SearchableTreeView : UserControl
         set => SetValue(CountLabelProperty, value);
     }
 
+    /// <summary>
+    /// Focuses the search text box (T8.21 Ctrl+F shortcut).
+    /// </summary>
+    public void FocusSearch()
+    {
+        SearchTextBox.Focus();
+        SearchTextBox.SelectAll();
+    }
+
     // ──────────────────────────────────────────────
     //  Constructor
     // ──────────────────────────────────────────────

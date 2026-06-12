@@ -56,6 +56,15 @@
     <KeyBinding Gesture="D3" Command="{Binding SetRatingCommand}" CommandParameter="3" />
     <KeyBinding Gesture="D4" Command="{Binding SetRatingCommand}" CommandParameter="4" />
     <KeyBinding Gesture="D5" Command="{Binding SetRatingCommand}" CommandParameter="5" />
+    <!-- T8.21: Flag keys P (Pick) / X (Reject) -->
+    <KeyBinding Gesture="P" Command="{Binding SetFlagPickCommand}" />
+    <KeyBinding Gesture="X" Command="{Binding SetFlagRejectCommand}" />
+    <!-- T8.21: Enter = reveal in folder -->
+    <KeyBinding Gesture="Enter" Command="{Binding RevealInFolderCommand}" />
+    <!-- T8.21: F2 = rename asset title -->
+    <KeyBinding Gesture="F2" Command="{Binding RenameAssetCommand}" />
+    <!-- T8.21: Ctrl+F = focus keyword search -->
+    <KeyBinding Gesture="Ctrl+F" Command="{Binding FocusSearchCommand}" />
   </Window.KeyBindings>
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">

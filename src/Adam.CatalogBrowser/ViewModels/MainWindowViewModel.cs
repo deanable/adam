@@ -157,6 +157,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // T8.21: Keyboard rating digits — sets exact rating value via command parameter
         SetRatingCommand = new RelayCommand(async p => await SetRatingByKeyAsync(p), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
 
+        // T8.21: P = Pick flag, X = Reject flag (direct-set commands)
+        SetFlagPickCommand = new RelayCommand(async _ => await SetFlagByKeyAsync(AssetFlag.Pick), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetFlagRejectCommand = new RelayCommand(async _ => await SetFlagByKeyAsync(AssetFlag.Reject), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+
+        // T8.21: F2 = Rename asset title
+        RenameAssetCommand = new RelayCommand(async _ => await RenameAssetAsync(), _ => AssetGallery.SelectedAssets.Count == 1 && CanEditMetadata);
+
+        // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
+        FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
+
         // Re-evaluate delete/trash/reveal/copy commands when selection changes
         assetGallery.MultiSelectionChanged += _ =>
         {
@@ -169,6 +179,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagPickCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagRejectCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RenameAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
         };
         assetGallery.SelectionChanged += _ =>
         {
@@ -181,6 +194,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagPickCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SetFlagRejectCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RenameAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
         };
 
         sidebar.FilterChanged += () =>
@@ -418,6 +434,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand SetLabelCommand { get; }
     public ICommand SetFlagCommand { get; }
     public ICommand SetRatingCommand { get; }
+    public ICommand SetFlagPickCommand { get; }
+    public ICommand SetFlagRejectCommand { get; }
+    public ICommand RenameAssetCommand { get; }
+    public ICommand FocusSearchCommand { get; }
+
+    /// <summary>
+    /// Event fired when the user presses Ctrl+F. MainWindow code-behind
+    /// subscribes to focus the keyword SearchableTreeView.
+    /// </summary>
+    public event Action? RequestFocusSearch;
 
     public object? CurrentView
     {
@@ -981,6 +1007,95 @@ public class MainWindowViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to set flag");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  T8.21: Keyboard flag shortcuts (P = Pick, X = Reject)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sets the flag on all selected assets to a specific value (T8.21 P/X keyboard shortcuts).
+    /// </summary>
+    private async Task SetFlagByKeyAsync(AssetFlag flag)
+    {
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var ids = selected.Select(a => a.Id).ToList();
+            var dbAssets = await db.DigitalAssets
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
+
+            foreach (var dbAsset in dbAssets)
+                dbAsset.Flag = flag;
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            // Update in-memory tiles
+            foreach (var item in selected)
+            {
+                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
+                if (dbMatch != null)
+                    item.IsFlagged = dbMatch.Flag != AssetFlag.Unflagged;
+            }
+
+            var flagName = flag.ToString();
+            ToastService.Show(selected.Count == 1
+                ? $"Flag set to '{flagName}' for '{selected[0].Title}'"
+                : $"Flag set to '{flagName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set flag via keyboard");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  T8.21: F2 Rename asset
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opens an input dialog to rename the selected asset's title (T8.21 F2 shortcut).
+    /// Only works when exactly one asset is selected.
+    /// </summary>
+    private async Task RenameAssetAsync()
+    {
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+        if (mainWindow == null) return;
+
+        var newTitle = await Views.InputDialog.ShowAsync(mainWindow,
+            "Rename Asset", "Enter a new name for this asset:",
+            confirmText: "Rename", defaultValue: asset.Title);
+
+        if (string.IsNullOrWhiteSpace(newTitle) || newTitle == asset.Title) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
+            if (dbAsset == null) return;
+
+            dbAsset.Title = newTitle.Trim();
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            // Update in-memory tile
+            asset.Title = dbAsset.Title;
+
+            ToastService.Show($"Renamed to '{dbAsset.Title}'", Services.ToastLevel.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to rename asset");
+            ToastService.Show("Failed to rename asset", Services.ToastLevel.Error);
         }
     }
 

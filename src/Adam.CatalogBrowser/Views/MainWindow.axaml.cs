@@ -45,6 +45,12 @@ public partial class MainWindow : Window
         {
             catTree.ContextRequested += OnCategoryContextRequested;
         }
+
+        // T8.21: Ctrl+F → focus keyword search box
+        if (VM is { } vm)
+        {
+            vm.RequestFocusSearch += () => KeywordsTreeView?.FocusSearch();
+        }
     }
 
     // ──────────────────────────────────────────────
