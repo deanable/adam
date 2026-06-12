@@ -1,4 +1,3 @@
-using Adam.Shared.Configuration;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
@@ -23,14 +22,12 @@ public sealed class MigrationRunner
     {
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var dbConfig = scope.ServiceProvider.GetRequiredService<DbProviderConfig>();
 
         _logger.LogInformation("Running database migrations...");
 
         try
         {
-            await db.Database.EnsureCreatedAsync(ct);
-            await MigrateSchemaAsync(db, dbConfig, _logger, ct);
+            await db.Database.MigrateAsync(ct);
             await SeedDefaultAdminAsync(db, _logger, ct);
             _logger.LogInformation("Database ready.");
         }
@@ -38,108 +35,6 @@ public sealed class MigrationRunner
         {
             _logger.LogError(ex, "Database migration failed");
             throw;
-        }
-    }
-
-    private static async Task MigrateSchemaAsync(AppDbContext db, DbProviderConfig dbConfig, ILogger logger, CancellationToken ct)
-    {
-        var provider = dbConfig.Provider.ToLowerInvariant();
-
-        // Provider-aware ALTER TABLE helpers
-        string Col(string table, string column, string type, string? defaultVal = null)
-        {
-            var q = provider switch
-            {
-                "sqlite" => "",
-                "postgresql" or "postgres" => "\"",
-                _ => "[]"
-            };
-            var sql = provider switch
-            {
-                "sqlite" => $"ALTER TABLE {table} ADD COLUMN {column} {type}",
-                "postgresql" or "postgres" => $"ALTER TABLE {q}{table}{q} ADD COLUMN {q}{column}{q} {type}",
-                _ => $"ALTER TABLE [{table}] ADD [{column}] {type}"
-            };
-            if (defaultVal != null)
-            {
-                sql += provider switch
-                {
-                    "sqlite" => $" DEFAULT {defaultVal}",
-                    "postgresql" or "postgres" => $" DEFAULT {defaultVal}",
-                    _ => $" DEFAULT {defaultVal}"
-                };
-            }
-            return sql;
-        }
-
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                Col("DigitalAssets", "OriginalPath", provider == "sqlserver" ? "nvarchar(2000)" : "TEXT", provider == "sqlite" ? "''" : provider == "sqlserver" ? "N''" : "''"),
-                ct);
-            logger.LogInformation("Applied migration: OriginalPath column on DigitalAssets");
-        }
-        catch
-        {
-            // column already exists (ok for fresh databases from EnsureCreated)
-        }
-
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                Col("MetadataProfiles", "Category", provider == "sqlserver" ? "nvarchar(1000)" : "TEXT"),
-                ct);
-            logger.LogInformation("Applied migration: Category column on MetadataProfiles");
-        }
-        catch
-        {
-            // column already exists
-        }
-
-        try
-        {
-            var sql = dbConfig.Provider.ToLowerInvariant() switch
-            {
-                "sqlite" => """
-                    CREATE TABLE IF NOT EXISTS WatchedFolders (
-                        Id TEXT PRIMARY KEY,
-                        Path TEXT NOT NULL UNIQUE,
-                        IsEnabled INTEGER NOT NULL DEFAULT 1,
-                        CreatedAt TEXT NOT NULL,
-                        ModifiedAt TEXT NOT NULL
-                    )
-                    """,
-                "postgresql" or "postgres" => """
-                    CREATE TABLE IF NOT EXISTS "WatchedFolders" (
-                        "Id" uuid PRIMARY KEY,
-                        "Path" varchar(2000) NOT NULL UNIQUE,
-                        "IsEnabled" boolean NOT NULL DEFAULT true,
-                        "CreatedAt" timestamptz NOT NULL,
-                        "ModifiedAt" timestamptz NOT NULL
-                    )
-                    """,
-                "sqlserver" or "mssql" => """
-                    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'WatchedFolders')
-                    CREATE TABLE WatchedFolders (
-                        Id uniqueidentifier PRIMARY KEY,
-                        Path nvarchar(2000) NOT NULL UNIQUE,
-                        IsEnabled bit NOT NULL DEFAULT 1,
-                        CreatedAt datetimeoffset NOT NULL,
-                        ModifiedAt datetimeoffset NOT NULL
-                    )
-                    """,
-                _ => null
-            };
-
-            if (sql != null)
-            {
-                await db.Database.ExecuteSqlRawAsync(sql, ct);
-                logger.LogInformation("Applied migration: WatchedFolders table");
-            }
-        }
-        catch
-        {
-            // table already exists
         }
     }
 

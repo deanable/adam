@@ -56,14 +56,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.Type).IsRequired();
             e.Property(x => x.IsDeleted).HasDefaultValue(false);
             e.Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
-            // Provider-specific filtered index syntax
-            var provider = Database.ProviderName ?? "";
-            var filter = provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase)
-                ? "NOT IsDeleted"
-                : provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase)
-                    ? "\"IsDeleted\" = FALSE"
-                    : "[IsDeleted] = 0";
-            e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter(filter);
+            // Filtered unique index. EF migrations emit provider-specific SQL at
+            // migration time; the filter expression is SQLite-phrased here because
+            // the generated migrations target SQLite. PostgreSQL/SQL Server
+            // migrations are generated separately when those providers are adopted.
+            e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter("NOT IsDeleted");
             e.HasIndex(x => x.Type);
             e.HasIndex(x => x.StoragePath);
             e.HasIndex(x => x.CreatedAt);
