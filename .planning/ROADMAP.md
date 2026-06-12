@@ -1,7 +1,7 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-09 (Phase 7 complete)
+**Updated:** 2026-06-12 (Phase 7 complete)
 **Granularity:** Standard  
 **Phases:** 9
 
@@ -109,4 +109,4 @@ Permission-aware UI and v1.0 polish & ship — Phase 7 ✅, Phase 8 underway.
 - ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-*Roadmap updated: 2026-06-09 — Phase 7 complete, Phase 8 underway*
+*Roadmap updated: 2026-06-12 — Phase 7 complete, Phase 8 underway*
