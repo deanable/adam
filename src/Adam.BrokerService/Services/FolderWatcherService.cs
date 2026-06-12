@@ -128,11 +128,13 @@ public class FolderWatcherService : IDisposable
                     var textMetadata = _metadataExtractor.ExtractTextMetadata(path);
                     if (textMetadata.Keywords.Count > 0)
                     {
-                        await db.AssociateKeywordsAsync(asset, textMetadata.Keywords);
+                        var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();
+                        await keywordSvc.AssociateKeywordsAsync(asset, textMetadata.Keywords);
                     }
                     if (textMetadata.Categories.Count > 0)
                     {
-                        await db.AssociateCategoriesAsync(asset, textMetadata.Categories);
+                        var categorySvc = scope.ServiceProvider.GetRequiredService<CategoryService>();
+                        await categorySvc.AssociateCategoriesAsync(asset, textMetadata.Categories);
                     }
                 }
 

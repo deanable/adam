@@ -204,7 +204,8 @@ public sealed class AuthorizationMiddlewareTests : IAsyncLifetime
         var fakeUserId = Guid.NewGuid();
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var orphanRole = new Role { Id = Guid.NewGuid(), Name = "OrphanRole", Permissions = ["asset:*"] };
+        var orphanRole = new Role { Id = Guid.NewGuid(), Name = "OrphanRole",
+            RolePermissions = [new RolePermission { Permission = "asset:*" }] };
         db.Roles.Add(orphanRole);
         var orphanUser = new User { Id = fakeUserId, Username = "orphan", Email = "orphan@test.com", PasswordHash = "hash", RoleId = orphanRole.Id, IsActive = true };
         db.Users.Add(orphanUser);
@@ -225,7 +226,7 @@ public sealed class AuthorizationMiddlewareTests : IAsyncLifetime
         var emptyRoleUser = Guid.NewGuid();
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var emptyRole = new Role { Id = Guid.NewGuid(), Name = "EmptyPermRole", Permissions = [] };
+        var emptyRole = new Role { Id = Guid.NewGuid(), Name = "EmptyPermRole" };
         db.Roles.Add(emptyRole);
         db.Users.Add(new User { Id = emptyRoleUser, Username = "emptyperm", Email = "empty@test.com", PasswordHash = "hash", RoleId = emptyRole.Id, IsActive = true });
         await db.SaveChangesAsync();

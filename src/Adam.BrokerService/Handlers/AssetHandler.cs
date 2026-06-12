@@ -263,7 +263,8 @@ public sealed class AssetHandler
         asset.Keywords.Clear();
         if (req.Tags.Count > 0)
         {
-            await db.AssociateKeywordsAsync(asset, req.Tags);
+            var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();
+            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, ct);
         }
         if (req.CollectionId is { Length: > 0 })
             asset.CollectionId = Guid.Parse(req.CollectionId);
@@ -341,7 +342,10 @@ public sealed class AssetHandler
         };
 
         if (req.Tags.Count > 0)
-            await db.AssociateKeywordsAsync(asset, req.Tags, ct);
+        {
+            var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();
+            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, ct);
+        }
 
         db.DigitalAssets.Add(asset);
         await db.SaveChangesAsync(ct);

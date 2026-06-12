@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
     public DbSet<ModeConfiguration> ModeConfigurations => Set<ModeConfiguration>();
     public DbSet<WatchedFolder> WatchedFolders => Set<WatchedFolder>();
@@ -163,10 +164,18 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(50);
-            e.Property(x => x.Permissions).HasConversion(
-                v => string.Join(',', v),
-                v => v.Split(',', StringSplitOptions.RemoveEmptyEntries));
+            e.Ignore(x => x.Permissions); // computed from RolePermissions; not stored as a column
             e.HasIndex(x => x.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<RolePermission>(e =>
+        {
+            e.HasKey(x => new { x.RoleId, x.Permission });
+            e.Property(x => x.Permission).IsRequired().HasMaxLength(100);
+            e.HasOne(x => x.Role)
+                .WithMany(r => r.RolePermissions)
+                .HasForeignKey(x => x.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AccessLog>(e =>
@@ -197,130 +206,34 @@ public class AppDbContext : DbContext
         SeedData(modelBuilder);
     }
 
-    public async Task AssociateKeywordsAsync(DigitalAsset asset, IEnumerable<string> keywordNames, CancellationToken ct = default)
-    {
-        if (keywordNames == null) return;
-
-        var names = keywordNames
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .Select(n => n.Trim())
-            .Distinct()
-            .ToList();
-
-        if (names.Count == 0) return;
-
-        foreach (var name in names)
-        {
-            var leafKeyword = await EnsureKeywordHierarchyAsync(name, ct);
-            if (!asset.Keywords.Contains(leafKeyword))
-            {
-                asset.Keywords.Add(leafKeyword);
-                leafKeyword.UsageCount++;
-            }
-        }
-    }
-
-    public async Task AssociateCategoriesAsync(DigitalAsset asset, IEnumerable<string> categoryNames, CancellationToken ct = default)
-    {
-        if (categoryNames == null) return;
-
-        var names = categoryNames
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .Select(n => n.Trim())
-            .Distinct()
-            .ToList();
-
-        if (names.Count == 0) return;
-
-        foreach (var name in names)
-        {
-            var normalized = NormalizeKeyword(name);
-            var category = ChangeTracker.Entries<Category>()
-                .Where(e => e.State == EntityState.Added)
-                .Select(e => e.Entity)
-                .FirstOrDefault(c => c.NormalizedName == normalized);
-
-            category ??= await Categories.FirstOrDefaultAsync(c => c.NormalizedName == normalized, ct);
-            if (category == null)
-            {
-                category = new Category
-                {
-                    Id = Guid.NewGuid(),
-                    Name = name,
-                    NormalizedName = normalized
-                };
-                Categories.Add(category);
-            }
-            if (!asset.Categories.Contains(category))
-            {
-                asset.Categories.Add(category);
-            }
-        }
-    }
-
-    private async Task<Keyword> EnsureKeywordHierarchyAsync(string hierarchicalName, CancellationToken ct)
-    {
-        var parts = hierarchicalName.Split(new[] { '|', '>' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Trim())
-            .Where(p => p.Length > 0)
-            .ToList();
-
-        if (parts.Count == 0)
-            throw new ArgumentException("Keyword name cannot be empty", nameof(hierarchicalName));
-
-        Keyword? parent = null;
-        Keyword? current = null;
-
-        foreach (var part in parts)
-        {
-            var normalized = NormalizeKeyword(part);
-            var parentId = parent?.Id;
-
-            current = ChangeTracker.Entries<Keyword>()
-                .Where(e => e.State == EntityState.Added)
-                .Select(e => e.Entity)
-                .FirstOrDefault(k => k.NormalizedName == normalized);
-
-            current ??= await Keywords.FirstOrDefaultAsync(
-                k => k.NormalizedName == normalized, ct);
-
-            if (current == null)
-            {
-                current = new Keyword
-                {
-                    Id = Guid.NewGuid(),
-                    Name = part,
-                    NormalizedName = normalized,
-                    ParentId = parent?.Id
-                };
-                Keywords.Add(current);
-            }
-
-            parent = current;
-        }
-
-        return current!;
-    }
-
-    private static string NormalizeKeyword(string name)
-    {
-        var normalized = name.ToLowerInvariant().Trim();
-        // Collapse multiple spaces into single space
-        while (normalized.Contains("  "))
-            normalized = normalized.Replace("  ", " ");
-        return normalized;
-    }
-
     private static void SeedData(ModelBuilder modelBuilder)
     {
         var viewerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
         var editorId = Guid.Parse("00000000-0000-0000-0000-000000000002");
-        var adminId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+        var adminId  = Guid.Parse("00000000-0000-0000-0000-000000000003");
 
         modelBuilder.Entity<Role>().HasData(
-            new Role { Id = viewerId, Name = "Viewer", Permissions = ["asset:read", "collection:read"] },
-            new Role { Id = editorId, Name = "Editor", Permissions = ["asset:read", "asset:create", "asset:update", "collection:read", "collection:update"] },
-            new Role { Id = adminId, Name = "Administrator", Permissions = ["asset:*", "collection:*", "user:*", "role:*", "audit:read"] }
+            new Role { Id = viewerId, Name = "Viewer" },
+            new Role { Id = editorId, Name = "Editor" },
+            new Role { Id = adminId,  Name = "Administrator" }
+        );
+
+        modelBuilder.Entity<RolePermission>().HasData(
+            // Viewer
+            new RolePermission { RoleId = viewerId, Permission = "asset:read" },
+            new RolePermission { RoleId = viewerId, Permission = "collection:read" },
+            // Editor
+            new RolePermission { RoleId = editorId, Permission = "asset:read" },
+            new RolePermission { RoleId = editorId, Permission = "asset:create" },
+            new RolePermission { RoleId = editorId, Permission = "asset:update" },
+            new RolePermission { RoleId = editorId, Permission = "collection:read" },
+            new RolePermission { RoleId = editorId, Permission = "collection:update" },
+            // Administrator
+            new RolePermission { RoleId = adminId, Permission = "asset:*" },
+            new RolePermission { RoleId = adminId, Permission = "collection:*" },
+            new RolePermission { RoleId = adminId, Permission = "user:*" },
+            new RolePermission { RoleId = adminId, Permission = "role:*" },
+            new RolePermission { RoleId = adminId, Permission = "audit:read" }
         );
     }
 }

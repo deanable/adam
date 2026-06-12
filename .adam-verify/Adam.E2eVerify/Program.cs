@@ -61,7 +61,14 @@ using (var db = new AppDbContext(dbOptions))
             {
                 Id = Guid.Parse("00000000-0000-0000-0000-000000000003"),
                 Name = "Administrator",
-                Permissions = ["asset:*", "collection:*", "user:*", "role:*", "audit:read"]
+                RolePermissions =
+                [
+                    new RolePermission { Permission = "asset:*" },
+                    new RolePermission { Permission = "collection:*" },
+                    new RolePermission { Permission = "user:*" },
+                    new RolePermission { Permission = "role:*" },
+                    new RolePermission { Permission = "audit:read" }
+                ]
             };
             db.Roles.Add(adminRole);
         }

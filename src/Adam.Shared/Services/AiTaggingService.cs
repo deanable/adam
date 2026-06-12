@@ -99,13 +99,13 @@ public sealed class AiTaggingService : INotifyPropertyChanged
         // Merge keywords (D-05)
         if (result.Keywords.Count > 0)
         {
-            await db.AssociateKeywordsAsync(asset, result.Keywords, ct);
+            await new KeywordService(db).AssociateKeywordsAsync(asset, result.Keywords, ct);
         }
 
         // Merge categories (D-05)
         if (result.Categories.Count > 0)
         {
-            await db.AssociateCategoriesAsync(asset, result.Categories, ct);
+            await new CategoryService(db).AssociateCategoriesAsync(asset, result.Categories, ct);
         }
 
         // Fill description only when empty (D-06)

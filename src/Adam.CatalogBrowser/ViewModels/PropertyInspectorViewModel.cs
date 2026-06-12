@@ -603,13 +603,13 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 asset.Keywords.Clear();
                 var tagNames = _selectedAssetTags.ToArray();
-                if (tagNames.Length > 0) await db.AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
+                if (tagNames.Length > 0) await new KeywordService(db).AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
             }
             if (_categoriesDirty)
             {
                 asset.Categories.Clear();
                 var categoryNames = _selectedAssetCategories.ToArray();
-                if (categoryNames.Length > 0) await db.AssociateCategoriesAsync(asset, categoryNames).ConfigureAwait(false);
+                if (categoryNames.Length > 0) await new CategoryService(db).AssociateCategoriesAsync(asset, categoryNames).ConfigureAwait(false);
             }
             if (_dateTakenDirty)
             {

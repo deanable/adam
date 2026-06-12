@@ -5,6 +5,7 @@ using Adam.BrokerService.Services;
 using Adam.BrokerService.Transport;
 using Adam.Shared.Data;
 using Adam.Shared.Services;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,7 +28,13 @@ var host = Host.CreateDefaultBuilder(args)
     {
         var dbConfig = DbProviderConfig.FromConfiguration(ctx.Configuration);
         services.AddSingleton(dbConfig);
-        services.AddDbContext<AppDbContext>(opts => dbConfig.Configure(opts));
+        services.AddDbContext<AppDbContext>(opts =>
+        {
+            dbConfig.Configure(opts);
+            opts.ConfigureWarnings(w => w.Log(RelationalEventId.PendingModelChangesWarning));
+        });
+        services.AddScoped<KeywordService>();
+        services.AddScoped<CategoryService>();
 
         services.AddSingleton<IConnectionHandler, ConnectionHandler>();
         services.AddSingleton<LoginRateLimiter>();

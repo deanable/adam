@@ -74,7 +74,7 @@ public sealed class UserHandler
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var roles = await db.Roles.ToListAsync(ct);
+        var roles = await db.Roles.Include(r => r.RolePermissions).ToListAsync(ct);
         var response = new ListRolesResponse();
         foreach (var r in roles)
         {

@@ -80,7 +80,12 @@ public sealed class BrokerServiceIntegrationTests : IAsyncLifetime
                 {
                     Id = Guid.NewGuid(),
                     Name = "Administrator",
-                    Permissions = new[] { "asset:*", "collection:*", "user:*", "audit:read" }
+                    RolePermissions = [
+                        new RolePermission { Permission = "asset:*" },
+                        new RolePermission { Permission = "collection:*" },
+                        new RolePermission { Permission = "user:*" },
+                        new RolePermission { Permission = "audit:read" }
+                    ]
                 };
                 db.Roles.Add(adminRole);
             }

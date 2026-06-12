@@ -37,7 +37,9 @@ public sealed class AuthorizationMiddleware
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var role = await db.Roles.AsNoTracking()
+        var role = await db.Roles
+            .Include(r => r.RolePermissions)
+            .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Name == roleName, ct);
 
         if (role == null)

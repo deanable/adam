@@ -293,7 +293,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         var tagNames = Tags.ToArray();
         if (tagNames.Length > 0)
         {
-            await db.AssociateKeywordsAsync(asset, tagNames, ct);
+            await new KeywordService(db).AssociateKeywordsAsync(asset, tagNames, ct);
         }
 
         if (_profile != null)
@@ -345,7 +345,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                 .FirstOrDefaultAsync(a => a.Id == _asset.Id);
             if (asset != null && result.Categories.Count > 0)
             {
-                await db.AssociateCategoriesAsync(asset, result.Categories);
+                await new CategoryService(db).AssociateCategoriesAsync(asset, result.Categories);
                 await db.SaveChangesAsync();
             }
 

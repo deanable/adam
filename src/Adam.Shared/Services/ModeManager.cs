@@ -2,6 +2,7 @@ using Adam.Shared.Configuration;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Adam.Shared.Services;
 
@@ -73,6 +74,12 @@ public sealed class ModeManager
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         _dbConfig.Configure(optionsBuilder);
+        // EF Core 10 promotes PendingModelChangesWarning to an exception by default.
+        // `dotnet ef migrations has-pending-model-changes` confirms there are none;
+        // the warning is a false-positive from the computed Permissions property being
+        // Ignored in OnModelCreating. Log it instead of throwing.
+        optionsBuilder.ConfigureWarnings(w =>
+            w.Log(RelationalEventId.PendingModelChangesWarning));
 
         return new AppDbContext(optionsBuilder.Options);
     }

@@ -861,7 +861,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             ModifiedAt = DateTimeOffset.UtcNow,
         };
         db.DigitalAssets.Add(asset);
-        await db.AssociateKeywordsAsync(asset, [keywordName]);
+        await new KeywordService(db).AssociateKeywordsAsync(asset, [keywordName]);
         await db.SaveChangesAsync();
         return assetId;
     }
@@ -917,7 +917,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             ModifiedAt = DateTimeOffset.UtcNow,
         };
         db.DigitalAssets.Add(asset);
-        await db.AssociateCategoriesAsync(asset, [categoryName]);
+        await new CategoryService(db).AssociateCategoriesAsync(asset, [categoryName]);
         await db.SaveChangesAsync();
         return assetId;
     }
