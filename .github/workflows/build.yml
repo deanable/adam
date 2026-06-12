@@ -48,8 +48,11 @@ jobs:
       - name: Build
         run: dotnet build Adam.slnx -c Release --no-restore
 
-      - name: Test
-        run: dotnet test Adam.slnx -c Release --no-build
+      - name: Test (sequential)
+        shell: bash
+        run: |
+          chmod +x scripts/test.sh
+          ./scripts/test.sh -c Release --skip-build -v
         timeout-minutes: 15
 
       - name: Publish (self-contained)
