@@ -1,9 +1,9 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-12 (Phase 8 complete — v1.0 ready)
+**Updated:** 2026-06-12 (v1.0 shipped, v2 planning complete)
 **Granularity:** Standard  
-**Phases:** 9
+**Phases:** 12
 
 ## Overview
 
@@ -18,6 +18,9 @@
 | 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | ✅ Complete |
 | 8 | v1.0 Polish & Ship | UI polish, docs, packaging, stabilization | All v1 Final | ✅ Complete |
 | 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
+| 10 | Sidebar CRUD & Tree Interaction | Create/Rename/Delete for Collections, Keywords, Categories + folder context menus | UI-V2-01 to UI-V2-08 | 📋 Planned |
+| 11 | Full-Text Search (FTS5) | Replace LIKE-based search with FTS5/tsvector/CONTAINS per provider | PERF-01, META-V2-01 | 📋 Planned |
+| 12 | Performance Optimization | Thumbnail cache, gallery virtualization, startup time | PERF-02 to PERF-05 | 📋 Planned |
 
 ## Phase Details
 
@@ -89,6 +92,9 @@ Production-ready server administration and database flexibility.
 
 ### v1.2 — Client Polish (Phases 7-8) ✅
 Permission-aware UI and v1.0 polish & ship — all complete.
+
+### v2.0 — Advanced Features & Performance (Phases 10-12)
+Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+ asset collections.
 
 ### Phase 9: AI Image Tagging ✅
 **Goal:** Integrate the in-repo `LiquidVision.Core` (LFM2-VL ONNX vision model) into ADAM so users can auto-generate descriptions, keywords, and categories for image assets locally, with no Python or cloud dependency.

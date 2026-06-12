@@ -2,15 +2,15 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** ✅ 8 Complete — v1.0 ready to ship
-**Current Milestone:** ✅ v1.2 — Client Polish (complete)
+**Current Phase:** 📋 v2 Planning Complete (Phases 10-12 planned)
+**Current Milestone:** v2.0 — Advanced Features & Performance
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** v1.0 ready — all phases complete, ready to tag and release
+**Current focus:** v2.0 planning complete — Phase 10 (Sidebar CRUD), Phase 11 (FTS5 Search), Phase 12 (Performance) ready to execute
 
 ## Phase Progress
 
@@ -25,6 +25,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 7 | ✅ | 1/1 | 100% | Archived |
 | 8 | ✅ | 1/1 | 100% | Complete |
 | 9 | ✅ | 1/1 | 100% | Archived |
+| 10 | 📋 | 1/1 | 0% | Planned |
+| 11 | 📋 | 1/1 | 0% | Planned |
+| 12 | 📋 | 1/1 | 0% | Planned |
 
 ## Accumulated Context
 
@@ -187,11 +190,10 @@ None.
 
 ## Next Actions
 
-1. **Tag v1.0.0 release** — `git tag v1.0.0 && git push origin v1.0.0` to trigger the release workflow and build all platform packages.
-2. **Verify release artifacts** — Download MSI, DMG, and DEB from the GitHub Release draft and install-test on each platform.
-3. **Publish release** — Convert the draft GitHub Release to published once artifacts are verified.
-4. **v2 planning** — Sidebar CRUD (T8.18), FTS5 search (T8.3), performance optimization (T8.4–T8.6) deferred to v2.
+1. **Execute Phase 10** — Sidebar CRUD & Tree Interaction (context menus, inline rename, broker handlers)
+2. **Execute Phase 11** — Full-Text Search FTS5 (IFtsService, SQLite FTS5, PostgreSQL tsvector, SQL Server CONTAINS)
+3. **Execute Phase 12** — Performance Optimization (thumbnail cache, gallery virtualization, startup time)
 
 ---
-*State updated: 2026-06-12 — Phase 8 complete, v1.0 ready to ship*
+*State updated: 2026-06-12 — v1.0 shipped (v1.0.0), v2 planning complete*
 
