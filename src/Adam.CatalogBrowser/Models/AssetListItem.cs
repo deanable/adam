@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Controls;
+using Adam.Shared.Models;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
@@ -170,4 +171,19 @@ public class AssetListItem : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    /// <summary>
+    /// Maps an <see cref="AssetLabel"/> to its display text and brush.
+    /// Shared between <see cref="AssetGalleryViewModel.LoadPageAsync"/> and
+    /// <see cref="MainWindowViewModel.SetLabelSelectedAsync"/> to keep them in sync.
+    /// </summary>
+    public static (string label, IBrush? brush) MapLabelToDisplay(AssetLabel label) => label switch
+    {
+        AssetLabel.Red => ("Red", new SolidColorBrush(Colors.Red)),
+        AssetLabel.Green => ("Green", new SolidColorBrush(Colors.Green)),
+        AssetLabel.Blue => ("Blue", new SolidColorBrush(Colors.Blue)),
+        AssetLabel.Yellow => ("Yellow", new SolidColorBrush(Color.FromArgb(255, 218, 165, 32))),
+        AssetLabel.Purple => ("Purple", new SolidColorBrush(Colors.Purple)),
+        _ => (string.Empty, null)
+    };
 }

@@ -61,7 +61,8 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
             ingestion, metadataEditor,
             auditLog, _bulkQueue,
             propertyInspector, connection, statusBar,
-            new DeleteService(_modeManager), new ToastService());
+            new DeleteService(_modeManager), new ToastService(),
+            dispatcher: new SyncUiDispatcher());
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false
         // dispatch (it would hang without a pumping dispatcher).

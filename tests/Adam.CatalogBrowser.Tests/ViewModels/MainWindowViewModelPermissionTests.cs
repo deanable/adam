@@ -57,7 +57,8 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
             connection,
             statusBar,
             new DeleteService(_modeManager), new ToastService(),
-            startUp: false);
+            startUp: false,
+            dispatcher: new SyncUiDispatcher());
     }
 
     /// <summary>

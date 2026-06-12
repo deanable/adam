@@ -11,6 +11,23 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
 /// <summary>
+/// Synchronous dispatcher stub for testing. Executes actions immediately
+/// on the calling thread instead of marshalling to a UI thread.
+/// </summary>
+internal sealed class SyncUiDispatcher : IUiDispatcher
+{
+    public Task InvokeAsync(Action action)
+    {
+        action();
+        return Task.CompletedTask;
+    }
+
+    public void Post(Action action) => action();
+    public bool CheckAccess() => true;
+}
+
+
+/// <summary>
 /// Tests for the MainWindowViewModel event handler threading changes.
 /// Focuses on the core business logic (DB persistence, property tracking)
 /// that doesn't require a pumping UI dispatcher.
@@ -61,7 +78,8 @@ public class MainWindowViewModelTests : IAsyncLifetime
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(),
-            startUp: false, startSessionTimer: false);
+            startUp: false, startSessionTimer: false,
+            dispatcher: new SyncUiDispatcher());
 
         // Open a DB connection for seeding/verifying test data
         _db = _modeManager.CreateDbContext();
@@ -980,7 +998,8 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             connection,
             statusBar,
             new DeleteService(_modeManager), new ToastService(),
-            startUp: false, startSessionTimer: false);
+            startUp: false, startSessionTimer: false,
+            dispatcher: new SyncUiDispatcher());
 
         // Set connected state via reflection to simulate a connected service
         var isConnectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",

@@ -28,6 +28,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly BulkOperationQueue _bulkQueue;
     private readonly DeleteService _deleteService;
     internal readonly ToastService ToastService;
+    private readonly IUiDispatcher _dispatcher;
     private object? _currentView;
     private readonly DispatcherTimer? _sessionCheckTimer;
 
@@ -48,7 +49,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ToastService toastService,
         AiTaggingService? aiTaggingService = null,
         bool startUp = true,
-        bool startSessionTimer = true)
+        bool startSessionTimer = true,
+        IUiDispatcher? dispatcher = null)
     {
         _logger = logger;
         _modeManager = modeManager;
@@ -56,6 +58,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _bulkQueue = bulkQueue;
         _deleteService = deleteService;
         ToastService = toastService;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
@@ -273,7 +276,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Connection.ForceLogout += async () =>
         {
             _logger.LogWarning("Forced logout triggered — clearing session");
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _dispatcher.InvokeAsync(() =>
             {
                 Connection.IsConnectedToService = false;
                 Connection.ServiceConnectionStatus = "Session terminated — please reconnect";
@@ -309,7 +312,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                     {
                         ConnectionDebugLogger.Info($"[STARTUP] Initializing multi-user mode (host={config.ServiceHost}:{config.ServicePort})");
                         await _modeManager.InitializeMultiUserAsync(config.ServiceHost, config.ServicePort);
-                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        await _dispatcher.InvokeAsync(() =>
                         {
                             Connection.IsServiceMode = true;
                             Connection.ServiceHost = config.ServiceHost;
@@ -320,13 +323,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
                         {
                             ConnectionDebugLogger.Info("[STARTUP] Auto-connecting to broker...");
                             await _modeManager.BrokerClient.ConnectAsync();
-                            var authenticated = await Dispatcher.UIThread.InvokeAsync(() =>
-                                TryShowLoginDialogAsync(_modeManager.AuthSession, config.ServiceHost, config.ServicePort));
+                            var authenticated = await TryShowLoginDialogAsync(_modeManager.AuthSession, config.ServiceHost, config.ServicePort);
 
                             if (authenticated)
                             {
                                 ConnectionDebugLogger.Info("[STARTUP] Auto-connect succeeded, authenticated");
-                                await Dispatcher.UIThread.InvokeAsync(() =>
+                                await _dispatcher.InvokeAsync(() =>
                                 {
                                     Connection.IsConnectedToService = true;
                                     Connection.ServiceConnectionStatus = $"Connected to {config.ServiceHost}:{config.ServicePort}";
@@ -336,7 +338,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                             {
                                 ConnectionDebugLogger.Warn("[STARTUP] Auto-connect succeeded but authentication cancelled/failed");
                                 await _modeManager.BrokerClient.DisconnectAsync();
-                                await Dispatcher.UIThread.InvokeAsync(() => Connection.ServiceConnectionStatus = "Login cancelled — connect manually");
+                                await _dispatcher.InvokeAsync(() => Connection.ServiceConnectionStatus = "Login cancelled — connect manually");
                             }
                         }
                         else
@@ -360,7 +362,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 }
                 finally
                 {
-                    Dispatcher.UIThread.Post(() => StatusBar.IsInitialLoading = false);
+                    _dispatcher.Post(() => StatusBar.IsInitialLoading = false);
                 }
             });
         }
@@ -485,7 +487,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var item = AssetGallery.Assets.FirstOrDefault(a => a.Id == PropertyInspector.SelectedAsset.Id);
             if (item != null)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => item.ThumbnailPath = thumbnailPath);
+                await _dispatcher.InvokeAsync(() => item.ThumbnailPath = thumbnailPath);
                 await item.LoadThumbnailAsync().ConfigureAwait(false);
             }
         }
@@ -585,7 +587,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         var progress = new Progress<(int completed, int total)>(p =>
         {
-            Dispatcher.UIThread.Post(() =>
+            _dispatcher.Post(() =>
             {
                 StatusBar.AiTaggingPercentage = p.total > 0 ? (double)p.completed / p.total * 100 : 0;
                 StatusBar.AiTaggingProgressText = $"AI tagging... ({p.completed}/{p.total})";
@@ -619,26 +621,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private void SubscribeToDownloadProgress(AiTaggingService aiTaggingService)
     {
         aiTaggingService.PropertyChanged += (_, e) =>
+        {            if (e.PropertyName == nameof(AiTaggingService.DownloadProgress))
         {
-            if (e.PropertyName == nameof(AiTaggingService.DownloadProgress))
+            _dispatcher.Post(() =>
             {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    var pct = aiTaggingService.DownloadProgress;
-                    StatusBar.IsModelDownloading = pct > 0 && pct < 1.0;
-                    StatusBar.ModelDownloadPercentage = pct * 100;
-                    if (pct > 0 && pct < 1.0)
-                        StatusBar.StatusText = $"Downloading AI model ({pct * 100:F0}%)";
-                    else if (pct >= 1.0)
-                        StatusBar.StatusText = "AI model ready";
-                });
-            }
-            else if (e.PropertyName == nameof(AiTaggingService.IsInitialized) && aiTaggingService.IsInitialized)
+                var pct = aiTaggingService.DownloadProgress;
+                StatusBar.IsModelDownloading = pct > 0 && pct < 1.0;
+                StatusBar.ModelDownloadPercentage = pct * 100;
+                if (pct > 0 && pct < 1.0)
+                    StatusBar.StatusText = $"Downloading AI model ({pct * 100:F0}%)";
+                else if (pct >= 1.0)
+                    StatusBar.StatusText = "AI model ready";
+            });
+            }            else if (e.PropertyName == nameof(AiTaggingService.IsInitialized) && aiTaggingService.IsInitialized)
+        {
+            _dispatcher.Post(() =>
             {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    StatusBar.IsModelDownloading = false;
-                });
+                StatusBar.IsModelDownloading = false;
+            });
             }
         };
     }
@@ -805,57 +805,85 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Rates the first selected asset with the given rating value (T8.16).
+    /// Cycles the rating on all selected assets (T8.22 bulk actions).
+    /// Each asset gets its own next-rating value independently.
     /// </summary>
     private async Task RateSelectedAsync()
     {
-        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
-        if (asset == null) return;
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
 
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
-            if (dbAsset == null) return;
+            var ids = selected.Select(a => a.Id).ToList();
+            var dbAssets = await db.DigitalAssets
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
 
-            // Cycle rating: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
-            dbAsset.Rating = (dbAsset.Rating + 1) % 6;
+            foreach (var dbAsset in dbAssets)
+                dbAsset.Rating = (dbAsset.Rating + 1) % 6;
+
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            ToastService.Show(dbAsset.Rating > 0
-                ? $"Rated '{asset.Title}' {dbAsset.Rating}/5"
-                : $"Rating cleared for '{asset.Title}'", Services.ToastLevel.Success);
+            // Update in-memory tiles so the UI reflects new ratings immediately
+            foreach (var item in selected)
+            {
+                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
+                if (dbMatch != null)
+                    item.Rating = dbMatch.Rating;
+            }
+
+            ToastService.Show(selected.Count == 1
+                ? $"Rated '{selected[0].Title}' {dbAssets.FirstOrDefault()?.Rating}/5"
+                : $"Rated {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to rate asset");
+            _logger.LogWarning(ex, "Failed to rate assets");
         }
     }
 
     /// <summary>
-    /// Sets a color label on the first selected asset (T8.16).
+    /// Cycles the color label on all selected assets (T8.22 bulk actions).
+    /// Each asset gets its own next-label value independently.
     /// </summary>
     private async Task SetLabelSelectedAsync()
     {
-        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
-        if (asset == null) return;
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
 
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
-            if (dbAsset == null) return;
+            var ids = selected.Select(a => a.Id).ToList();
+            var dbAssets = await db.DigitalAssets
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
 
-            // Cycle label: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
             var labels = Enum.GetValues<AssetLabel>();
-            var currentIndex = Array.IndexOf(labels, dbAsset.Label);
-            var nextIndex = (currentIndex + 1) % labels.Length;
-            dbAsset.Label = labels[nextIndex];
+            foreach (var dbAsset in dbAssets)
+            {
+                var currentIndex = Array.IndexOf(labels, dbAsset.Label);
+                dbAsset.Label = labels[(currentIndex + 1) % labels.Length];
+            }
+
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            ToastService.Show(dbAsset.Label != AssetLabel.None
-                ? $"Label set to '{dbAsset.Label}' for '{asset.Title}'"
-                : $"Label cleared for '{asset.Title}'", Services.ToastLevel.Success);
+            // Update in-memory tiles so the UI reflects new labels immediately
+            foreach (var item in selected)
+            {
+                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
+                if (dbMatch != null)
+                {
+                    (item.ColorLabel, item.ColorBrush) = AssetListItem.MapLabelToDisplay(dbMatch.Label);
+                }
+            }
+
+            var labelName = dbAssets.FirstOrDefault()?.Label.ToString() ?? "None";
+            ToastService.Show(selected.Count == 1
+                ? $"Label set to '{labelName}' for '{selected[0].Title}'"
+                : $"Label set to '{labelName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
         }
         catch (Exception ex)
         {
@@ -864,7 +892,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Sets the rating of the first selected asset to a specific value (T8.21 keyboard digits).
+    /// Sets the rating of all selected assets to a specific value (T8.21 keyboard digits, T8.22 bulk).
     /// The parameter is the rating value as a string ("0"-"5").
     /// </summary>
     private async Task SetRatingByKeyAsync(object? parameter)
@@ -873,21 +901,33 @@ public class MainWindowViewModel : INotifyPropertyChanged
             return;
         rating = Math.Clamp(rating, 0, 5);
 
-        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
-        if (asset == null) return;
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
 
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
-            if (dbAsset == null) return;
+            var ids = selected.Select(a => a.Id).ToList();
+            var dbAssets = await db.DigitalAssets
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
 
-            dbAsset.Rating = rating;
+            foreach (var dbAsset in dbAssets)
+                dbAsset.Rating = rating;
+
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            ToastService.Show(rating > 0
-                ? $"Rated '{asset.Title}' {rating}/5"
-                : $"Rating cleared for '{asset.Title}'", Services.ToastLevel.Success);
+            // Update in-memory tiles so the UI reflects new ratings immediately
+            foreach (var item in selected)
+            {
+                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
+                if (dbMatch != null)
+                    item.Rating = dbMatch.Rating;
+            }
+
+            ToastService.Show(selected.Count == 1
+                ? (rating > 0 ? $"Rated '{selected[0].Title}' {rating}/5" : $"Rating cleared for '{selected[0].Title}'")
+                : $"Set {dbAssets.Count} asset(s) to {rating}/5", Services.ToastLevel.Success);
         }
         catch (Exception ex)
         {
@@ -896,32 +936,47 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Sets a flag (Pick/Reject) on the first selected asset (T8.16).
+    /// Cycles the flag on all selected assets (T8.22 bulk actions).
+    /// Each asset gets its own next-flag value independently.
     /// </summary>
     private async Task SetFlagSelectedAsync()
     {
-        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
-        if (asset == null) return;
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
 
         try
         {
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
-            if (dbAsset == null) return;
+            var ids = selected.Select(a => a.Id).ToList();
+            var dbAssets = await db.DigitalAssets
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
 
-            // Cycle flag: Unflagged -> Pick -> Reject -> Unflagged
-            dbAsset.Flag = dbAsset.Flag switch
+            foreach (var dbAsset in dbAssets)
             {
-                AssetFlag.Unflagged => AssetFlag.Pick,
-                AssetFlag.Pick => AssetFlag.Reject,
-                AssetFlag.Reject => AssetFlag.Unflagged,
-                _ => AssetFlag.Unflagged
-            };
+                dbAsset.Flag = dbAsset.Flag switch
+                {
+                    AssetFlag.Unflagged => AssetFlag.Pick,
+                    AssetFlag.Pick => AssetFlag.Reject,
+                    AssetFlag.Reject => AssetFlag.Unflagged,
+                    _ => AssetFlag.Unflagged
+                };
+            }
+
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            ToastService.Show(dbAsset.Flag != AssetFlag.Unflagged
-                ? $"Flag set to '{dbAsset.Flag}' for '{asset.Title}'"
-                : $"Flag cleared for '{asset.Title}'", Services.ToastLevel.Success);
+            // Update in-memory tiles so the UI reflects new flags immediately
+            foreach (var item in selected)
+            {
+                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
+                if (dbMatch != null)
+                    item.IsFlagged = dbMatch.Flag != AssetFlag.Unflagged;
+            }
+
+            var flagName = dbAssets.FirstOrDefault()?.Flag.ToString() ?? "Unflagged";
+            ToastService.Show(selected.Count == 1
+                ? $"Flag set to '{flagName}' for '{selected[0].Title}'"
+                : $"Flag set to '{flagName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
         }
         catch (Exception ex)
         {
@@ -1065,9 +1120,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Tooltip for the AI Tag Selected button in the gallery toolbar.
-    /// Returns <c>null</c> when the full condition (service available + permission granted) is met.
-    /// Returns session-state text when permission is lacking but the service is available.
-    /// Returns <c>null</c> when the service itself is unavailable (button remains hidden).
+    /// Shows a descriptive message when permission is granted, or a permission-denied
+    /// message when the user lacks access. Returns <c>null</c> only when the service
+    /// itself is unavailable (button should be hidden/disabled).
     /// </summary>
     public string? AiTagPermissionTooltip
     {
@@ -1077,9 +1132,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 return null;
 
             if (_modeManager.IsStandalone)
-                return null;
+                return "AI-tag selected image assets using local on-device inference";
 
-            return !EvaluatePermission("asset:update") ? GetNavTooltipText("AI tag assets", "Requires Editor or Administrator role") : null;
+            return !EvaluatePermission("asset:update")
+                ? GetNavTooltipText("AI tag assets", "Requires Editor or Administrator role")
+                : "AI-tag selected image assets using local on-device inference";
         }
     }
 
@@ -1107,7 +1164,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     private async Task RefreshPermissionsAsync()
     {
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await _dispatcher.InvokeAsync(() =>
         {
             OnPropertyChanged(nameof(CurrentUserRole));
             OnPropertyChanged(nameof(CanIngest));
@@ -1181,11 +1238,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // Check token expiry first (fast, local check)
         if (auth.IsTokenExpired())
         {
-            _logger.LogWarning("Session token expired (detected by timer)");
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                StatusBar.StatusText = "Session expired — please log out and reconnect";
-            });
+            _logger.LogWarning("Session token expired (detected by timer)");        await _dispatcher.InvokeAsync(() =>
+                {
+                    StatusBar.StatusText = "Session expired — please log out and reconnect";
+                });
             await RefreshPermissionsAsync();
             return;
         }
@@ -1204,7 +1260,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 _logger.LogDebug("Session check: user={Username}, role={Role}", profile.Username, profile.Role);
 
                 // Update session status text in the status bar
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                await _dispatcher.InvokeAsync(() =>
                 {
                     OnPropertyChanged(nameof(SessionStatusText));
                 });

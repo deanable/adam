@@ -8,7 +8,6 @@ using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
@@ -316,16 +315,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                     _logger.LogDebug("[Thumbnail] AssetId={AssetId}, StoragePath={StoragePath}, ThumbnailPath={ThumbnailPath}, ThumbnailExists={Exists}", 
                         asset.Id, asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
 
-                    // Map label to color display (T8.20)
-                    var (colorLabel, colorBrush) = asset.Label switch
-                    {
-                        AssetLabel.Red => ("Red", new SolidColorBrush(Colors.Red)),
-                        AssetLabel.Green => ("Green", new SolidColorBrush(Colors.Green)),
-                        AssetLabel.Blue => ("Blue", new SolidColorBrush(Colors.Blue)),
-                        AssetLabel.Yellow => ("Yellow", new SolidColorBrush(Color.FromArgb(255, 218, 165, 32))),
-                        AssetLabel.Purple => ("Purple", new SolidColorBrush(Colors.Purple)),
-                        _ => (string.Empty, null)
-                    };
+                    // Map label to color display (T8.20) via shared helper (T8.22)
+                    var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(asset.Label);
 
                     var item = new AssetListItem
                     {
