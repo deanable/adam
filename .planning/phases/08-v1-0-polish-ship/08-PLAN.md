@@ -99,7 +99,7 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four acti
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| T8.27 | **Critical/High bug triage & bug-bash** — Dedicated stabilization pass. Triage open issues + carried tech debt, run manual bug-bash across golden paths (delete/trash, context menus, bulk actions). **Exit:** zero open Critical or High items before packaging. | ⬜ | |
+| T8.27 | **Critical/High bug triage & bug-bash** — Dedicated stabilization pass. Triage open issues + carried tech debt, run manual bug-bash across golden paths (delete/trash, context menus, bulk actions). **Exit:** zero open Critical or High items before packaging. | ✅ | 2026-06-12 |
 
 ---
 
