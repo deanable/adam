@@ -29,7 +29,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly DeleteService _deleteService;
     internal readonly ToastService ToastService;
     private object? _currentView;
-    private readonly DispatcherTimer _sessionCheckTimer;
+    private readonly DispatcherTimer? _sessionCheckTimer;
 
     public MainWindowViewModel(
         ILogger<MainWindowViewModel> logger,
@@ -47,7 +47,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         DeleteService deleteService,
         ToastService toastService,
         AiTaggingService? aiTaggingService = null,
-        bool startUp = true)
+        bool startUp = true,
+        bool startSessionTimer = true)
     {
         _logger = logger;
         _modeManager = modeManager;
@@ -66,9 +67,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _currentView = assetGallery;
 
         // Phase 7: Session check timer — checks token expiry every 60s (T7.3)
-        _sessionCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-        _sessionCheckTimer.Tick += OnSessionCheckTick;
-        _sessionCheckTimer.Start();
+        // Skipped when startSessionTimer is false (unit tests) to avoid requiring
+        // an Avalonia platform thread.
+        if (startSessionTimer)
+        {
+            _sessionCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+            _sessionCheckTimer.Tick += OnSessionCheckTick;
+            _sessionCheckTimer.Start();
+        }
 
         AssignKeywordDropCommand = new RelayCommand(OnAssignKeywordDrop);
         AssignCategoryDropCommand = new RelayCommand(OnAssignCategoryDrop);

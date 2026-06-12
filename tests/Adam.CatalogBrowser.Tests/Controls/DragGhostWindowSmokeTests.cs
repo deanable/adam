@@ -1,4 +1,5 @@
 using Adam.CatalogBrowser.Controls;
+using Adam.CatalogBrowser.Tests.TestInfrastructure;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;

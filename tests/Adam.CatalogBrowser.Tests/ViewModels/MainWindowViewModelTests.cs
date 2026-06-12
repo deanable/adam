@@ -53,16 +53,15 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var statusBar = new StatusBarViewModel(bulkQueue);
 
         // Construct the ViewModel with startUp: false to avoid the background
-        // startup pipeline (which dispatches to the UI thread and would hang
-        // without a pumping Avalonia dispatcher). We manually set the
-        // IsInitialLoading state via reflection afterward.
+        // startup pipeline, and startSessionTimer: false to skip creating the
+        // DispatcherTimer (which requires an Avalonia platform thread).
         _vm = new MainWindowViewModel(
             _logger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), _sidebar, _gallery,
             ingestion, metadataEditor,
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(),
-            startUp: false);
+            startUp: false, startSessionTimer: false);
 
         // Open a DB connection for seeding/verifying test data
         _db = _modeManager.CreateDbContext();
@@ -981,7 +980,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             connection,
             statusBar,
             new DeleteService(_modeManager), new ToastService(),
-            startUp: false);
+            startUp: false, startSessionTimer: false);
 
         // Set connected state via reflection to simulate a connected service
         var isConnectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
