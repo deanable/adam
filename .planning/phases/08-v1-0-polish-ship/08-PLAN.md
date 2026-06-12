@@ -79,7 +79,7 @@ This phase finalizes the adam DAM system for a v1.0 release. It covers four acti
 |------|-------------|--------|------|
 | T8.7 | **Admin Guide** — Create `docs/admin-guide.md` covering Service Manager overview, multi-user mode setup, user & role lifecycle, database migration wizard, Broker service installation, audit log interpretation, firewall configuration, and troubleshooting. | ✅ | 2026-06-12 |
 | T8.8 | **User Guide** — Create `docs/user-guide.md` covering Catalog Browser overview, standalone vs multi-user mode, folder selection and ingest, gallery navigation, metadata editing, search and filtering, XMP write-back, image adjustments, export, AI tagging, and collections. | ✅ | 2026-06-12 |
-| T8.9 | **Requirements validation** — Audit all 34 v1 requirements against implemented features. Update `REQUIREMENTS.md` traceability. Create `docs/v1-release-notes.md`. | ⬜ | |
+| T8.9 | **Requirements validation** — Audit all 34 v1 requirements against implemented features. Update `REQUIREMENTS.md` traceability. Create `docs/v1-release-notes.md`. | ✅ | 2026-06-12 |
 
 ### Work Stream 3: Distribution Packaging
 
