@@ -21,6 +21,17 @@ namespace Adam.CatalogBrowser.Controls;
 /// </summary>
 public class AssetTileControl : TemplatedControl
 {
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        // T11.10: Manage pseudo-class for search highlight style trigger
+        if (change.Property == IsSearchHighlightedProperty)
+        {
+            PseudoClasses.Set(":isearchhighlighted", change.NewValue is true);
+        }
+    }
+
     // ──────────────────────────────────────────────
     //  Thumbnail
     // ──────────────────────────────────────────────
@@ -219,6 +230,42 @@ public class AssetTileControl : TemplatedControl
     {
         get => GetValue(TextField3LabelProperty);
         set => SetValue(TextField3LabelProperty, value);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Search highlight (T11.10)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Defines the <see cref="IsSearchHighlighted"/> property.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsSearchHighlightedProperty =
+        AvaloniaProperty.Register<AssetTileControl, bool>(nameof(IsSearchHighlighted));
+
+    /// <summary>
+    /// True when this tile is part of an active FTS search result (T11.10).
+    /// Enables the blue border highlight and matched-fields badge.
+    /// </summary>
+    public bool IsSearchHighlighted
+    {
+        get => GetValue(IsSearchHighlightedProperty);
+        set => SetValue(IsSearchHighlightedProperty, value);
+    }
+
+    /// <summary>
+    /// Defines the <see cref="MatchedFieldsText"/> property.
+    /// </summary>
+    public static readonly StyledProperty<string> MatchedFieldsTextProperty =
+        AvaloniaProperty.Register<AssetTileControl, string>(nameof(MatchedFieldsText), string.Empty);
+
+    /// <summary>
+    /// Comma-separated list of fields that matched the FTS query (e.g. "Title, Keywords").
+    /// Displayed inside the tile when <see cref="IsSearchHighlighted"/> is true.
+    /// </summary>
+    public string MatchedFieldsText
+    {
+        get => GetValue(MatchedFieldsTextProperty);
+        set => SetValue(MatchedFieldsTextProperty, value);
     }
 
     // ──────────────────────────────────────────────

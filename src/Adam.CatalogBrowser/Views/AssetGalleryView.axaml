@@ -168,20 +168,9 @@
                   ColorBrush="{Binding ColorBrush}"
                   IsFlagged="{Binding IsFlagged}"
                   ToolbarActions="{Binding ToolbarActions}"
+                  IsSearchHighlighted="{Binding IsSearchHighlighted}"
+                  MatchedFieldsText="{Binding MatchedFieldsText}"
                   Margin="4" />
-                <!-- T11.10: Search result matched-fields badge -->
-                <Border IsVisible="{Binding IsSearchHighlighted}"
-                        Background="#E3F2FD"
-                        CornerRadius="3"
-                        Padding="4,1"
-                        Margin="4,0,4,4">
-                  <TextBlock Text="{Binding MatchedFieldsText}"
-                             FontSize="9"
-                             Foreground="#1565C0"
-                             FontWeight="Medium"
-                             HorizontalAlignment="Center"
-                             TextTrimming="CharacterEllipsis" />
-                </Border>
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -225,27 +214,43 @@
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Grid>
-                <!-- Row content (rendered first, behind) -->
-                <Border BorderBrush="{DynamicResource BorderHoverBrush}"
-                        BorderThickness="0,0,0,1"
-                        Background="Transparent">
-                  <controls:AssetListRowControl
-                    Thumbnail="{Binding Thumbnail}"
-                    ThumbnailSize="40"
-                    FileName="{Binding FileName}"
-                    FileType="{Binding FileType}"
-                    FileSizeFormatted="{Binding FileSizeFormatted}"
-                    Dimensions="{Binding Dimensions}"
-                    CreatedAtFormatted="{Binding CreatedAtFormatted}" />
-                </Border>
+              <StackPanel>
+                <Grid>
+                  <!-- Row content (rendered first, behind) -->
+                  <Border BorderBrush="{DynamicResource BorderHoverBrush}"
+                          BorderThickness="0,0,0,1"
+                          Background="Transparent">
+                    <controls:AssetListRowControl
+                      Thumbnail="{Binding Thumbnail}"
+                      ThumbnailSize="40"
+                      FileName="{Binding FileName}"
+                      FileType="{Binding FileType}"
+                      FileSizeFormatted="{Binding FileSizeFormatted}"
+                      Dimensions="{Binding Dimensions}"
+                      CreatedAtFormatted="{Binding CreatedAtFormatted}" />
+                  </Border>
 
-                <!-- Left accent bar (rendered on top, visible on selected rows) -->
-                <Border Classes="LeftAccent"
-                        Width="3"
-                        HorizontalAlignment="Left"
-                        Background="Transparent" />
-              </Grid>
+                  <!-- Left accent bar (rendered on top, visible on selected rows) -->
+                  <Border Classes="LeftAccent"
+                          Width="3"
+                          HorizontalAlignment="Left"
+                          Background="Transparent" />
+                </Grid>
+
+                <!-- T11.10: Search result matched-fields badge (list view) -->
+                <Border IsVisible="{Binding IsSearchHighlighted}"
+                        Background="#E3F2FD"
+                        CornerRadius="3"
+                        Padding="4,1"
+                        Margin="4,0,4,2">
+                  <TextBlock Text="{Binding MatchedFieldsText}"
+                             FontSize="9"
+                             Foreground="#1565C0"
+                             FontWeight="Medium"
+                             HorizontalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                </Border>
+              </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>

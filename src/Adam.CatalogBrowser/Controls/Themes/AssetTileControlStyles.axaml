@@ -32,7 +32,8 @@
                  BorderBrush="#E0E0E0"
                  BorderThickness="1"
                  CornerRadius="4"
-                 Padding="6">
+                 Padding="6"
+                 x:Name="TileRoot">
 
            <StackPanel Spacing="4"
                        MaxWidth="{TemplateBinding ThumbnailSize}">
@@ -136,6 +137,22 @@
             </StackPanel>
 
             <!-- ═══════════════════════════════════ -->
+            <!--  T11.10: Search highlight badge     -->
+            <!-- ═══════════════════════════════════ -->
+            <Border IsVisible="{TemplateBinding IsSearchHighlighted}"
+                    Background="#E3F2FD"
+                    CornerRadius="3"
+                    Padding="4,1"
+                    Margin="0,2,0,0">
+              <TextBlock Text="{TemplateBinding MatchedFieldsText}"
+                         FontSize="9"
+                         Foreground="#1565C0"
+                         FontWeight="Medium"
+                         HorizontalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" />
+            </Border>
+
+            <!-- ═══════════════════════════════════ -->
             <!--  Text field 2                       -->
             <!-- ═══════════════════════════════════ -->
             <StackPanel Spacing="1">
@@ -167,5 +184,11 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+
+  <!-- T11.10: Blue border highlight when tile is part of FTS search result -->
+  <Style Selector="controls|AssetTileControl:isearchhighlighted">
+    <Setter Property="BorderBrush" Value="#1976D2" />
+    <Setter Property="BorderThickness" Value="2" />
   </Style>
 </Styles>

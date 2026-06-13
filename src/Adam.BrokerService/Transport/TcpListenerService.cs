@@ -170,7 +170,7 @@ public sealed class TcpListenerService
         {
             if (!string.IsNullOrEmpty(certPath) && File.Exists(certPath))
             {
-                _serverCertificate = new X509Certificate2(certPath, certPassword);
+                _serverCertificate = X509CertificateLoader.LoadPkcs12FromFile(certPath, certPassword, X509KeyStorageFlags.DefaultKeySet, loaderLimits: null);
                 _logger.LogInformation("TLS certificate loaded from path: {Path}", certPath);
             }
             else if (!string.IsNullOrEmpty(thumbprint))
@@ -219,7 +219,7 @@ public sealed class TcpListenerService
 
         var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(1));
         // Export and re-import to get a certificate with a private key that works across platforms
-        return new X509Certificate2(cert.Export(X509ContentType.Pfx), (string?)null);
+        return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.DefaultKeySet, loaderLimits: null);
     }
 
     private async Task HandleConnectionAsync(ConnectionState state, CancellationToken ct)
