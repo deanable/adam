@@ -57,6 +57,29 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddTransient<MigrationRunner>();
 
         services.AddSingleton<DbMigrationService>();
+
+        // T11.8: Register IDbContextFactory for FTS services (reuses existing DbProviderConfig)
+        services.AddDbContextFactory<AppDbContext>(opts =>
+        {
+            dbConfig.Configure(opts);
+            opts.ConfigureWarnings(w => w.Log(RelationalEventId.PendingModelChangesWarning));
+        });
+
+        // T11.8: Register IFtsService based on configured DB provider
+        switch (dbConfig.Provider.ToLowerInvariant())
+        {
+            case "postgresql":
+            case "postgres":
+                services.AddSingleton<IFtsService, PostgresFtsService>();
+                break;
+            case "sqlserver":
+            case "mssql":
+                services.AddSingleton<IFtsService, SqlServerFtsService>();
+                break;
+            default:
+                services.AddSingleton<IFtsService, SqliteFtsService>();
+                break;
+        }
         services.AddSingleton<IServiceInstaller, WindowsServiceInstaller>();
         services.AddSingleton<IServiceInstaller, MacOsServiceInstaller>();
         services.AddSingleton<IServiceInstaller, LinuxServiceInstaller>();

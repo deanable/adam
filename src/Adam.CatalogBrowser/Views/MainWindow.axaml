@@ -239,7 +239,7 @@
 
             <!-- Folders -->
             <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <TreeView ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
+              <TreeView x:Name="FoldersTreeView" ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -260,7 +260,13 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      <Panel>
+                        <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}"
+                                   IsVisible="{Binding !IsEditing}" />
+                        <TextBox Text="{Binding EditName}" FontSize="11" Padding="2,1"
+                                 BorderThickness="1" BorderBrush="{DynamicResource PrimaryBrush}"
+                                 IsVisible="{Binding IsEditing}" />
+                      </Panel>
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>

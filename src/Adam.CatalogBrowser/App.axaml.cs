@@ -5,9 +5,11 @@ using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.Views;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Configuration;
+using Adam.Shared.Data;
 using Adam.Shared.Services;
 using LiquidVision.Core.Configuration;
 using LiquidVision.Core.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -84,6 +86,11 @@ public partial class App : Application
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
 
+            // T11.8: Full-text search service (always SQLite in CatalogBrowser standalone mode)
+            services.AddDbContextFactory<AppDbContext>(opts =>
+                opts.UseSqlite($"Data Source={Path.Combine(basePath, ".adam", "catalog.db")}"));
+            services.AddSingleton<IFtsService, SqliteFtsService>();
+
             // Phase 9: AI Image Tagging (D-09)
             services.AddLiquidVision(o =>
             {
@@ -97,7 +104,11 @@ public partial class App : Application
 
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
-            services.AddTransient<AssetGalleryViewModel>();
+            services.AddTransient<AssetGalleryViewModel>(sp =>
+                new AssetGalleryViewModel(
+                    sp.GetRequiredService<ModeManager>(),
+                    sp.GetRequiredService<ILogger<AssetGalleryViewModel>>(),
+                    sp.GetRequiredService<IFtsService>()));
             services.AddTransient<IngestionViewModel>();
             services.AddTransient<MetadataEditorViewModel>();
             services.AddTransient<AuditLogViewModel>();
@@ -108,6 +119,9 @@ public partial class App : Application
 
             var provider = services.BuildServiceProvider();
             ServiceProvider = provider;
+
+            // T11.8: Wire FTS service into ModeManager for startup initialization
+            modeManager.FtsService = provider.GetRequiredService<IFtsService>();
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow = new MainWindow

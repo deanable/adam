@@ -22,10 +22,16 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private readonly ModeManager _modeManager;
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ILogger<AssetGalleryViewModel> _logger;
+    private readonly ThumbnailCache _thumbnailCache = new();
+    private readonly IFtsService? _ftsService;
+    private CancellationTokenSource? _backfillCts;
+    private CancellationTokenSource? _searchCts;
     private int _thumbnailSize = 150;
     private string _viewMode = "Grid";
     private string _sortBy = "File Name";
     private string _statusText = string.Empty;
+    private string _searchText = string.Empty;
+    private bool _isSearchActive;
     private AssetListItem? _selectedAsset;
     private readonly ObservableCollection<AssetListItem> _selectedAssets = [];
     private bool _hasAssets;
@@ -42,13 +48,19 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
     public ICommand SelectAllCommand { get; }
+    public ICommand ClearSearchCommand { get; }
 
-    public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger)
+    public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger, IFtsService? ftsService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
+        _ftsService = ftsService;
 
         SelectAllCommand = new RelayCommand(_ => SelectAll());
+        ClearSearchCommand = new RelayCommand(_ => ClearSearch());
+
+        // T12.1: Wire shared in-memory thumbnail cache
+        AssetListItem.SharedThumbnailCache = _thumbnailCache;
     }
 
     public ObservableCollection<AssetListItem> Assets { get; } = [];
@@ -108,6 +120,205 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "[SortBy] FAILED to reload assets: {Message}", ex.Message);
         }
+    }
+
+    // ──────────────────────────────────────────────
+    //  T11.9-T11.11: Full-text search
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Current search query text. Triggers debounced FTS search on change.
+    /// </summary>
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            if (_searchText != value)
+            {
+                _searchText = value;
+                OnPropertyChanged();
+                _ = OnSearchTextChangedAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when the gallery is displaying FTS search results (T11.9).
+    /// </summary>
+    public bool IsSearchActive
+    {
+        get => _isSearchActive;
+        set { _isSearchActive = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Autocomplete suggestions from FTS index (T11.11).
+    /// Populated asynchronously as the user types.
+    /// </summary>
+    public ObservableCollection<string> SearchSuggestions { get; } = [];
+
+    /// <summary>
+    /// Handles search text changes with 300ms debounce (T11.11).
+    /// Fetches autocomplete suggestions immediately, then executes
+    /// the full FTS search after the debounce delay.
+    /// </summary>
+    private async Task OnSearchTextChangedAsync()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
+        var text = _searchText?.Trim() ?? string.Empty;
+
+        // Update autocomplete suggestions (fast, immediate)
+        if (text.Length >= 2 && _ftsService != null)
+        {
+            try
+            {
+                var suggestions = await _ftsService.GetSuggestionsAsync(text, 5, ct);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    SearchSuggestions.Clear();
+                    foreach (var s in suggestions)
+                        SearchSuggestions.Add(s);
+                });
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get search suggestions for '{Text}'", text);
+            }
+        }
+        else
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => SearchSuggestions.Clear());
+        }
+
+        // Debounce: wait 300ms before executing the full search
+        try
+        {
+            await Task.Delay(300, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ClearSearch();
+            return;
+        }
+
+        await ExecuteSearchAsync(text, ct);
+    }
+
+    /// <summary>
+    /// Executes an FTS search and populates the gallery with ranked results (T11.9).
+    /// Each result includes highlight metadata for T11.10 search highlighting.
+    /// </summary>
+    private async Task ExecuteSearchAsync(string query, CancellationToken ct)
+    {
+        if (_ftsService == null)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => StatusText = "Full-text search is not available");
+            return;
+        }
+
+        if (!await _ftsService.IsAvailableAsync(ct).ConfigureAwait(false))
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => StatusText = "Full-text search index is not ready — try again later");
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = true);
+            IsSearchActive = true;
+
+            var results = await _ftsService.SearchAsync(query, 200, ct).ConfigureAwait(false);
+
+            var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+            var thumbnailDir = Path.Combine(dbDir, "thumbnails");
+
+            var newItems = new List<AssetListItem>(results.Count);
+            foreach (var result in results)
+            {
+                var thumbnailPath = _thumbnailService.GetThumbnailPath(
+                    result.Asset.StoragePath, thumbnailDir);
+
+                var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(result.Asset.Label);
+
+                var item = new AssetListItem
+                {
+                    Id = result.Asset.Id,
+                    Title = result.Asset.Title,
+                    FileName = result.Asset.FileName,
+                    StoragePath = result.Asset.StoragePath,
+                    FileType = result.Asset.MimeType,
+                    FileSize = result.Asset.FileSize,
+                    Width = result.Asset.Width,
+                    Height = result.Asset.Height,
+                    CreatedAt = result.Asset.CreatedAt,
+                    ThumbnailPath = thumbnailPath,
+                    Rating = result.Asset.Rating,
+                    ColorLabel = colorLabel,
+                    ColorBrush = colorBrush,
+                    IsFlagged = result.Asset.Flag != AssetFlag.Unflagged,
+                    // T11.10: Search result highlighting
+                    HighlightText = query,
+                    MatchedFields = result.MatchedFields
+                };
+
+                AddToolbarActions(item);
+                newItems.Add(item);
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SelectedAsset = null;
+                _selectedAssets.Clear();
+                Assets.Clear();
+
+                foreach (var item in newItems)
+                    Assets.Add(item);
+
+                HasAssets = Assets.Count > 0;
+                HasMore = false;
+                StatusText = Assets.Count > 0
+                    ? $"Search: {Assets.Count} result(s) for \"{query}\""
+                    : $"No results for \"{query}\"";
+            });
+
+            // Load thumbnails off the UI thread
+            foreach (var item in newItems)
+                _ = item.LoadThumbnailAsync((int)ThumbnailSize);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Search failed for query: {Query}", query);
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
+        }
+    }
+
+    /// <summary>
+    /// Clears the search query and returns the gallery to normal filtered view (T11.9).
+    /// </summary>
+    public void ClearSearch()
+    {
+        _searchCts?.Cancel();
+        _searchText = string.Empty;
+        _isSearchActive = false;
+        SearchSuggestions.Clear();
+        OnPropertyChanged(nameof(SearchText));
+        OnPropertyChanged(nameof(IsSearchActive));
+        _ = LoadAssetsAsync();
     }
 
     public string StatusText
@@ -337,28 +548,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                     };
 
                     // Quick action toolbar buttons (T8.20)
-                    var assetId = asset.Id; // capture for closure
-                    item.ToolbarActions =
-                    [
-                        new ToolbarAction
-                        {
-                            Icon = "\u2605",  // ★
-                            ToolTipText = "Quick rate (cycle)",
-                            Command = new RelayCommand(async _ =>
-                            {
-                                await QuickRateAssetAsync(assetId, item);
-                            })
-                        },
-                        new ToolbarAction
-                        {
-                            Icon = "\u2691",  // ⚑
-                            ToolTipText = "Toggle flag",
-                            Command = new RelayCommand(async _ =>
-                            {
-                                await ToggleFlagAssetAsync(assetId, item);
-                            })
-                        }
-                    ];
+                    AddToolbarActions(item);
 
                     newItems.Add(item);
                 }
@@ -378,6 +568,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 _page++;
                 if (assets.Count < _pageSize)
                     _hasMore = false;
+
+                // T12.2: Backfill thumbnails for assets that don't have them yet
+                _ = BackfillMissingThumbnailsAsync(newItems, thumbnailDir, ct);
             }
             else if (_modeManager.IsMultiUser)
             {
@@ -629,6 +822,101 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             foreach (var node in listResponse.Items)
                 Collections.Add(MapCollectionNode(node));
         }
+    }
+
+    /// <summary>
+    /// Adds quick-rate and toggle-flag toolbar buttons to a tile item (T8.20).
+    /// Shared between LoadPageAsync and ExecuteSearchAsync to avoid duplication.
+    /// </summary>
+    private void AddToolbarActions(AssetListItem item)
+    {
+        var assetId = item.Id;
+        item.ToolbarActions =
+        [
+            new ToolbarAction
+            {
+                Icon = "\u2605",  // ★
+                ToolTipText = "Quick rate (cycle)",
+                Command = new RelayCommand(async _ => await QuickRateAssetAsync(assetId, item))
+            },
+            new ToolbarAction
+            {
+                Icon = "\u2691",  // ⚑
+                ToolTipText = "Toggle flag",
+                Command = new RelayCommand(async _ => await ToggleFlagAssetAsync(assetId, item))
+            }
+        ];
+    }
+
+    // ──────────────────────────────────────────────
+    //  T12.2: Batch thumbnail backfill
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Generates thumbnails for assets that don't have them yet. Runs after page load,
+    /// off the UI thread, with a degree of parallelism capped at 4.
+    /// Previous backfill is cancelled on each new page load.
+    /// </summary>
+    private async Task BackfillMissingThumbnailsAsync(
+        IReadOnlyList<AssetListItem> items, string thumbnailDir, CancellationToken ct)
+    {
+        // Cancel any previous backfill still running
+        _backfillCts?.Cancel();
+        _backfillCts?.Dispose();
+        _backfillCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var linked = _backfillCts.Token;
+
+        var missing = items
+            .Where(i => !string.IsNullOrEmpty(i.StoragePath) && !File.Exists(i.ThumbnailPath))
+            .ToList();
+
+        if (missing.Count == 0) return;
+
+        _logger.LogInformation("[Backfill] Generating thumbnails for {Count} assets without cached thumbnails", missing.Count);
+
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 4,
+            CancellationToken = linked
+        };
+
+        try
+        {
+            await Parallel.ForEachAsync(missing, options, async (item, token) =>
+            {
+                try
+                {
+                    var thumbPath = await _thumbnailService.GenerateThumbnailAsync(
+                        item.StoragePath, thumbnailDir, token).ConfigureAwait(false);
+
+                    if (File.Exists(thumbPath))
+                    {
+                        item.ThumbnailPath = thumbPath;
+                        await item.LoadThumbnailAsync((int)ThumbnailSize).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "[Backfill] Failed to generate thumbnail for {Path}", item.StoragePath);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("[Backfill] Cancelled due to new page load");
+        }
+    }
+
+    /// <summary>
+    /// Clears the shared memory cache. Call on gallery disposal or mode switch.
+    /// </summary>
+    public void ClearThumbnailCache()
+    {
+        _backfillCts?.Cancel();
+        _backfillCts?.Dispose();
+        _backfillCts = null;
+        _thumbnailCache.Clear();
+        AssetListItem.SharedThumbnailCache = null;
     }
 
     private static CollectionNode BuildCollectionNode(Adam.Shared.Models.Collection col, List<Adam.Shared.Models.Collection> all)

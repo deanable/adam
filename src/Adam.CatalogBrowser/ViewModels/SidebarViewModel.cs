@@ -38,23 +38,31 @@ public class SidebarViewModel : INotifyPropertyChanged
         _logger = logger;
         _selectedMediaFormat = MediaFormats[0];
 
-        // T8.18: Sidebar CRUD commands
-        CreateCollectionCommand = new RelayCommand(async _ => await PromptCreateCollectionAsync());
-        RenameCollectionCommand = new RelayCommand(async _ => await PromptRenameCollectionAsync());
-        DeleteCollectionCommand = new RelayCommand(async _ => await PromptDeleteCollectionAsync());
+        // T8.18 / T10.3: Sidebar CRUD commands with permission gating
+        CreateCollectionCommand = new RelayCommand(async _ => await PromptCreateCollectionAsync(), _ => CanCreateMetadata);
+        RenameCollectionCommand = new RelayCommand(async _ => await PromptRenameCollectionAsync(), _ => CanEditMetadata);
+        DeleteCollectionCommand = new RelayCommand(async _ => await PromptDeleteCollectionAsync(), _ => CanEditMetadata);
 
-        CreateKeywordCommand = new RelayCommand(async _ => await PromptCreateKeywordAsync());
-        RenameKeywordCommand = new RelayCommand(async _ => await PromptRenameKeywordAsync());
-        DeleteKeywordCommand = new RelayCommand(async _ => await PromptDeleteKeywordAsync());
+        CreateKeywordCommand = new RelayCommand(async _ => await PromptCreateKeywordAsync(), _ => CanCreateMetadata);
+        RenameKeywordCommand = new RelayCommand(async _ => await PromptRenameKeywordAsync(), _ => CanEditMetadata);
+        DeleteKeywordCommand = new RelayCommand(async _ => await PromptDeleteKeywordAsync(), _ => CanEditMetadata);
 
-        CreateCategoryCommand = new RelayCommand(async _ => await PromptCreateCategoryAsync());
-        RenameCategoryCommand = new RelayCommand(async _ => await PromptRenameCategoryAsync());
-        DeleteCategoryCommand = new RelayCommand(async _ => await PromptDeleteCategoryAsync());
+        CreateCategoryCommand = new RelayCommand(async _ => await PromptCreateCategoryAsync(), _ => CanCreateMetadata);
+        RenameCategoryCommand = new RelayCommand(async _ => await PromptRenameCategoryAsync(), _ => CanEditMetadata);
+        DeleteCategoryCommand = new RelayCommand(async _ => await PromptDeleteCategoryAsync(), _ => CanEditMetadata);
 
         // T8.18: Context menu display — these receive the clicked node as parameter.
         // They set the selected item, then show a MenuFlyout at the clicked location.
         ShowKeywordMenuCommand = new RelayCommand(ShowKeywordContextMenu);
         ShowCategoryMenuCommand = new RelayCommand(ShowCategoryContextMenu);
+        ShowFolderMenuCommand = new RelayCommand(ShowFolderContextMenu);
+
+        // T10.2: Inline rename commands — called from SearchableTreeView when user commits rename
+        CommitRenameCommand = new RelayCommand(CommitNodeRename);
+
+        // T10.5: Folder-specific commands
+        RevealFolderCommand = new RelayCommand(RevealFolder, _ => SelectedFolder != null && SelectedFolder.Path.Length > 0);
+        RescanFolderCommand = new RelayCommand(async _ => await RescanFolderAsync(), _ => SelectedFolder != null && SelectedFolder.Path.Length > 0);
     }
 
     public ObservableCollection<FolderNode> Folders { get; } = [];
@@ -158,6 +166,37 @@ public class SidebarViewModel : INotifyPropertyChanged
     // They are wired via SearchableTreeView.NodeContextMenuCommand.
     public ICommand ShowKeywordMenuCommand { get; }
     public ICommand ShowCategoryMenuCommand { get; }
+    public ICommand ShowFolderMenuCommand { get; }
+
+    // ── T10.2: Inline rename commit ──
+    public ICommand CommitRenameCommand { get; }
+
+    // ── T10.5: Folder commands ──
+    public ICommand RevealFolderCommand { get; }
+    public ICommand RescanFolderCommand { get; }
+
+    // ── T10.3: Permission gating ──
+    public bool CanEditMetadata => _modeManager.IsStandalone || EvaluatePermission("asset:update");
+    public bool CanCreateMetadata => _modeManager.IsStandalone || EvaluatePermission("collection:create") || EvaluatePermission("asset:create");
+
+    /// <summary>
+    /// Raises PropertyChanged for permission properties and re-evaluates CRUD command CanExecute.
+    /// Called by MainWindowViewModel.RefreshPermissionsAsync after login/logout/role change.
+    /// </summary>
+    public void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanEditMetadata));
+        OnPropertyChanged(nameof(CanCreateMetadata));
+        (CreateCollectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RenameCollectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeleteCollectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CreateKeywordCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RenameKeywordCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeleteKeywordCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CreateCategoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RenameCategoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeleteCategoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
 
     public event Action? FilterChanged;
 
@@ -864,6 +903,175 @@ public class SidebarViewModel : INotifyPropertyChanged
             SelectedMetadataCategory = cat;
     }
 
+    /// <summary>
+    /// Handles right-click on a folder tree node — sets selection and shows context menu.
+    /// </summary>
+    private void ShowFolderContextMenu(object? parameter)
+    {
+        if (parameter is FolderNode folder)
+            SelectedFolder = folder;
+    }
+
+    /// <summary>
+    /// Handles inline rename commit from SearchableTreeView TextBox (T10.2).
+    /// Receives the node as parameter, calls CommitRename() and persists to DB.
+    /// </summary>
+    private async void CommitNodeRename(object? parameter)
+    {
+        try
+        {
+            switch (parameter)
+            {
+                case KeywordNode kw when kw.IsEditing:
+                {
+                    var oldName = kw.Name;
+                    kw.CommitRename();
+                    if (kw.Name != oldName)
+                        await PersistKeywordRenameAsync(kw);
+                    break;
+                }
+                case CategoryNode cat when cat.IsEditing:
+                {
+                    var oldName = cat.Name;
+                    cat.CommitRename();
+                    if (cat.Name != oldName)
+                        await PersistCategoryRenameAsync(cat);
+                    break;
+                }
+                case CollectionNode col when col.IsEditing:
+                {
+                    var oldName = col.Name;
+                    col.CommitRename();
+                    if (col.Name != oldName)
+                        await PersistCollectionRenameAsync(col);
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist inline rename");
+        }
+    }
+
+    private async Task PersistKeywordRenameAsync(KeywordNode kw)
+    {
+        if (_modeManager.IsMultiUser)
+        {
+            await SendBrokerRequestAsync(
+                new UpdateKeywordRequest { Id = kw.KeywordId.ToString(), Name = kw.Name },
+                MessageTypeCode.UpdateKeywordRequest);
+        }
+        else
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var entity = await db.Keywords.FirstOrDefaultAsync(k => k.Id == kw.KeywordId).ConfigureAwait(false);
+            if (entity != null)
+            {
+                entity.Name = kw.Name;
+                entity.NormalizedName = kw.Name.ToUpperInvariant();
+                await db.SaveChangesAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task PersistCategoryRenameAsync(CategoryNode cat)
+    {
+        if (_modeManager.IsMultiUser)
+        {
+            await SendBrokerRequestAsync(
+                new UpdateCategoryRequest { Id = cat.CategoryId.ToString(), Name = cat.Name },
+                MessageTypeCode.UpdateCategoryRequest);
+        }
+        else
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var entity = await db.Categories.FirstOrDefaultAsync(c => c.Id == cat.CategoryId).ConfigureAwait(false);
+            if (entity != null)
+            {
+                entity.Name = cat.Name;
+                entity.NormalizedName = cat.Name.ToUpperInvariant();
+                await db.SaveChangesAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task PersistCollectionRenameAsync(CollectionNode col)
+    {
+        if (_modeManager.IsMultiUser)
+        {
+            await SendBrokerRequestAsync(
+                new UpdateCollectionRequest { Id = col.Id.ToString(), Name = col.Name },
+                MessageTypeCode.UpdateCollectionRequest);
+        }
+        else
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var entity = await db.Collections.FirstOrDefaultAsync(c => c.Id == col.Id).ConfigureAwait(false);
+            if (entity != null)
+            {
+                entity.Name = col.Name;
+                await db.SaveChangesAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Opens the selected folder in the system file explorer (T10.5).
+    /// </summary>
+    private void RevealFolder(object? parameter)
+    {
+        FolderNode? folder = parameter as FolderNode;
+        if (folder == null || string.IsNullOrEmpty(folder.Path))
+            folder = SelectedFolder;
+        if (folder == null || string.IsNullOrEmpty(folder.Path)) return;
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+                System.Diagnostics.Process.Start("explorer.exe", folder.Path);
+            else if (OperatingSystem.IsMacOS())
+                System.Diagnostics.Process.Start("open", folder.Path);
+            else if (OperatingSystem.IsLinux())
+                System.Diagnostics.Process.Start("xdg-open", folder.Path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reveal folder: {Path}", folder.Path);
+        }
+    }
+
+    /// <summary>
+    /// Triggers a re-scan/ingest of the selected folder (T10.5).
+    /// </summary>
+    private async Task RescanFolderAsync()
+    {
+        if (SelectedFolder == null || string.IsNullOrEmpty(SelectedFolder.Path)) return;
+
+        try
+        {
+            // TODO (Phase 10 Wave 2): Wire to ingestion service to re-scan the folder path.
+            // For now, refresh the sidebar data which re-queries asset counts.
+            await LoadAsync();
+            _logger.LogInformation("Re-scan requested for folder: {Path}", SelectedFolder.Path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rescan folder: {Path}", SelectedFolder.Path);
+        }
+    }
+
+    private bool EvaluatePermission(string permission)
+    {
+        if (_modeManager.IsStandalone) return true;
+        var session = _modeManager.AuthSession;
+        if (session == null || !session.IsLoggedIn) return false;
+        if (session.IsTokenExpired()) return false;
+        var role = session.CurrentUser?.Role;
+        if (string.IsNullOrEmpty(role)) return false;
+        return Shared.Services.PermissionEvaluator.HasPermission(role, permission);
+    }
+
     // ──────────────────────────────────────────────
     //  T8.18: Sidebar CRUD operations (standalone)
     // ──────────────────────────────────────────────
@@ -1300,6 +1508,9 @@ public class FolderNode : INotifyPropertyChanged
 
     public ObservableCollection<FolderNode> Children { get; } = [];
 
+    // Folders are read-only in v1 — no inline rename support.
+    // BeginRename/CommitRename/CancelRename intentionally omitted.
+
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
@@ -1309,12 +1520,20 @@ public class CollectionNode : INotifyPropertyChanged
 {
     private string _name = string.Empty;
     private int _assetCount;
+    private bool _isEditing;
+    private string _editName = string.Empty;
 
     public Guid Id { get; set; }
     public Guid? ParentId { get; set; }
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
+    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
     public ObservableCollection<CollectionNode> Children { get; } = [];
+
+    public void BeginRename() { EditName = Name; IsEditing = true; }
+    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
+    public void CancelRename() { IsEditing = false; EditName = Name; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)
@@ -1326,15 +1545,23 @@ public class KeywordNode : INotifyPropertyChanged
     private bool _isExpanded;
     private bool _isSelected;
     private int _assetCount;
+    private bool _isEditing;
+    private string _editName = string.Empty;
 
     public Guid KeywordId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
+    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
 
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<KeywordNode> Children { get; } = [];
+
+    public void BeginRename() { EditName = Name; IsEditing = true; }
+    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
+    public void CancelRename() { IsEditing = false; EditName = Name; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)
@@ -1347,13 +1574,21 @@ public class CategoryNode : INotifyPropertyChanged
     private bool _isSelected;
     private string _name = string.Empty;
     private int _count;
+    private bool _isEditing;
+    private string _editName = string.Empty;
 
     public Guid CategoryId { get; set; }
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
     public int Count { get => _count; set { _count = value; OnPropertyChanged(); } }
+    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
+    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<CategoryNode> Children { get; } = [];
+
+    public void BeginRename() { EditName = Name; IsEditing = true; }
+    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
+    public void CancelRename() { IsEditing = false; EditName = Name; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)

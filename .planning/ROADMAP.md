@@ -1,7 +1,7 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-12 (v1.0 shipped, v2 planning complete)
+**Updated:** 2026-06-13 (v1.0 shipped, v2 plans expanded to ultra-detailed level)
 **Granularity:** Standard  
 **Phases:** 12
 
@@ -18,9 +18,9 @@
 | 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | ✅ Complete |
 | 8 | v1.0 Polish & Ship | UI polish, docs, packaging, stabilization | All v1 Final | ✅ Complete |
 | 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
-| 10 | Sidebar CRUD & Tree Interaction | Create/Rename/Delete for Collections, Keywords, Categories + folder context menus | UI-V2-01 to UI-V2-08 | 📋 Planned |
-| 11 | Full-Text Search (FTS5) | Replace LIKE-based search with FTS5/tsvector/CONTAINS per provider | PERF-01, META-V2-01 | 📋 Planned |
-| 12 | Performance Optimization | Thumbnail cache, gallery virtualization, startup time | PERF-02 to PERF-05 | 📋 Planned |
+| 10 | Sidebar CRUD & Tree Interaction | XAML ContextFlyout context menus, cascade delete, inline rename, broker handlers, filter state | UI-V2-01 to UI-V2-08 | 📋 Ultra-detailed plan |
+| 11 | Full-Text Search (FTS5) | SearchService → IFtsService integration, dedicated search bar, highlighting, suggestions | PERF-01, META-V2-01 | 📋 Ultra-detailed plan |
+| 12 | Performance Optimization | Decode-to-size, VirtualizingStackPanel tuning, bitmap disposal, lazy init, startup profiling | PERF-02 to PERF-05 | 📋 Ultra-detailed plan |
 
 ## Phase Details
 
@@ -117,4 +117,51 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 - ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-*Roadmap updated: 2026-06-12 — Phase 8 complete, v1.0 ready*
+### Phase 10: Sidebar CRUD & Tree Interaction 📋
+**Goal:** Complete sidebar tree interaction model — **XAML ContextFlyout** context menus, **cascade delete** (parent + children), inline rename (F2/double-click), broker-side CRUD handlers with ChangeNotification broadcast, visual filter state indicators.
+
+**Depends on:** Phases 1–9, Phase 7 (permission infrastructure)
+
+**Wave structure:**
+1. **Wave 1 — Client CRUD**: Dynamic ContextFlyout population, inline rename completion, cascade delete with confirmation, filter commands, visual filter state
+2. **Wave 2 — Broker Handlers**: Verify/update existing handlers with cascade+ChangeNotification; verify protobuf contracts
+3. **Wave 3 — Filter UX**: "Filter by this"/"Clear filter" context menu entries
+
+**Key decisions:**
+- XAML ContextFlyout with dynamic code-behind population (polymorphic node types)
+- Cascade delete all children when deleting parent node (always, no re-parent option)
+- Permission gating via existing Phase 7 CanEditMetadata/CanCreateMetadata
+
+### Phase 11: Full-Text Search (FTS5) 📋
+**Goal:** Complete FTS integration — wire existing IFtsService implementations into SearchService, add dedicated search bar with autocomplete suggestions, search result highlighting in gallery tiles, multi-provider validation.
+
+> **Note:** FTS infrastructure layer (IFtsService, SqliteFtsService, PostgresFtsService, SqlServerFtsService) already substantially implemented in working tree.
+
+**Depends on:** Phases 1–9, Phase 6 (multi-provider infrastructure)
+
+**Wave structure:**
+1. **Wave 1 — SearchService**: Replace LIKE logic with IFtsService calls; preserve non-FTS filter parameters
+2. **Wave 2 — Search UI**: Dedicated search bar above gallery, autocomplete suggestions Popup, result highlighting in tiles
+3. **Wave 3 — Tests**: 15+ comprehensive FTS tests across all providers
+
+**Key decisions:**
+- Dedicated search bar above gallery (not integrated into sidebar/filter panel)
+- SearchService gets dual path (FTS when available, LIKE fallback when not)
+
+### Phase 12: Performance Optimization 📋
+**Goal:** Optimize thumbnail caching (decode-to-size), gallery virtualization (VirtualizingStackPanel tuning), and startup time (lazy init, compiled bindings, profiling). Targets: <3s cold start, smooth 100K scroll, bounded memory.
+
+**Depends on:** Phases 1–9
+
+**Wave structure:**
+1. **Wave 1 — Thumbnails**: Decode-to-size with fallback; last-write-time cache validation
+2. **Wave 2 — Virtualization**: VirtualizingStackPanel BufferFactor tuning; bitmap disposal (IDisposable); load cancellation on scroll-out; GPU cache config
+3. **Wave 3 — Startup**: Lazy initialization; compiled bindings; async sidebar loading; Stopwatch telemetry
+
+**Key decisions:**
+- Decode-to-size with full-decode fallback for unsupported formats (RAW)
+- Avalonia VirtualizingStackPanel with BufferFactor tuning (no custom virtual panel)
+- ThumbnailCache already implemented (256MB LRU in-memory)
+
+---
+*Roadmap updated: 2026-06-13 — v1.0 shipped, v2 plans expanded to ultra-detailed level*

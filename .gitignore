@@ -45,6 +45,14 @@ TestResults/
 *.db-shm
 *.db-wal
 
+# Build & packaging artifacts
+publish/
+test-release/
+*.msi
+*.dmg
+*.tar.gz
+*.wixpdb
+
 # Stray root files (accidentally committed)
 WindowsTemptest_request.json
 query

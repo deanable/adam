@@ -1306,6 +1306,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 : GetEditPermissionTooltipText();
             MetadataEditor.CanEdit = canEdit;
 
+            // T10.3: Refresh sidebar CRUD permissions
+            Sidebar.RefreshPermissions();
+
             // Re-evaluate command CanExecute for permission-gated commands
             (ShowIngestionCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ShowMetadataEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();

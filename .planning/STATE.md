@@ -2,7 +2,7 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 📋 v2 Planning Complete (Phases 10-12 planned)
+**Current Phase:** 📋 v2 Ultra-Detailed Plans Complete (Phases 10-12)
 **Current Milestone:** v2.0 — Advanced Features & Performance
 
 ## Project Reference
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** v2.0 planning complete — Phase 10 (Sidebar CRUD), Phase 11 (FTS5 Search), Phase 12 (Performance) ready to execute
+**Current focus:** v2.0 ultra-detailed plans complete — Phase 10 (Sidebar CRUD), Phase 11 (FTS5 Search), Phase 12 (Performance) ready to execute
 
 ## Phase Progress
 
@@ -25,9 +25,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 7 | ✅ | 1/1 | 100% | Archived |
 | 8 | ✅ | 1/1 | 100% | Complete |
 | 9 | ✅ | 1/1 | 100% | Archived |
-| 10 | 📋 | 1/1 | 0% | Planned |
-| 11 | 📋 | 1/1 | 0% | Planned |
-| 12 | 📋 | 1/1 | 0% | Planned |
+| 10 | 📋 | 1/1 | 0% | Ultra-detailed plan + CONTEXT.md |
+| 11 | 📋 | 1/1 | 0% | Ultra-detailed plan + CONTEXT.md |
+| 12 | 📋 | 1/1 | 0% | Ultra-detailed plan + CONTEXT.md |
 
 ## Accumulated Context
 
@@ -190,10 +190,10 @@ None.
 
 ## Next Actions
 
-1. **Execute Phase 10** — Sidebar CRUD & Tree Interaction (context menus, inline rename, broker handlers)
-2. **Execute Phase 11** — Full-Text Search FTS5 (IFtsService, SQLite FTS5, PostgreSQL tsvector, SQL Server CONTAINS)
-3. **Execute Phase 12** — Performance Optimization (thumbnail cache, gallery virtualization, startup time)
+1. **Execute Phase 10** — Sidebar CRUD & Tree Interaction (see `.planning/phases/10-sidebar-crud/10-PLAN.md`)
+2. **Execute Phase 11** — Full-Text Search FTS5 (see `.planning/phases/11-fts5-search/11-PLAN.md`)
+3. **Execute Phase 12** — Performance Optimization (see `.planning/phases/12-performance/12-PLAN.md`)
 
 ---
-*State updated: 2026-06-12 — v1.0 shipped (v1.0.0), v2 planning complete*
+*State updated: 2026-06-13 — v1.0 shipped, v2 plans expanded to ultra-detailed level*
 

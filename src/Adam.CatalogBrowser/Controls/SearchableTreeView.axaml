@@ -25,7 +25,13 @@
           <TreeView.ItemTemplate>
             <TreeDataTemplate ItemsSource="{Binding Children}">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333" />
+                <Panel>
+                  <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333"
+                             IsVisible="{Binding !IsEditing}" />
+                  <TextBox Text="{Binding EditName}" FontSize="11" Padding="2,1"
+                           BorderThickness="1" BorderBrush="#1976D2"
+                           IsVisible="{Binding IsEditing}" />
+                </Panel>
                 <TextBlock Grid.Column="1"
                            Text="{Binding Count}"
                            FontSize="10"

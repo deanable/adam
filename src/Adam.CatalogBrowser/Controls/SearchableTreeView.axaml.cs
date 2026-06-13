@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Adam.CatalogBrowser.Controls;
@@ -220,8 +221,84 @@ public partial class SearchableTreeView : UserControl
         TreeViewBox.ContextRequested += OnTreeViewContextRequested;
         FlatListBox.ContextRequested += OnFlatListContextRequested;
 
+        // T10.2: Double-click for inline rename
+        TreeViewBox.PointerPressed += OnTreeViewPointerPressed;
+        // T10.2: Enter/Escape for inline rename commit/cancel
+        TreeViewBox.KeyDown += OnTreeViewKeyDown;
+
         ItemsSourceProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.RebuildFilteredList());
         SelectedItemProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.SyncSelection());
+    }
+
+    // ──────────────────────────────────────────────
+    //  Inline rename (T10.2)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Command invoked when a tree node rename is committed (Enter pressed).
+    /// Parameter is the node whose rename was committed.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> RenameCompletedCommandProperty =
+        AvaloniaProperty.Register<SearchableTreeView, ICommand?>(nameof(RenameCompletedCommand));
+
+    public ICommand? RenameCompletedCommand
+    {
+        get => GetValue(RenameCompletedCommandProperty);
+        set => SetValue(RenameCompletedCommandProperty, value);
+    }
+
+    private void OnTreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+
+        var source = e.Source as Visual;
+        var treeItem = source?.FindAncestorOfType<TreeViewItem>();
+        if (treeItem?.DataContext == null) return;
+
+        var node = treeItem.DataContext;
+        var beginRename = node.GetType().GetMethod("BeginRename",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+        if (beginRename != null)
+        {
+            beginRename.Invoke(node, null);
+            // Focus the TextBox inside the tree item after template updates
+            Dispatcher.UIThread.Post(() =>
+            {
+                var textBox = treeItem.FindDescendantOfType<TextBox>();
+                textBox?.Focus();
+                textBox?.SelectAll();
+            }, DispatcherPriority.Input);
+        }
+    }
+
+    private void OnTreeViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter && e.Key != Key.Escape) return;
+
+        // Find the focused TextBox inside the TreeView
+        var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as TextBox;
+        if (focused == null) return;
+
+        var treeItem = focused.FindAncestorOfType<TreeViewItem>();
+        if (treeItem?.DataContext == null) return;
+
+        var node = treeItem.DataContext;
+        var isEditingProp = node.GetType().GetProperty("IsEditing");
+        if (isEditingProp == null || !(bool)(isEditingProp.GetValue(node) ?? false)) return;
+
+        if (e.Key == Key.Enter)
+        {
+            // Fire the completed command — it handles both CommitRename() and DB persistence.
+            RenameCompletedCommand?.Execute(node);
+            e.Handled = true;
+        }
+        else // Escape
+        {
+            var cancelRename = node.GetType().GetMethod("CancelRename",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+            cancelRename?.Invoke(node, null);
+            e.Handled = true;
+        }
     }
 
     // ──────────────────────────────────────────────

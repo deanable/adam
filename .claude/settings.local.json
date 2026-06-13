@@ -50,7 +50,11 @@
       "Bash(git -C /c/Users/Dean/source/repos/adam --no-pager diff --stat src/ .planning/plans/phase-8/PLAN.md)",
       "Bash(git -C /c/Users/Dean/source/repos/adam --no-pager diff src/)",
       "Skill(gsd-ui-review)",
-      "Bash(gsd-sdk query *)"
+      "Bash(gsd-sdk query *)",
+      "Skill(deep-research)",
+      "WebFetch(domain:www.cmswire.com)",
+      "Bash(xargs grep -l -i \"iptc\\\\|xmp\\\\|exif\\\\|MetadataProfile\\\\|MetadataEditor\")",
+      "Bash(awk '/## v2|V2|v2 Requirements/{f=1} f' .planning/REQUIREMENTS.md)"
     ]
   }
 }

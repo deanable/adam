@@ -21,6 +21,8 @@ public class AssetListItem : INotifyPropertyChanged
     private string _colorLabel = string.Empty;
     private IBrush? _colorBrush;
     private bool _isFlagged;
+    private string? _highlightText;
+    private IReadOnlyList<string> _matchedFields = [];
 
     public Guid Id { get; set; }
     public string StoragePath { get; set; } = string.Empty;
@@ -42,6 +44,11 @@ public class AssetListItem : INotifyPropertyChanged
         get => _thumbnailPath;
         set
         {
+            // T12.1: Remove stale cache entry before disposing the bitmap
+            // so the cache doesn't return a disposed bitmap on next scroll-back.
+            if (!string.IsNullOrEmpty(_thumbnailPath) && SharedThumbnailCache != null)
+                SharedThumbnailCache.Remove(_thumbnailPath);
+
             _thumbnailPath = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Thumbnail));
@@ -60,28 +67,42 @@ public class AssetListItem : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Shared memory cache for decoded thumbnails (T12.1). Set by AssetGalleryViewModel.
+    /// </summary>
+    internal static Shared.Services.ThumbnailCache? SharedThumbnailCache { get; set; }
+
     public async Task LoadThumbnailAsync(int decodeWidth = 256)
     {
         if (_thumbnail != null || string.IsNullOrEmpty(_thumbnailPath))
-        {
-            System.Diagnostics.Debug.WriteLine($"[Thumbnail] Skipping load - thumbnail={_thumbnail != null}, path empty={string.IsNullOrEmpty(_thumbnailPath)}");
             return;
-        }
 
         await Task.Run(() =>
         {
             try
             {
+                // T12.1: Check memory cache first
+                if (SharedThumbnailCache != null &&
+                    SharedThumbnailCache.TryGet(_thumbnailPath, out var cached) &&
+                    cached is Bitmap cachedBmp)
+                {
+                    Thumbnail = cachedBmp;
+                    return;
+                }
+
                 var exists = File.Exists(_thumbnailPath);
-                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loading thumbnail: {_thumbnailPath}, exists={exists}");
-                
                 if (!exists)
                     return;
 
                 using var stream = File.OpenRead(_thumbnailPath);
                 var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
                 Thumbnail = bitmap;
-                System.Diagnostics.Debug.WriteLine($"[Thumbnail] Loaded successfully: {_thumbnailPath}");
+
+                // T12.1: Store in memory cache
+                SharedThumbnailCache?.Add(
+                    _thumbnailPath,
+                    bitmap,
+                    Shared.Services.ThumbnailCache.EstimateBitmapSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height));
             }
             catch (Exception ex)
             {
@@ -139,6 +160,35 @@ public class AssetListItem : INotifyPropertyChanged
         get => _isFlagged;
         set { _isFlagged = value; OnPropertyChanged(); }
     }
+
+    /// <summary>
+    /// Search query used to highlight matching text in the tile (T11.10).
+    /// </summary>
+    public string? HighlightText
+    {
+        get => _highlightText;
+        set { _highlightText = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsSearchHighlighted)); }
+    }
+
+    /// <summary>
+    /// Which fields matched the FTS query (e.g., "Title", "Keywords").
+    /// Shown as a small badge below the tile title when search is active.
+    /// </summary>
+    public IReadOnlyList<string> MatchedFields
+    {
+        get => _matchedFields;
+        set { _matchedFields = value; OnPropertyChanged(); OnPropertyChanged(nameof(MatchedFieldsText)); }
+    }
+
+    /// <summary>
+    /// Comma-separated matched fields text for display (e.g. "Title, Keywords").
+    /// </summary>
+    public string MatchedFieldsText => MatchedFields.Count > 0 ? string.Join(", ", MatchedFields) : string.Empty;
+
+    /// <summary>
+    /// True when this tile is part of FTS search results and should show highlighting.
+    /// </summary>
+    public bool IsSearchHighlighted => !string.IsNullOrEmpty(HighlightText);
 
     /// <summary>
     /// Toolbar action buttons for the tile (e.g., quick rate, label, flag).

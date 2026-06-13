@@ -31,6 +31,9 @@ public sealed class ModeManager
     public bool IsConnected => BrokerClient?.IsConnected == true;
     public bool IsLoggedIn => AuthSession?.IsLoggedIn == true;
 
+    /// <summary>Optional FTS service injected via DI for standalone mode initialization.</summary>
+    public IFtsService? FtsService { get; set; }
+
     public async Task InitializeAsync()
     {
         Mode = "Standalone";
@@ -48,6 +51,20 @@ public sealed class ModeManager
 
         await using var db = CreateDbContext();
         await db.Database.MigrateAsync();
+
+        // T11.5: Initialize FTS5 tables and triggers after migration
+        if (FtsService != null)
+        {
+            try
+            {
+                await FtsService.EnsureReadyAsync();
+                System.Diagnostics.Debug.WriteLine($"[adam] FTS5 index ready");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[adam] FTS5 init failed (non-fatal): {ex.Message}");
+            }
+        }
     }
 
     public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite", string? connectionString = null)
