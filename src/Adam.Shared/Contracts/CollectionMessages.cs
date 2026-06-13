@@ -162,9 +162,34 @@ public sealed class UpdateCollectionRequest : IProtoSerializable
 public sealed class DeleteCollectionRequest : IProtoSerializable
 {
     public string Id { get; set; } = string.Empty;
-    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
-    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
-    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) { if (WireFormat.GetTagFieldNumber(tag) == 1) Id = input.ReadString(); else input.SkipLastField(); } }
+    public bool CascadeChildren { get; set; } = true;
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, Id);
+        size += ProtoHelper.FieldSize(2, CascadeChildren);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, Id);
+        ProtoHelper.WriteField(output, 2, CascadeChildren);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: Id = input.ReadString(); break;
+                case 2: CascadeChildren = input.ReadBool(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
 }
 
 public sealed class CreateCollectionResponse : IProtoSerializable

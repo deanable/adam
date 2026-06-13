@@ -14,12 +14,6 @@ namespace Adam.CatalogBrowser.Views;
 
 public partial class MainWindow : Window
 {
-    // ── Cached flyout for sidebar tree context menus (T8.18) ──
-    private MenuFlyout? _collectionContextMenu;
-    private MenuFlyout? _keywordContextMenu;
-    private MenuFlyout? _categoryContextMenu;
-    private MenuFlyout? _folderContextMenu;
-
     public MainWindow()
     {
         InitializeComponent();
@@ -75,16 +69,23 @@ public partial class MainWindow : Window
     //  Context menu helpers
     // ──────────────────────────────────────────────
 
+    /// <summary>
+    /// Builds a context menu for sidebar tree nodes with CRUD + Filter items (T10.1, T10.11).
+    /// </summary>
     private static MenuFlyout BuildSidebarContextMenu(
-        string newHeader, ICommand newCmd,
-        string renameHeader, ICommand renameCmd,
-        string deleteHeader, ICommand deleteCmd)
+        ICommand createCmd, ICommand renameCmd, ICommand deleteCmd, object node,
+        ICommand filterByThisCmd, ICommand clearFilterCmd,
+        string createHdr = "New", string renameHdr = "Rename", string deleteHdr = "Delete",
+        string filterHdr = "Filter by this", string clearHdr = "Clear filter")
     {
         var flyout = new MenuFlyout();
-        flyout.Items.Add(new MenuItem { Header = newHeader, Command = newCmd });
-        flyout.Items.Add(new MenuItem { Header = renameHeader, Command = renameCmd });
+        flyout.Items.Add(new MenuItem { Header = createHdr, Command = createCmd });
+        flyout.Items.Add(new MenuItem { Header = renameHdr, Command = renameCmd });
         flyout.Items.Add(new Separator());
-        flyout.Items.Add(new MenuItem { Header = deleteHeader, Command = deleteCmd });
+        flyout.Items.Add(new MenuItem { Header = deleteHdr, Command = deleteCmd });
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = filterHdr, Command = filterByThisCmd, CommandParameter = node });
+        flyout.Items.Add(new MenuItem { Header = clearHdr, Command = clearFilterCmd, CommandParameter = node });
         return flyout;
     }
 
@@ -104,100 +105,97 @@ public partial class MainWindow : Window
     }
 
     // ──────────────────────────────────────────────
-    //  Collections context menu
+    //  Collections context menu (T10.1, T10.11)
     // ──────────────────────────────────────────────
 
     private void OnCollectionContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         var node = GetClickedNode(e);
-        if (node is not CollectionNode) return;
+        if (node is not CollectionNode col) return;
         var vm = VM?.Sidebar;
         if (vm == null) return;
 
-        _collectionContextMenu ??= BuildSidebarContextMenu(
-            "New Collection", vm.CreateCollectionCommand,
-            "Rename", vm.RenameCollectionCommand,
-            "Delete", vm.DeleteCollectionCommand);
+        var flyout = BuildSidebarContextMenu(
+            vm.CreateCollectionCommand, vm.RenameCollectionCommand, vm.DeleteCollectionCommand, col,
+            vm.FilterByThisCommand, vm.ClearFilterCommand,
+            createHdr: "New Collection");
 
         if (sender is Control ctl)
         {
-            _collectionContextMenu.ShowAt(ctl);
+            flyout.ShowAt(ctl);
             e.Handled = true;
         }
     }
 
     // ──────────────────────────────────────────────
-    //  Keywords context menu
+    //  Keywords context menu (T10.1, T10.11)
     // ──────────────────────────────────────────────
 
     private void OnKeywordContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         var node = GetClickedNode(e);
-        if (node is not KeywordNode) return;
+        if (node is not KeywordNode kw) return;
         var vm = VM?.Sidebar;
         if (vm == null) return;
 
-        _keywordContextMenu ??= BuildSidebarContextMenu(
-            "New Keyword", vm.CreateKeywordCommand,
-            "Rename", vm.RenameKeywordCommand,
-            "Delete", vm.DeleteKeywordCommand);
+        var flyout = BuildSidebarContextMenu(
+            vm.CreateKeywordCommand, vm.RenameKeywordCommand, vm.DeleteKeywordCommand, kw,
+            vm.FilterByThisCommand, vm.ClearFilterCommand,
+            createHdr: "New Keyword");
 
         if (sender is Control ctl)
         {
-            _keywordContextMenu.ShowAt(ctl);
+            flyout.ShowAt(ctl);
             e.Handled = true;
         }
     }
 
     // ──────────────────────────────────────────────
-    //  Categories context menu
+    //  Categories context menu (T10.1, T10.11)
     // ──────────────────────────────────────────────
 
     private void OnCategoryContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         var node = GetClickedNode(e);
-        if (node is not CategoryNode) return;
+        if (node is not CategoryNode cat) return;
         var vm = VM?.Sidebar;
         if (vm == null) return;
 
-        _categoryContextMenu ??= BuildSidebarContextMenu(
-            "New Category", vm.CreateCategoryCommand,
-            "Rename", vm.RenameCategoryCommand,
-            "Delete", vm.DeleteCategoryCommand);
+        var flyout = BuildSidebarContextMenu(
+            vm.CreateCategoryCommand, vm.RenameCategoryCommand, vm.DeleteCategoryCommand, cat,
+            vm.FilterByThisCommand, vm.ClearFilterCommand,
+            createHdr: "New Category");
 
         if (sender is Control ctl)
         {
-            _categoryContextMenu.ShowAt(ctl);
+            flyout.ShowAt(ctl);
             e.Handled = true;
         }
     }
 
     // ──────────────────────────────────────────────
-    //  Folders context menu (T10.5)
+    //  Folders context menu (T10.1, T10.5, T10.11)
     // ──────────────────────────────────────────────
 
     private void OnFolderContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         var node = GetClickedNode(e);
-        if (node is not FolderNode) return;
+        if (node is not FolderNode folder) return;
         var vm = VM?.Sidebar;
         if (vm == null) return;
 
-        _folderContextMenu ??= BuildFolderContextMenu(vm);
-
-        if (sender is Control ctl)
-        {
-            _folderContextMenu.ShowAt(ctl);
-            e.Handled = true;
-        }
-    }
-
-    private static MenuFlyout BuildFolderContextMenu(SidebarViewModel vm)
-    {
         var flyout = new MenuFlyout();
         flyout.Items.Add(new MenuItem { Header = "Reveal in Explorer", Command = vm.RevealFolderCommand });
         flyout.Items.Add(new MenuItem { Header = "Re-scan Folder", Command = vm.RescanFolderCommand });
-        return flyout;
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(new MenuItem { Header = "Filter by this", Command = vm.FilterByThisCommand, CommandParameter = folder });
+        flyout.Items.Add(new MenuItem { Header = "Clear filter", Command = vm.ClearFilterCommand, CommandParameter = folder });
+
+        if (sender is Control ctl)
+        {
+            flyout.ShowAt(ctl);
+            e.Handled = true;
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -271,6 +269,22 @@ public class BoolToModeBgConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is bool b && b ? new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)) : Brushes.Transparent;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts a boolean to FontWeight: True → Bold (active filter), False → Normal.
+/// </summary>
+public class BoolToFontWeightConverter : IValueConverter
+{
+    public static readonly BoolToFontWeightConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is bool b && b ? FontWeight.Bold : FontWeight.Normal;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

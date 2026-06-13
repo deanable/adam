@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
              x:Class="Adam.CatalogBrowser.Controls.SearchableTreeView"
              x:CompileBindings="False">
   <StackPanel Spacing="4">
@@ -26,11 +27,20 @@
             <TreeDataTemplate ItemsSource="{Binding Children}">
               <Grid ColumnDefinitions="*,Auto">
                 <Panel>
-                  <TextBlock Text="{Binding Name}" FontSize="11" Foreground="#333"
-                             IsVisible="{Binding !IsEditing}" />
-                  <TextBox Text="{Binding EditName}" FontSize="11" Padding="2,1"
-                           BorderThickness="1" BorderBrush="#1976D2"
-                           IsVisible="{Binding IsEditing}" />
+                  <!-- T10.13: Active filter indicator (blue bold when IsActiveFilter) -->
+                  <TextBlock Text="{Binding Name}" FontSize="11"
+                             IsVisible="{Binding !IsEditing}"
+                             Foreground="#333"
+                             FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}" />
+                  <Panel IsVisible="{Binding IsEditing}">
+                    <TextBox Text="{Binding EditName}" FontSize="11" Padding="2,1"
+                             BorderThickness="1" BorderBrush="#1976D2" />
+                  </Panel>
+                  <!-- Active filter indicator dot -->
+                  <Ellipse Width="6" Height="6" Fill="#1976D2"
+                           HorizontalAlignment="Left" VerticalAlignment="Top"
+                           Margin="-10,3,0,0"
+                           IsVisible="{Binding IsActiveFilter}" />
                 </Panel>
                 <TextBlock Grid.Column="1"
                            Text="{Binding Count}"

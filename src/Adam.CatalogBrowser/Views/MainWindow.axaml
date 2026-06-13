@@ -65,6 +65,8 @@
     <KeyBinding Gesture="F2" Command="{Binding RenameAssetCommand}" />
     <!-- T8.21: Ctrl+F = focus keyword search -->
     <KeyBinding Gesture="Ctrl+F" Command="{Binding FocusSearchCommand}" />
+    <!-- T10.2: F2 = inline rename selected sidebar node -->
+    <KeyBinding Gesture="F2" Command="{Binding Sidebar.F2RenameCommand}" />
   </Window.KeyBindings>
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
@@ -244,7 +246,15 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      <Panel>
+                        <!-- T10.13: Active filter indicator -->
+                        <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}" />
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                                 Margin="-10,3,0,0"
+                                 IsVisible="{Binding IsActiveFilter}" />
+                      </Panel>
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>
@@ -261,11 +271,17 @@
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
                       <Panel>
+                        <!-- T10.13: Active filter indicator -->
                         <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}"
-                                   IsVisible="{Binding !IsEditing}" />
+                                   IsVisible="{Binding !IsEditing}"
+                                   FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}" />
                         <TextBox Text="{Binding EditName}" FontSize="11" Padding="2,1"
                                  BorderThickness="1" BorderBrush="{DynamicResource PrimaryBrush}"
                                  IsVisible="{Binding IsEditing}" />
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                                 Margin="-10,3,0,0"
+                                 IsVisible="{Binding IsActiveFilter}" />
                       </Panel>
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" Margin="4,0,0,0" />
                     </Grid>
@@ -316,7 +332,15 @@
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      <Panel>
+                        <!-- T10.13: Active filter indicator -->
+                        <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}" />
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                                 Margin="-10,3,0,0"
+                                 IsVisible="{Binding IsActiveFilter}" />
+                      </Panel>
                       <TextBlock Grid.Column="1" Text="{Binding AssetCount}" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" Margin="4,0,0,0" />
                     </Grid>
                   </TreeDataTemplate>

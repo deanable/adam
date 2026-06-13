@@ -63,6 +63,13 @@ public class SidebarViewModel : INotifyPropertyChanged
         // T10.5: Folder-specific commands
         RevealFolderCommand = new RelayCommand(RevealFolder, _ => SelectedFolder != null && SelectedFolder.Path.Length > 0);
         RescanFolderCommand = new RelayCommand(async _ => await RescanFolderAsync(), _ => SelectedFolder != null && SelectedFolder.Path.Length > 0);
+
+        // T10.1 / T10.11: Filter commands — used in context menus
+        FilterByThisCommand = new RelayCommand(OnFilterByThis);
+        ClearFilterCommand = new RelayCommand(OnClearFilter);
+
+        // T10.2: F2 inline rename keyboard shortcut
+        F2RenameCommand = new RelayCommand(_ => BeginRenameSelectedNode(), _ => SelectedKeyword != null || SelectedCollection != null || SelectedMetadataCategory != null);
     }
 
     public ObservableCollection<FolderNode> Folders { get; } = [];
@@ -170,6 +177,13 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     // ── T10.2: Inline rename commit ──
     public ICommand CommitRenameCommand { get; }
+
+    // ── T10.1/T10.11: Filter commands ──
+    public ICommand FilterByThisCommand { get; }
+    public ICommand ClearFilterCommand { get; }
+
+    // ── T10.2: F2 rename keyboard shortcut ──
+    public ICommand F2RenameCommand { get; }
 
     // ── T10.5: Folder commands ──
     public ICommand RevealFolderCommand { get; }
@@ -827,7 +841,63 @@ public class SidebarViewModel : INotifyPropertyChanged
     }
 
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
-    private void OnFilterChanged() => FilterChanged?.Invoke();
+
+    private void OnFilterChanged()
+    {
+        // T10.13: Update IsActiveFilter state on all nodes
+        ClearActiveFilterStates();
+
+        if (SelectedKeyword != null) SelectedKeyword.IsActiveFilter = true;
+        else if (SelectedMetadataCategory != null) SelectedMetadataCategory.IsActiveFilter = true;
+        else if (SelectedCollection != null) SelectedCollection.IsActiveFilter = true;
+        else if (SelectedFolder != null) SelectedFolder.IsActiveFilter = true;
+        else if (SelectedDateTaken != null) SelectedDateTaken.IsActiveFilter = true;
+
+        FilterChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Clears IsActiveFilter on all tree nodes recursively.
+    /// </summary>
+    private void ClearActiveFilterStates()
+    {
+        void ClearRecursive(System.Collections.IEnumerable children)
+        {
+            foreach (var child in children)
+            {
+                switch (child)
+                {
+                    case KeywordNode kw:
+                        kw.IsActiveFilter = false;
+                        ClearRecursive(kw.Children);
+                        break;
+                    case CategoryNode cat:
+                        cat.IsActiveFilter = false;
+                        ClearRecursive(cat.Children);
+                        break;
+                    case CollectionNode col:
+                        col.IsActiveFilter = false;
+                        ClearRecursive(col.Children);
+                        break;
+                    case FolderNode folder:
+                        folder.IsActiveFilter = false;
+                        ClearRecursive(folder.Children);
+                        break;
+                    case DateTakenNode dt:
+                        dt.IsActiveFilter = false;
+                        ClearRecursive(dt.Children);
+                        break;
+                }
+            }
+        }
+
+        ClearRecursive(Keywords.FirstOrDefault()?.Children ?? Enumerable.Empty<KeywordNode>());
+        ClearRecursive(MetadataCategories.FirstOrDefault()?.Children ?? Enumerable.Empty<CategoryNode>());
+        ClearRecursive(Collections.FirstOrDefault()?.Children ?? Enumerable.Empty<CollectionNode>());
+        ClearRecursive(Folders.FirstOrDefault()?.Children ?? Enumerable.Empty<FolderNode>());
+        ClearRecursive(DateTakenTree.FirstOrDefault()?.Children ?? Enumerable.Empty<DateTakenNode>());
+    }
+
 
     /// <summary>
     /// Returns the main application window, or null if unavailable.
@@ -910,6 +980,73 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         if (parameter is FolderNode folder)
             SelectedFolder = folder;
+    }
+
+    // ──────────────────────────────────────────────
+    //  T10.1: Filter-by-this / Clear-filter commands
+    // ──────────────────────────────────────────────
+
+    private void OnFilterByThis(object? parameter)
+    {
+        switch (parameter)
+        {
+            case KeywordNode kw:
+                SelectedKeyword = kw;
+                break;
+            case CategoryNode cat:
+                SelectedMetadataCategory = cat;
+                break;
+            case CollectionNode col:
+                SelectedCollection = col;
+                break;
+            case FolderNode folder:
+                SelectedFolder = folder;
+                break;
+            case DateTakenNode dt:
+                SelectedDateTaken = dt;
+                break;
+        }
+    }
+
+    private void OnClearFilter(object? parameter)
+    {
+        switch (parameter)
+        {
+            case KeywordNode:
+                SelectedKeyword = null;
+                break;
+            case CategoryNode:
+                SelectedMetadataCategory = null;
+                break;
+            case CollectionNode:
+                SelectedCollection = null;
+                break;
+            case FolderNode:
+                SelectedFolder = null;
+                break;
+            case DateTakenNode:
+                SelectedDateTaken = null;
+                break;
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  T10.2: F2 inline rename keyboard shortcut
+    // ──────────────────────────────────────────────
+
+    private void BeginRenameSelectedNode()
+    {
+        var node = (object?)SelectedKeyword ?? (object?)SelectedCollection ?? SelectedMetadataCategory;
+        if (node == null) return;
+
+        var beginMethod = node.GetType().GetMethod("BeginRename",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+        beginMethod?.Invoke(node, null);
+
+        // Notify UI that node state changed
+        OnPropertyChanged(nameof(Keywords));
+        OnPropertyChanged(nameof(Collections));
+        OnPropertyChanged(nameof(MetadataCategories));
     }
 
     /// <summary>
@@ -1171,19 +1308,33 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         var owner = GetOwnerWindow();
         if (owner == null) return;
+
+        // T10.4: Count descendants for cascade confirmation
+        var descendantCount = CountDescendantCollections(SelectedCollection);
+        var message = descendantCount > 0
+            ? $"Are you sure you want to delete '{SelectedCollection.Name}' and all {descendantCount} sub-collections?\n\n" +
+              $"The collection(s) will be removed but the assets within them will not be deleted."
+            : $"Are you sure you want to delete '{SelectedCollection.Name}'?\n\n" +
+              $"This will remove the collection but not the assets within it.";
+
         var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Collection",
-            $"Are you sure you want to delete '{SelectedCollection.Name}'?\n\nThis will remove the collection but not the assets within it.",
-            "Delete",
-            "Cancel",
-            isDestructive: true);
+            message, "Delete", "Cancel", isDestructive: true);
         if (!confirmed) return;
 
         try
         {
+            // Collect all descendant IDs recursively
+            var allIds = new List<Guid> { SelectedCollection.Id };
+            CollectDescendantCollectionIds(SelectedCollection, allIds);
+
             if (_modeManager.IsMultiUser)
             {
                 var resp = await SendBrokerRequestAsync(
-                    new DeleteCollectionRequest { Id = SelectedCollection.Id.ToString() },
+                    new DeleteCollectionRequest
+                    {
+                        Id = SelectedCollection.Id.ToString(),
+                        CascadeChildren = true
+                    },
                     MessageTypeCode.DeleteCollectionRequest);
                 if (resp == null || resp.StatusCode != 0)
                 {
@@ -1196,16 +1347,17 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var col = await db.Collections.FirstOrDefaultAsync(c => c.Id == SelectedCollection.Id).ConfigureAwait(false);
-            if (col == null) return;
-            db.Collections.Remove(col);
+            var cols = await db.Collections
+                .Where(c => allIds.Contains(c.Id))
+                .ToListAsync().ConfigureAwait(false);
+            db.Collections.RemoveRange(cols);
             await db.SaveChangesAsync().ConfigureAwait(false);
             SelectedCollection = null;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete collection");
+            _logger.LogError(ex, "Failed to delete collection (cascade)");
         }
     }
 
@@ -1306,19 +1458,33 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         var owner = GetOwnerWindow();
         if (owner == null) return;
+
+        // T10.4: Count descendants for cascade confirmation
+        var descendantCount = CountDescendantKeywords(SelectedKeyword);
+        var message = descendantCount > 0
+            ? $"Are you sure you want to delete '{SelectedKeyword.Name}' and all {descendantCount} sub-keywords?\n\n" +
+              $"The keyword(s) will be removed from all assets. This action cannot be undone."
+            : $"Are you sure you want to delete '{SelectedKeyword.Name}'?\n\n" +
+              $"The keyword will be removed from all assets. This action cannot be undone.";
+
         var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Keyword",
-            $"Are you sure you want to delete '{SelectedKeyword.Name}'?\n\nThe keyword will be removed from all assets.",
-            "Delete",
-            "Cancel",
-            isDestructive: true);
+            message, "Delete", "Cancel", isDestructive: true);
         if (!confirmed) return;
 
         try
         {
+            // Collect all descendant IDs recursively
+            var allIds = new List<Guid> { SelectedKeyword.KeywordId };
+            CollectDescendantKeywordIds(SelectedKeyword, allIds);
+
             if (_modeManager.IsMultiUser)
             {
                 var resp = await SendBrokerRequestAsync(
-                    new DeleteKeywordRequest { Id = SelectedKeyword.KeywordId.ToString() },
+                    new DeleteKeywordRequest
+                    {
+                        Id = SelectedKeyword.KeywordId.ToString(),
+                        CascadeChildren = true
+                    },
                     MessageTypeCode.DeleteKeywordRequest);
                 if (resp == null || resp.StatusCode != 0)
                 {
@@ -1331,16 +1497,17 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var kw = await db.Keywords.FirstOrDefaultAsync(k => k.Id == SelectedKeyword.KeywordId).ConfigureAwait(false);
-            if (kw == null) return;
-            db.Keywords.Remove(kw);
+            var keywords = await db.Keywords
+                .Where(k => allIds.Contains(k.Id))
+                .ToListAsync().ConfigureAwait(false);
+            db.Keywords.RemoveRange(keywords);
             await db.SaveChangesAsync().ConfigureAwait(false);
             SelectedKeyword = null;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete keyword");
+            _logger.LogError(ex, "Failed to delete keyword (cascade)");
         }
     }
 
@@ -1441,19 +1608,33 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         var owner = GetOwnerWindow();
         if (owner == null) return;
+
+        // T10.4: Count descendants for cascade confirmation
+        var descendantCount = CountDescendantCategories(SelectedMetadataCategory);
+        var message = descendantCount > 0
+            ? $"Are you sure you want to delete '{SelectedMetadataCategory.Name}' and all {descendantCount} sub-categories?\n\n" +
+              $"The category(s) will be removed from all assets. This action cannot be undone."
+            : $"Are you sure you want to delete '{SelectedMetadataCategory.Name}'?\n\n" +
+              $"The category will be removed from all assets. This action cannot be undone.";
+
         var confirmed = await Views.ConfirmationDialog.ShowAsync(owner, "Delete Category",
-            $"Are you sure you want to delete '{SelectedMetadataCategory.Name}'?\n\nThe category will be removed from all assets.",
-            "Delete",
-            "Cancel",
-            isDestructive: true);
+            message, "Delete", "Cancel", isDestructive: true);
         if (!confirmed) return;
 
         try
         {
+            // Collect all descendant IDs recursively
+            var allIds = new List<Guid> { SelectedMetadataCategory.CategoryId };
+            CollectDescendantCategoryIds(SelectedMetadataCategory, allIds);
+
             if (_modeManager.IsMultiUser)
             {
                 var resp = await SendBrokerRequestAsync(
-                    new DeleteCategoryRequest { Id = SelectedMetadataCategory.CategoryId.ToString() },
+                    new DeleteCategoryRequest
+                    {
+                        Id = SelectedMetadataCategory.CategoryId.ToString(),
+                        CascadeChildren = true
+                    },
                     MessageTypeCode.DeleteCategoryRequest);
                 if (resp == null || resp.StatusCode != 0)
                 {
@@ -1466,16 +1647,72 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var cat = await db.Categories.FirstOrDefaultAsync(c => c.Id == SelectedMetadataCategory.CategoryId).ConfigureAwait(false);
-            if (cat == null) return;
-            db.Categories.Remove(cat);
+            var cats = await db.Categories
+                .Where(c => allIds.Contains(c.Id))
+                .ToListAsync().ConfigureAwait(false);
+            db.Categories.RemoveRange(cats);
             await db.SaveChangesAsync().ConfigureAwait(false);
             SelectedMetadataCategory = null;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete category");
+            _logger.LogError(ex, "Failed to delete category (cascade)");
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  T10.4: Cascade delete helpers
+    // ──────────────────────────────────────────────
+
+    private static int CountDescendantKeywords(KeywordNode node)
+    {
+        var count = 0;
+        foreach (var child in node.Children)
+            count += 1 + CountDescendantKeywords(child);
+        return count;
+    }
+
+    private static void CollectDescendantKeywordIds(KeywordNode node, List<Guid> ids)
+    {
+        foreach (var child in node.Children)
+        {
+            ids.Add(child.KeywordId);
+            CollectDescendantKeywordIds(child, ids);
+        }
+    }
+
+    private static int CountDescendantCollections(CollectionNode node)
+    {
+        var count = 0;
+        foreach (var child in node.Children)
+            count += 1 + CountDescendantCollections(child);
+        return count;
+    }
+
+    private static void CollectDescendantCollectionIds(CollectionNode node, List<Guid> ids)
+    {
+        foreach (var child in node.Children)
+        {
+            ids.Add(child.Id);
+            CollectDescendantCollectionIds(child, ids);
+        }
+    }
+
+    private static int CountDescendantCategories(CategoryNode node)
+    {
+        var count = 0;
+        foreach (var child in node.Children)
+            count += 1 + CountDescendantCategories(child);
+        return count;
+    }
+
+    private static void CollectDescendantCategoryIds(CategoryNode node, List<Guid> ids)
+    {
+        foreach (var child in node.Children)
+        {
+            ids.Add(child.CategoryId);
+            CollectDescendantCategoryIds(child, ids);
         }
     }
 
@@ -1489,10 +1726,20 @@ public class FolderNode : INotifyPropertyChanged
     private bool _isExpanded;
     private bool _isSelected;
     private int _assetCount;
+    private bool _isActiveFilter;
 
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// True when this folder is the currently active gallery filter (T10.13).
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
 
     public bool IsExpanded
     {
@@ -1522,6 +1769,7 @@ public class CollectionNode : INotifyPropertyChanged
     private int _assetCount;
     private bool _isEditing;
     private string _editName = string.Empty;
+    private bool _isActiveFilter;
 
     public Guid Id { get; set; }
     public Guid? ParentId { get; set; }
@@ -1529,6 +1777,16 @@ public class CollectionNode : INotifyPropertyChanged
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
     public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
     public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// True when this collection is the currently active gallery filter (T10.13).
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
+
     public ObservableCollection<CollectionNode> Children { get; } = [];
 
     public void BeginRename() { EditName = Name; IsEditing = true; }
@@ -1547,6 +1805,7 @@ public class KeywordNode : INotifyPropertyChanged
     private int _assetCount;
     private bool _isEditing;
     private string _editName = string.Empty;
+    private bool _isActiveFilter;
 
     public Guid KeywordId { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -1554,6 +1813,15 @@ public class KeywordNode : INotifyPropertyChanged
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
     public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
     public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// True when this keyword is the currently active gallery filter (T10.13).
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
 
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
@@ -1576,12 +1844,23 @@ public class CategoryNode : INotifyPropertyChanged
     private int _count;
     private bool _isEditing;
     private string _editName = string.Empty;
+    private bool _isActiveFilter;
 
     public Guid CategoryId { get; set; }
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
     public int Count { get => _count; set { _count = value; OnPropertyChanged(); } }
     public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
     public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// True when this category is the currently active gallery filter (T10.13).
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
+
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<CategoryNode> Children { get; } = [];
@@ -1601,11 +1880,22 @@ public class DateTakenNode : INotifyPropertyChanged
     private bool _isSelected;
     private string _name = string.Empty;
     private int _assetCount;
+    private bool _isActiveFilter;
 
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
     public int? Year { get; set; }
     public int? Month { get; set; }
     public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// True when this date node is the currently active gallery filter (T10.13).
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
+
     public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
     public ObservableCollection<DateTakenNode> Children { get; } = [];
