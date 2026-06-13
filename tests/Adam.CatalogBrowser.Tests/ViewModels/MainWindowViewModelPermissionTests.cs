@@ -19,7 +19,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
     private readonly BrokerClient _broker;
     private readonly AuthSession _auth;
     private readonly ModeManager _modeManager;
-    private readonly MainWindowViewModel _vm;
 
     public MainWindowViewModelPermissionTests()
     {

@@ -1,3 +1,4 @@
+using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
@@ -13,12 +14,16 @@ public sealed class SidebarHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<SidebarHandler> _logger;
     private readonly AuthorizationMiddleware _authz;
+    private readonly ChangeNotificationService _notificationService;
+    private readonly AuthHandler _authHandler;
 
-    public SidebarHandler(IServiceProvider serviceProvider, ILogger<SidebarHandler> logger, AuthorizationMiddleware authz)
+    public SidebarHandler(IServiceProvider serviceProvider, ILogger<SidebarHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _authz = authz;
+        _notificationService = notificationService;
+        _authHandler = authHandler;
     }
 
     public async Task<Envelope> ListFoldersAsync(Envelope request, CancellationToken ct)
@@ -251,6 +256,10 @@ public sealed class SidebarHandler
         db.Keywords.Add(keyword);
         await db.SaveChangesAsync(ct);
 
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyCreatedAsync(keyword.Id.ToString(), userId, request.ConnectionId);
+
         var response = new CreateKeywordResponse { Id = keyword.Id.ToString() };
 
         return new Envelope
@@ -280,6 +289,10 @@ public sealed class SidebarHandler
         keyword.NormalizedName = req.Name.ToUpperInvariant();
         await db.SaveChangesAsync(ct);
 
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(keyword.Id.ToString(), userId, request.ConnectionId);
+
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
@@ -302,8 +315,28 @@ public sealed class SidebarHandler
         if (keyword == null)
             return ErrorResponse(request, 5, "Keyword not found");
 
+        if (req.CascadeChildren)
+        {
+            // T10.7: Load all keywords and recursively delete descendants
+            var allKeywords = await db.Keywords
+                .AsNoTracking()
+                .ToListAsync(ct);
+            var descendantIds = CollectDescendantKeywordIds(allKeywords, keyword.Id);
+            if (descendantIds.Count > 0)
+            {
+                var descendants = await db.Keywords
+                    .Where(k => descendantIds.Contains(k.Id))
+                    .ToListAsync(ct);
+                db.Keywords.RemoveRange(descendants);
+            }
+        }
+
         db.Keywords.Remove(keyword);
         await db.SaveChangesAsync(ct);
+
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyDeletedAsync(keyword.Id.ToString(), userId, request.ConnectionId);
 
         return new Envelope
         {
@@ -338,6 +371,10 @@ public sealed class SidebarHandler
         db.Categories.Add(category);
         await db.SaveChangesAsync(ct);
 
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyCreatedAsync(category.Id.ToString(), userId, request.ConnectionId);
+
         var response = new CreateCategoryResponse { Id = category.Id.ToString() };
 
         return new Envelope
@@ -367,6 +404,10 @@ public sealed class SidebarHandler
         category.NormalizedName = req.Name.ToUpperInvariant();
         await db.SaveChangesAsync(ct);
 
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(category.Id.ToString(), userId, request.ConnectionId);
+
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
@@ -389,8 +430,28 @@ public sealed class SidebarHandler
         if (category == null)
             return ErrorResponse(request, 5, "Category not found");
 
+        if (req.CascadeChildren)
+        {
+            // T10.8: Load all categories and recursively delete descendants
+            var allCategories = await db.Categories
+                .AsNoTracking()
+                .ToListAsync(ct);
+            var descendantIds = CollectDescendantCategoryIds(allCategories, category.Id);
+            if (descendantIds.Count > 0)
+            {
+                var descendants = await db.Categories
+                    .Where(c => descendantIds.Contains(c.Id))
+                    .ToListAsync(ct);
+                db.Categories.RemoveRange(descendants);
+            }
+        }
+
         db.Categories.Remove(category);
         await db.SaveChangesAsync(ct);
+
+        // T10.10: Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyDeletedAsync(category.Id.ToString(), userId, request.ConnectionId);
 
         return new Envelope
         {
@@ -429,6 +490,36 @@ public sealed class SidebarHandler
             StatusCode = statusCode,
             ErrorMessage = message
         };
+    }
+
+    // ─── Cascade delete helpers ───
+
+    /// <summary>
+    /// Recursively collects IDs of all descendant keywords (T10.7 cascade delete).
+    /// </summary>
+    private static List<Guid> CollectDescendantKeywordIds(List<Keyword> allKeywords, Guid parentId)
+    {
+        var ids = new List<Guid>();
+        foreach (var child in allKeywords.Where(k => k.ParentId == parentId))
+        {
+            ids.Add(child.Id);
+            ids.AddRange(CollectDescendantKeywordIds(allKeywords, child.Id));
+        }
+        return ids;
+    }
+
+    /// <summary>
+    /// Recursively collects IDs of all descendant categories (T10.8 cascade delete).
+    /// </summary>
+    private static List<Guid> CollectDescendantCategoryIds(List<Category> allCategories, Guid parentId)
+    {
+        var ids = new List<Guid>();
+        foreach (var child in allCategories.Where(c => c.ParentId == parentId))
+        {
+            ids.Add(child.Id);
+            ids.AddRange(CollectDescendantCategoryIds(allCategories, child.Id));
+        }
+        return ids;
     }
 
     private sealed class FolderNode

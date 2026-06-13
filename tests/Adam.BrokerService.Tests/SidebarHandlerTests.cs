@@ -1,4 +1,5 @@
 using Adam.BrokerService.Handlers;
+using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
@@ -47,6 +48,8 @@ public sealed class SidebarHandlerTests : IAsyncLifetime
         services.AddSingleton<AuthHandler>();
         services.AddSingleton<AuthorizationMiddleware>();
         services.AddSingleton<SidebarHandler>();
+        services.AddSingleton<ConnectionRegistry>();
+        services.AddSingleton<ChangeNotificationService>();
 
         _serviceProvider = services.BuildServiceProvider();
 

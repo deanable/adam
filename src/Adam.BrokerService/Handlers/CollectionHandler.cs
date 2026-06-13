@@ -1,3 +1,4 @@
+using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
@@ -13,12 +14,16 @@ public sealed class CollectionHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CollectionHandler> _logger;
     private readonly AuthorizationMiddleware _authz;
+    private readonly ChangeNotificationService _notificationService;
+    private readonly AuthHandler _authHandler;
 
-    public CollectionHandler(IServiceProvider serviceProvider, ILogger<CollectionHandler> logger, AuthorizationMiddleware authz)
+    public CollectionHandler(IServiceProvider serviceProvider, ILogger<CollectionHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _authz = authz;
+        _notificationService = notificationService;
+        _authHandler = authHandler;
     }
 
     public async Task<Envelope> CreateCollectionAsync(Envelope request, CancellationToken ct)
@@ -41,6 +46,10 @@ public sealed class CollectionHandler
 
         db.Collections.Add(collection);
         await db.SaveChangesAsync(ct);
+
+        // Broadcast change notification to other connected clients (T10.10)
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyCreatedAsync(collection.Id.ToString(), userId, request.ConnectionId);
 
         var response = new CreateCollectionResponse
         {
@@ -109,6 +118,10 @@ public sealed class CollectionHandler
 
         await db.SaveChangesAsync(ct);
 
+        // Broadcast change notification to other connected clients (T10.10)
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(collection.Id.ToString(), userId, request.ConnectionId);
+
         return new Envelope
         {
             CorrelationId = request.CorrelationId,
@@ -131,8 +144,28 @@ public sealed class CollectionHandler
         if (collection == null)
             return ErrorResponse(request, 5, "Collection not found");
 
+        if (req.CascadeChildren)
+        {
+            // T10.6: Load all collections and recursively delete descendants
+            var allCollections = await db.Collections
+                .AsNoTracking()
+                .ToListAsync(ct);
+            var descendantIds = CollectDescendantCollectionIds(allCollections, collection.Id);
+            if (descendantIds.Count > 0)
+            {
+                var descendants = await db.Collections
+                    .Where(c => descendantIds.Contains(c.Id))
+                    .ToListAsync(ct);
+                db.Collections.RemoveRange(descendants);
+            }
+        }
+
         db.Collections.Remove(collection);
         await db.SaveChangesAsync(ct);
+
+        // Broadcast change notification to other connected clients (T10.10)
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyDeletedAsync(collection.Id.ToString(), userId, request.ConnectionId);
 
         return new Envelope
         {
@@ -158,6 +191,20 @@ public sealed class CollectionHandler
             node.Children.Add(BuildNode(child, allCollections));
 
         return node;
+    }
+
+    /// <summary>
+    /// Recursively collects IDs of all descendant collections (T10.6 cascade delete).
+    /// </summary>
+    private static List<Guid> CollectDescendantCollectionIds(List<Collection> allCollections, Guid parentId)
+    {
+        var ids = new List<Guid>();
+        foreach (var child in allCollections.Where(c => c.ParentId == parentId))
+        {
+            ids.Add(child.Id);
+            ids.AddRange(CollectDescendantCollectionIds(allCollections, child.Id));
+        }
+        return ids;
     }
 
     private static Envelope ErrorResponse(Envelope request, int code, string message)
