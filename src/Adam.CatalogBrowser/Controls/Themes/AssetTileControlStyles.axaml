@@ -114,12 +114,22 @@
                            VerticalAlignment="Center" />
               </StackPanel>
 
-              <!-- Flag toggle -->
-              <CheckBox Grid.Column="2"
-                        IsChecked="{TemplateBinding IsFlagged}"
-                        IsEnabled="False"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center" />
+              <!-- Flag badge (visual indicator instead of disabled checkbox) -->
+              <Border Grid.Column="2"
+                      Width="16"
+                      Height="16"
+                      CornerRadius="3"
+                      Background="{DynamicResource WarningBrush}"
+                      IsVisible="{TemplateBinding IsFlagged}"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center"
+                      ToolTip.Tip="Flagged">
+                <TextBlock Text="⚑"
+                           FontSize="10"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+              </Border>
             </Grid>
 
             <!-- ═══════════════════════════════════ -->

@@ -23,8 +23,10 @@ public sealed class AuditLogHandler
     public async Task<Envelope> ListAuditLogsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "audit:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var filterReq = ProtoHelper.Deserialize<ListAuditLogsRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();

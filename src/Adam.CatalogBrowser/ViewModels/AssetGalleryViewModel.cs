@@ -17,7 +17,7 @@ using System.Windows.Input;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
-public class AssetGalleryViewModel : INotifyPropertyChanged
+public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly ModeManager _modeManager;
     private readonly ThumbnailService _thumbnailService = new();
@@ -280,6 +280,10 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
             {
                 SelectedAsset = null;
                 _selectedAssets.Clear();
+
+                // T12.7: Dispose items before clearing to free bitmaps
+                foreach (var item in Assets)
+                    item.Dispose();
                 Assets.Clear();
 
                 foreach (var item in newItems)
@@ -441,6 +445,10 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
                 // Avalonia's SelectionModel from accessing invalid indices.
                 SelectedAsset = null;
                 _selectedAssets.Clear();
+
+                // T12.7: Dispose items to free bitmaps before clearing
+                foreach (var item in Assets)
+                    item.Dispose();
                 Assets.Clear();
                 _logger.LogInformation("[LoadAssetsAsync] Assets cleared, count={Count}", Assets.Count);
             });
@@ -467,6 +475,16 @@ public class AssetGalleryViewModel : INotifyPropertyChanged
         {
             await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
         }
+    }
+
+    // T12.7: Ensure items are disposed when the ViewModel is no longer used.
+    // This is called by MainWindowViewModel.CurrentView setter when navigating away.
+    public void Dispose()
+    {
+        ClearThumbnailCache();
+        foreach (var item in Assets)
+            item.Dispose();
+        Assets.Clear();
     }
 
     public async Task LoadMoreAsync(CancellationToken ct = default)

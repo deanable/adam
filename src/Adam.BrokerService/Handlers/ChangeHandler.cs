@@ -23,8 +23,10 @@ public sealed class ChangeHandler
     public async Task<Envelope> GetChangesAsync(Envelope request, CancellationToken ct = default)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<GetChangesRequest>(request.Payload.ToByteArray());
         var since = DateTimeOffset.FromUnixTimeSeconds(req.SinceTimestamp);
 

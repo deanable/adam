@@ -315,19 +315,20 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         if (startUp)
         {
-            ConnectionDebugLogger.Info("[STARTUP] MainWindowViewModel startup sequence beginning");
+            var totalSw = Stopwatch.StartNew();
             StatusBar.IsInitialLoading = true;
             _ = Task.Run(async () =>
             {
                 try
                 {
                     var config = App.Config;
-                    ConnectionDebugLogger.Info($"[STARTUP] Config mode={config.Mode}, host={config.ServiceHost}:{config.ServicePort}");
 
                     if (config.Mode == "MultiUser")
                     {
-                        ConnectionDebugLogger.Info($"[STARTUP] Initializing multi-user mode (host={config.ServiceHost}:{config.ServicePort})");
+                        var sw = Stopwatch.StartNew();
                         await _modeManager.InitializeMultiUserAsync(config.ServiceHost, config.ServicePort);
+                        sw.Stop();
+
                         await _dispatcher.InvokeAsync(() =>
                         {
                             Connection.IsServiceMode = true;
@@ -337,13 +338,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
                         if (_modeManager.BrokerClient != null && _modeManager.AuthSession != null)
                         {
-                            ConnectionDebugLogger.Info("[STARTUP] Auto-connecting to broker...");
                             await _modeManager.BrokerClient.ConnectAsync();
                             var authenticated = await TryShowLoginDialogAsync(_modeManager.AuthSession, config.ServiceHost, config.ServicePort);
 
                             if (authenticated)
                             {
-                                ConnectionDebugLogger.Info("[STARTUP] Auto-connect succeeded, authenticated");
                                 await _dispatcher.InvokeAsync(() =>
                                 {
                                     Connection.IsConnectedToService = true;
@@ -352,25 +351,32 @@ public class MainWindowViewModel : INotifyPropertyChanged
                             }
                             else
                             {
-                                ConnectionDebugLogger.Warn("[STARTUP] Auto-connect succeeded but authentication cancelled/failed");
                                 await _modeManager.BrokerClient.DisconnectAsync();
                                 await _dispatcher.InvokeAsync(() => Connection.ServiceConnectionStatus = "Login cancelled — connect manually");
                             }
                         }
                         else
                         {
-                            ConnectionDebugLogger.Error("[STARTUP] BrokerClient or AuthSession is null after InitializeMultiUserAsync");
+                            _logger.LogError("[STARTUP] BrokerClient or AuthSession is null after InitializeMultiUserAsync");
                         }
                     }
                     else
                     {
-                        ConnectionDebugLogger.Info("[STARTUP] Initializing standalone/local mode");
                         await _modeManager.InitializeAsync();
                     }
 
+                    var swData = Stopwatch.StartNew();
                     await Sidebar.LoadAsync();
+                    var sidebarMs = swData.ElapsedMilliseconds;
+                    swData.Restart();
                     await AssetGallery.LoadAssetsAsync();
+                    var galleryMs = swData.ElapsedMilliseconds;
                     await PropertyInspector.LoadTagAutoCompleteSourceAsync();
+                    swData.Stop();
+
+                    totalSw.Stop();
+                    _logger.LogInformation("Startup complete: sidebar={SidebarMs}ms, gallery={GalleryMs}ms, total={TotalMs}ms",
+                        sidebarMs, galleryMs, totalSw.ElapsedMilliseconds);
                 }
                 catch (Exception ex)
                 {

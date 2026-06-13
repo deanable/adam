@@ -15,9 +15,7 @@ using Microsoft.Extensions.Logging;
 var brokerLogDir = Path.Combine(Path.GetTempPath(), "Adam", "BrokerService");
 ConnectionDebugLogger.LogDirectory = brokerLogDir;
 ConnectionDebugLogger.Reset();
-ConnectionDebugLogger.Info($"[BROKER] BrokerService starting (args={string.Join(" ", args)})");
-ConnectionDebugLogger.Info($"[BROKER] Machine={Environment.MachineName}, OS={Environment.OSVersion}");
-ConnectionDebugLogger.Info($"[BROKER] Debug log: {ConnectionDebugLogger.LogFilePath}");
+ConnectionDebugLogger.Info($"[BROKER] Starting: Machine={Environment.MachineName}, OS={Environment.OSVersion}, log={ConnectionDebugLogger.LogFilePath}");
 
 var exeDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
 

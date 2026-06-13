@@ -5,23 +5,23 @@
 
              x:Class="Adam.CatalogBrowser.Views.AssetGalleryView"
              x:CompileBindings="False">
-  <UserControl.Resources>
-    <local:InverseBoolConverter x:Key="InverseBool" />
-  </UserControl.Resources>
+
   <Grid RowDefinitions="Auto,*,Auto">
 
-    <!-- Toolbar -->
-    <Border Grid.Row="0" Background="{DynamicResource SurfaceLightBrush}" Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-          <TextBlock Text="View:" VerticalAlignment="Center" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
-          <ComboBox ItemsSource="{Binding ViewOptions}"
-                    SelectedItem="{Binding ViewMode}"
-                    Width="100" />
-        </StackPanel>
+    <!-- Toolbar (compact layout — labels removed, controls tightened) -->
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceLightBrush}" Padding="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <!-- View mode selector -->
+        <ComboBox Grid.Column="0"
+                  ItemsSource="{Binding ViewOptions}"
+                  SelectedItem="{Binding ViewMode}"
+                  Width="80"
+                  Height="26"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="View mode" />
 
         <!-- T11.9/T11.11: Full-text search bar with autocomplete suggestions -->
-        <Grid Grid.Column="1" Margin="8,0">
+        <Grid Grid.Column="1" Margin="6,0">
           <Grid ColumnDefinitions="*,Auto">
             <AutoCompleteBox Grid.Column="0"
                              x:Name="SearchAutoComplete"
@@ -31,14 +31,14 @@
                              FilterMode="Contains"
                              PlaceholderText="Search assets..."
                              FontSize="12"
-                             Height="28"
+                             Height="26"
                              VerticalAlignment="Center"
                              CornerRadius="4"
                              BorderBrush="{DynamicResource InputBorderBrush}"
                              Background="White">
               <AutoCompleteBox.Styles>
                 <Style Selector="AutoCompleteBox /template/ TextBox">
-                  <Setter Property="Padding" Value="6,3" />
+                  <Setter Property="Padding" Value="6,2" />
                 </Style>
               </AutoCompleteBox.Styles>
             </AutoCompleteBox>
@@ -48,9 +48,9 @@
                     Content="✕"
                     Command="{Binding ClearSearchCommand}"
                     IsVisible="{Binding IsSearchActive}"
-                    FontSize="11"
-                    Padding="4,2"
-                    Margin="4,0,0,0"
+                    FontSize="10"
+                    Padding="3,1"
+                    Margin="3,0,0,0"
                     Background="Transparent"
                     Foreground="{DynamicResource TextSecondaryBrush}"
                     BorderThickness="0"
@@ -62,29 +62,31 @@
         </Grid>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-          <TextBlock Text="Sort:" VerticalAlignment="Center" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
           <ComboBox ItemsSource="{Binding SortOptions}"
                     SelectedItem="{Binding SortBy}"
-                    Width="130" />
-          <Slider MinWidth="120" Minimum="80" Maximum="300"
-                  Value="{Binding ThumbnailSize}" />
+                    Width="120"
+                    Height="26"
+                    ToolTip.Tip="Sort by" />
+          <Slider MinWidth="60" Minimum="80" Maximum="300"
+                  Value="{Binding ThumbnailSize}"
+                  Width="80" />
           <TextBlock Text="{Binding ThumbnailSizeText}"
                      VerticalAlignment="Center"
                      Classes="Body"
                      Foreground="{DynamicResource TextTertiaryBrush}"
-                     Width="40" />
+                     Width="32"
+                     FontSize="11" />
         </StackPanel>
 
         <!-- AI Tag Selected button (Trigger C) — Phase 7: gated by permission with tooltip -->
         <Button Grid.Column="3"
-                Content="🤖 AI Tag Selected"
+                Content="🤖 AI Tag"
                 Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
                 IsEnabled="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
                 ToolTip.Tip="{Binding DataContext.AiTagPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
                 Classes="AiTagButton"
                 FontSize="11"
-                Padding="8,2"
-                Margin="4,0"
+                Padding="6,2"
                 Background="{DynamicResource AiTagBrush}"
                 Foreground="White"
                 BorderThickness="0"
@@ -107,13 +109,6 @@
             </Style>
           </Button.Styles>
         </Button>
-
-        <TextBlock Grid.Column="5"
-                   Text="{Binding StatusText}"
-                   VerticalAlignment="Center"
-                   Classes="Body"
-                   Foreground="{DynamicResource TextTertiaryBrush}"
-                   Margin="8,0,0,0" />
       </Grid>
     </Border>
 
@@ -277,25 +272,23 @@
                    HorizontalAlignment="Center" />
       </Grid>
     </Border>
+      <!-- Empty state (overlays gallery content when no assets) -->
+      <Border IsVisible="{Binding HasAssets, Converter={x:Static local:InverseBoolConverter.Instance}}"
+              VerticalAlignment="Center"
+              HorizontalAlignment="Center"
+              Background="Transparent">
+        <StackPanel Spacing="8" HorizontalAlignment="Center">
+          <TextBlock Text="No assets found"
+                     Classes="Title"
+                     Foreground="{DynamicResource TextEmptyBrush}"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="Select a root folder to scan for digital assets"
+                     Classes="Subheading"
+                     Foreground="{DynamicResource TextEmptySecondaryBrush}"
+                     HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
     </Grid>
-
-    <!-- Empty state -->
-    <Border Grid.Row="2"
-            IsVisible="{Binding HasAssets, Converter={StaticResource InverseBool}}"
-            VerticalAlignment="Center"
-            HorizontalAlignment="Center"
-            Background="Transparent">
-      <StackPanel Spacing="8" HorizontalAlignment="Center">
-        <TextBlock Text="No assets found"
-                   Classes="Title"
-                   Foreground="{DynamicResource TextEmptyBrush}"
-                   HorizontalAlignment="Center" />
-        <TextBlock Text="Select a root folder to scan for digital assets"
-                   Classes="Subheading"
-                   Foreground="{DynamicResource TextEmptySecondaryBrush}"
-                   HorizontalAlignment="Center" />
-      </StackPanel>
-    </Border>
 
     <!-- Status bar info -->
     <Border Grid.Row="2" Background="Transparent" Padding="4">

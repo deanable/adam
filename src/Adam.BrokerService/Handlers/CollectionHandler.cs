@@ -29,8 +29,10 @@ public sealed class CollectionHandler
     public async Task<Envelope> CreateCollectionAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "collection:create", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<CreateCollectionRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -68,7 +70,7 @@ public sealed class CollectionHandler
     public async Task<Envelope> ListCollectionsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "collection:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -100,8 +102,10 @@ public sealed class CollectionHandler
     public async Task<Envelope> UpdateCollectionAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "collection:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<UpdateCollectionRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -109,7 +113,7 @@ public sealed class CollectionHandler
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
         if (collection == null)
-            return ErrorResponse(request, 5, "Collection not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Collection not found");
 
         if (!string.IsNullOrEmpty(req.Name))
             collection.Name = req.Name;
@@ -133,8 +137,10 @@ public sealed class CollectionHandler
     public async Task<Envelope> DeleteCollectionAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "collection:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<DeleteCollectionRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -142,7 +148,7 @@ public sealed class CollectionHandler
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
         if (collection == null)
-            return ErrorResponse(request, 5, "Collection not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Collection not found");
 
         if (req.CascadeChildren)
         {

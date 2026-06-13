@@ -6,11 +6,16 @@ using Adam.CatalogBrowser.Controls;
 using Adam.Shared.Models;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Adam.CatalogBrowser.Models;
 
-public class AssetListItem : INotifyPropertyChanged
+public class AssetListItem : INotifyPropertyChanged, IDisposable
 {
+    private static ILogger<AssetListItem>? _logger;
+    private static ILogger<AssetListItem>? Logger => _logger ??= App.ServiceProvider?.GetService<ILogger<AssetListItem>>();
+
     private string _title = string.Empty;
     private string _fileName = string.Empty;
     private string _thumbnailPath = string.Empty;
@@ -62,6 +67,15 @@ public class AssetListItem : INotifyPropertyChanged
         get => _thumbnail;
         private set
         {
+            // T12.7: Dispose the old bitmap to avoid memory leak when the
+            // tile is updated (search results, scroll-back with fresh decode).
+            // Use ReferenceEquals to avoid double-dispose when the new value
+            // is the same object as the old (e.g. cache hit returning the
+            // same reference that was already removed from cache).
+            if (!ReferenceEquals(_thumbnail, value))
+            {
+                _thumbnail?.Dispose();
+            }
             _thumbnail = value;
             OnPropertyChanged();
         }
@@ -72,13 +86,34 @@ public class AssetListItem : INotifyPropertyChanged
     /// </summary>
     internal static Shared.Services.ThumbnailCache? SharedThumbnailCache { get; set; }
 
+    // T12.6: Cancellation support for pending thumbnail loads.
+    private CancellationTokenSource? _loadCts;
+
+    /// <summary>
+    /// Cancels any pending thumbnail load for this item.
+    /// Called on scroll-out and disposal to avoid wasted work.
+    /// </summary>
+    public void CancelPendingLoad()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+    }
+
     public async Task LoadThumbnailAsync(int decodeWidth = 256)
     {
         if (_thumbnail != null || string.IsNullOrEmpty(_thumbnailPath))
             return;
 
+        // T12.6: Cancel any previous pending load and start fresh
+        CancelPendingLoad();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+
         await Task.Run(() =>
         {
+            ct.ThrowIfCancellationRequested();
+
             try
             {
                 // T12.1: Check memory cache first
@@ -94,6 +129,8 @@ public class AssetListItem : INotifyPropertyChanged
                 if (!exists)
                     return;
 
+                ct.ThrowIfCancellationRequested();
+
                 using var stream = File.OpenRead(_thumbnailPath);
                 var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
                 Thumbnail = bitmap;
@@ -106,9 +143,10 @@ public class AssetListItem : INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Thumbnail] FAILED to load {_thumbnailPath}: {ex.GetType().Name} - {ex.Message}");
+                Logger?.LogDebug(ex, "[Thumbnail] FAILED to load {ThumbnailPath}: {ExceptionType} - {Message}",
+                    _thumbnailPath, ex.GetType().Name, ex.Message);
             }
-        });
+        }, ct);
     }
 
     public string FileType
@@ -214,6 +252,22 @@ public class AssetListItem : INotifyPropertyChanged
     }
 
     public string CreatedAtFormatted => CreatedAt.ToString("g");
+
+    public void Dispose()
+    {
+        // Cancel pending load first
+        CancelPendingLoad();
+
+        // Dispose the bitmap (remove from shared cache first to avoid
+        // returning a disposed reference on next scroll-back)
+        if (_thumbnail != null)
+        {
+            if (SharedThumbnailCache != null && !string.IsNullOrEmpty(_thumbnailPath))
+                SharedThumbnailCache.Remove(_thumbnailPath);
+            _thumbnail.Dispose();
+            _thumbnail = null;
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -13,7 +13,7 @@
         <TextBlock Text="Preview"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   Foreground="Gray" />
+                   Foreground="{DynamicResource TextTertiaryBrush}" />
       </Border>
 
       <!-- Basic info -->

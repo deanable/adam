@@ -39,13 +39,11 @@ public partial class App : Application
             var config = Config;
             var services = new ServiceCollection();
             var basePath = AppContext.BaseDirectory;
-            System.Diagnostics.Debug.WriteLine($"[adam] App basePath: {basePath}");
             var logPath = Path.Combine(basePath, "adam-catalog.log");
 
-            // Reset the connection debug log at startup (captures all connection attempts in a single session file)
+            // Reset the connection debug log at startup
             ConnectionDebugLogger.Reset();
-            ConnectionDebugLogger.Info($"[APP] Adam CatalogBrowser starting (basePath={basePath})");
-            ConnectionDebugLogger.Info($"[APP] Config: host={config.ServiceHost}, port={config.ServicePort}, TLS={config.UseTls}, mode={config.Mode}");
+            ConnectionDebugLogger.Info($"[APP] Starting: host={config.ServiceHost}:{config.ServicePort}, TLS={config.UseTls}, mode={config.Mode}");
 
             services.AddLogging(builder => builder
                 .AddFile(logPath)
@@ -60,7 +58,7 @@ public partial class App : Application
             var published = RegistrySettings.Load();
             if (published != null && config.Mode == "MultiUser")
             {
-                System.Diagnostics.Debug.WriteLine(
+                ConnectionDebugLogger.Info(
                     $"[adam] Using connection settings from registry: {published.ServiceHost}:{published.ServicePort} (Tls={published.UseTls})");
                 config.ServiceHost = published.ServiceHost;
                 config.ServicePort = published.ServicePort;

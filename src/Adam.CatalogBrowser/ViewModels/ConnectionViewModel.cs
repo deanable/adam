@@ -155,14 +155,12 @@ public class ConnectionViewModel : INotifyPropertyChanged
 
     private async Task ShowLoginAndConnectAsync()
     {
-        ConnectionDebugLogger.Info($"ShowLoginAndConnectAsync: switching to service mode (host={ServiceHost}:{ServicePort})");
         IsServiceMode = true;
         await ConnectToServiceAsync();
     }
 
     private async Task ConnectToServiceAsync()
     {
-        ConnectionDebugLogger.Info($"ConnectToServiceAsync: BEGIN (host={ServiceHost}, port={ServicePort})");
         var sw = Stopwatch.StartNew();
 
         if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
@@ -178,10 +176,8 @@ public class ConnectionViewModel : INotifyPropertyChanged
         {
             ServiceConnectionStatus = $"Connecting to {ServiceHost}:{ServicePort}...";
 
-            ConnectionDebugLogger.Info($"ConnectToServiceAsync Stage 1: Reconfigure + ConnectAsync to {ServiceHost}:{ServicePort} (TLS={cfg.UseTls}, SelfSigned={cfg.AllowSelfSigned})");
             _modeManager.BrokerClient.Reconfigure(ServiceHost, ServicePort, cfg.UseTls, cfg.AllowSelfSigned);
             await _modeManager.BrokerClient.ConnectAsync();
-            ConnectionDebugLogger.Info($"ConnectToServiceAsync Stage 1: SUCCEEDED in {sw.Elapsed.TotalMilliseconds:F1}ms");
         }
         catch (Exception ex)
         {
@@ -201,12 +197,10 @@ public class ConnectionViewModel : INotifyPropertyChanged
         {
             ServiceConnectionStatus = $"Connected to {ServiceHost}:{ServicePort} — signing in...";
 
-            ConnectionDebugLogger.Info($"ConnectToServiceAsync Stage 2: starting authentication (host={ServiceHost}:{ServicePort})");
             bool authenticated = false;
             if (RequestLogin != null)
             {
                 authenticated = await RequestLogin(_modeManager.AuthSession, ServiceHost, ServicePort);
-                ConnectionDebugLogger.Info($"ConnectToServiceAsync Stage 2: authentication result = {authenticated}");
             }
             else
             {
@@ -217,8 +211,6 @@ public class ConnectionViewModel : INotifyPropertyChanged
             {
                 IsConnectedToService = true;
                 ServiceConnectionStatus = $"Connected to {ServiceHost}:{ServicePort}";
-                ConnectionDebugLogger.Info($"ConnectToServiceAsync: fully connected and authenticated in {sw.Elapsed.TotalMilliseconds:F1}ms");
-
                 // Switch the app into multi-user mode and reload from the service.
                 if (ServiceConnected != null)
                     await ServiceConnected();
@@ -241,18 +233,15 @@ public class ConnectionViewModel : INotifyPropertyChanged
 
     private async Task DisconnectFromServiceAsync()
     {
-        ConnectionDebugLogger.Info($"DisconnectFromServiceAsync: disconnecting from {ServiceHost}:{ServicePort}");
         if (_modeManager.BrokerClient != null)
             await _modeManager.BrokerClient.DisconnectAsync();
 
         IsConnectedToService = false;
         ServiceConnectionStatus = "Disconnected";
-        ConnectionDebugLogger.Info("DisconnectFromServiceAsync: completed");
     }
 
     public async Task LogoutAsync()
     {
-        ConnectionDebugLogger.Info("LogoutAsync: logging out and disconnecting");
         _modeManager.AuthSession?.Logout();
         await DisconnectFromServiceAsync();
     }
@@ -285,10 +274,8 @@ public class ConnectionViewModel : INotifyPropertyChanged
 
     private async Task SwitchToLocalAsync()
     {
-        ConnectionDebugLogger.Info("SwitchToLocalAsync: switching to local/standalone mode");
         await DisconnectFromServiceAsync();
         if (RequestLocalSwitch != null) await RequestLocalSwitch();
-        ConnectionDebugLogger.Info("SwitchToLocalAsync: completed");
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

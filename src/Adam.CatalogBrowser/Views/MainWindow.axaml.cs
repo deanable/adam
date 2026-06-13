@@ -52,6 +52,12 @@ public partial class MainWindow : Window
             catTree.ContextRequested += OnCategoryContextRequested;
         }
 
+        // DateTaken TreeView — filter context menu (T10.11 / T10.12)
+        if (DateTakenTree != null)
+        {
+            DateTakenTree.ContextRequested += OnDateTakenContextRequested;
+        }
+
         // T10.2: Wire rename completed command for SearchableTreeView instances
         if (KeywordsTreeView != null)
             KeywordsTreeView.RenameCompletedCommand = VM?.Sidebar?.CommitRenameCommand;
@@ -199,6 +205,28 @@ public partial class MainWindow : Window
     }
 
     // ──────────────────────────────────────────────
+    //  DateTaken context menu (T10.11, T10.12)
+    // ──────────────────────────────────────────────
+
+    private void OnDateTakenContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        var node = GetClickedNode(e);
+        if (node is not DateTakenNode dt) return;
+        var vm = VM?.Sidebar;
+        if (vm == null) return;
+
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(new MenuItem { Header = "Filter by this", Command = vm.FilterByThisCommand, CommandParameter = dt });
+        flyout.Items.Add(new MenuItem { Header = "Clear filter", Command = vm.ClearFilterCommand, CommandParameter = dt });
+
+        if (sender is Control ctl)
+        {
+            flyout.ShowAt(ctl);
+            e.Handled = true;
+        }
+    }
+
+    // ──────────────────────────────────────────────
     //  Plain TreeView inline rename (T10.2)
     // ──────────────────────────────────────────────
 
@@ -256,6 +284,20 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
     }
+}
+
+/// <summary>
+/// Shared bool inverter for use across all CatalogBrowser views.
+/// Convert: true → false, false → true. ConvertBack also supported.
+/// </summary>
+public class InverseBoolConverter : IValueConverter
+{
+    public static readonly InverseBoolConverter Instance = new();
+    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        => value is bool b ? !b : value;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        => value is bool b ? !b : value;
 }
 
 /// <summary>

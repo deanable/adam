@@ -842,16 +842,37 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
 
+    // T10.13: Track previously active filter nodes so IsActiveFilter can be
+    // cleared even when the node isn't in the loaded tree (e.g. tests without
+    // LoadAsync, or nodes removed from the tree before deselection).
+    private INotifyPropertyChanged? _previousActiveFilterNode;
+
     private void OnFilterChanged()
     {
-        // T10.13: Update IsActiveFilter state on all nodes
+        // T10.13: Clear the previous node's IsActiveFilter directly.
+        // This handles cases where the node isn't in the loaded tree
+        // (ClearActiveFilterStates walks the tree only).
+        if (_previousActiveFilterNode != null)
+        {
+            switch (_previousActiveFilterNode)
+            {
+                case KeywordNode kw: kw.IsActiveFilter = false; break;
+                case CategoryNode cat: cat.IsActiveFilter = false; break;
+                case CollectionNode col: col.IsActiveFilter = false; break;
+                case FolderNode f: f.IsActiveFilter = false; break;
+                case DateTakenNode dt: dt.IsActiveFilter = false; break;
+            }
+        }
+
+        // Also walk the tree to catch any other stale nodes
         ClearActiveFilterStates();
 
-        if (SelectedKeyword != null) SelectedKeyword.IsActiveFilter = true;
-        else if (SelectedMetadataCategory != null) SelectedMetadataCategory.IsActiveFilter = true;
-        else if (SelectedCollection != null) SelectedCollection.IsActiveFilter = true;
-        else if (SelectedFolder != null) SelectedFolder.IsActiveFilter = true;
-        else if (SelectedDateTaken != null) SelectedDateTaken.IsActiveFilter = true;
+        if (SelectedKeyword != null) { SelectedKeyword.IsActiveFilter = true; _previousActiveFilterNode = SelectedKeyword; }
+        else if (SelectedMetadataCategory != null) { SelectedMetadataCategory.IsActiveFilter = true; _previousActiveFilterNode = SelectedMetadataCategory; }
+        else if (SelectedCollection != null) { SelectedCollection.IsActiveFilter = true; _previousActiveFilterNode = SelectedCollection; }
+        else if (SelectedFolder != null) { SelectedFolder.IsActiveFilter = true; _previousActiveFilterNode = SelectedFolder; }
+        else if (SelectedDateTaken != null) { SelectedDateTaken.IsActiveFilter = true; _previousActiveFilterNode = SelectedDateTaken; }
+        else { _previousActiveFilterNode = null; }
 
         FilterChanged?.Invoke();
     }

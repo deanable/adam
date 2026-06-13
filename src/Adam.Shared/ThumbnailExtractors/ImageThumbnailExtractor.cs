@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
 
@@ -38,20 +39,30 @@ public class ImageThumbnailExtractor : IThumbnailExtractor
         int maxSize,
         CancellationToken ct)
     {
-        using var image = await Image.LoadAsync(sourcePath, ct);
+        // T12.3: Decode-to-size — use DecoderOptions.TargetSize to constrain the
+        // decode resolution, avoiding full-decode of large source images.
+        var decodeOptions = new DecoderOptions
+        {
+            TargetSize = new Size(maxSize, maxSize)
+        };
+
+        using var image = await Image.LoadAsync(decodeOptions, sourcePath, ct);
 
         _adjustment.ApplyOrientation(image, ImageOrientation.Normal);
         var (w, h) = (image.Width, image.Height);
 
-        if (w > h)
+        if (w > maxSize || h > maxSize)
         {
-            var ratio = (double)maxSize / w;
-            image.Mutate(x => x.Resize(maxSize, (int)(h * ratio)));
-        }
-        else
-        {
-            var ratio = (double)maxSize / h;
-            image.Mutate(x => x.Resize((int)(w * ratio), maxSize));
+            if (w > h)
+            {
+                var ratio = (double)maxSize / w;
+                image.Mutate(x => x.Resize(maxSize, (int)(h * ratio)));
+            }
+            else
+            {
+                var ratio = (double)maxSize / h;
+                image.Mutate(x => x.Resize((int)(w * ratio), maxSize));
+            }
         }
 
         var encoder = new JpegEncoder { Quality = 85 };

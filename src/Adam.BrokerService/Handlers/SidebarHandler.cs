@@ -29,7 +29,7 @@ public sealed class SidebarHandler
     public async Task<Envelope> ListFoldersAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -75,7 +75,7 @@ public sealed class SidebarHandler
     public async Task<Envelope> ListKeywordsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -118,7 +118,7 @@ public sealed class SidebarHandler
     public async Task<Envelope> ListMediaFormatCountsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -149,7 +149,7 @@ public sealed class SidebarHandler
     public async Task<Envelope> ListMetadataCategoriesAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -192,7 +192,7 @@ public sealed class SidebarHandler
     public async Task<Envelope> ListDateTakenTreeAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -238,8 +238,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> CreateKeywordAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<CreateKeywordRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -274,8 +276,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> UpdateKeywordAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<UpdateKeywordRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -283,7 +287,7 @@ public sealed class SidebarHandler
 
         var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
         if (keyword == null)
-            return ErrorResponse(request, 5, "Keyword not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Keyword not found");
 
         keyword.Name = req.Name;
         keyword.NormalizedName = req.Name.ToUpperInvariant();
@@ -304,8 +308,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> DeleteKeywordAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<DeleteKeywordRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -313,7 +319,7 @@ public sealed class SidebarHandler
 
         var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
         if (keyword == null)
-            return ErrorResponse(request, 5, "Keyword not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Keyword not found");
 
         if (req.CascadeChildren)
         {
@@ -353,8 +359,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> CreateCategoryAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<CreateCategoryRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -389,8 +397,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> UpdateCategoryAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<UpdateCategoryRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -398,7 +408,7 @@ public sealed class SidebarHandler
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
         if (category == null)
-            return ErrorResponse(request, 5, "Category not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Category not found");
 
         category.Name = req.Name;
         category.NormalizedName = req.Name.ToUpperInvariant();
@@ -419,8 +429,10 @@ public sealed class SidebarHandler
     public async Task<Envelope> DeleteCategoryAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<DeleteCategoryRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -428,7 +440,7 @@ public sealed class SidebarHandler
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
         if (category == null)
-            return ErrorResponse(request, 5, "Category not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Category not found");
 
         if (req.CascadeChildren)
         {

@@ -31,8 +31,10 @@ public sealed class AssetHandler
     public async Task<Envelope> ListAssetsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<ListAssetsRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -132,15 +134,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.ListAssetsResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> GetAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<GetAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -159,7 +163,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.AssetDetail,
-                StatusCode = 5,
+                StatusCode = ErrorCode.NotFound,
                 ErrorMessage = "Asset not found"
             };
         }
@@ -201,15 +205,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.AssetDetail,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(detail)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> UpdateAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<UpdateAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -225,7 +231,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.UpdateAssetResponse,
-                StatusCode = 5,
+                StatusCode = ErrorCode.NotFound,
                 ErrorMessage = "Asset not found"
             };
         }
@@ -245,7 +251,7 @@ public sealed class AssetHandler
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.UpdateAssetResponse,
                 Payload = ByteString.CopyFrom(ProtoHelper.Serialize(conflict)),
-                StatusCode = 0
+                StatusCode = ErrorCode.Success
             };
         }
 
@@ -308,15 +314,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.UpdateAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> CreateAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:create", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<CreateAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -378,15 +386,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.CreateAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> GetFileAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<GetFileRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -402,7 +412,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileResponse,
-                StatusCode = 5,
+                StatusCode = ErrorCode.NotFound,
                 ErrorMessage = "Asset not found"
             };
         }
@@ -413,7 +423,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileResponse,
-                StatusCode = 6,
+                StatusCode = ErrorCode.Conflict,
                 ErrorMessage = "File not found on disk"
             };
         }
@@ -430,7 +440,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileResponse,
-                StatusCode = 13,
+                StatusCode = ErrorCode.InternalError,
                 ErrorMessage = "Failed to read file from storage"
             };
         }
@@ -450,15 +460,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.GetFileResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> RestoreAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<RestoreAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -469,7 +481,7 @@ public sealed class AssetHandler
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id) && a.IsDeleted, ct);
 
         if (asset == null)
-            return ErrorResponse(request, 5, "Deleted asset not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Deleted asset not found");
 
         asset.IsDeleted = false;
         asset.ModifiedAt = DateTimeOffset.UtcNow;
@@ -482,15 +494,17 @@ public sealed class AssetHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.RestoreAssetResponse,
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> ListDeletedAssetsAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<ListDeletedAssetsRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -549,15 +563,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.ListDeletedAssetsResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> DeleteAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<DeleteAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -565,7 +581,7 @@ public sealed class AssetHandler
 
         var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
         if (asset == null)
-            return ErrorResponse(request, 5, "Asset not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Asset not found");
 
         asset.IsDeleted = true;
         asset.ModifiedAt = DateTimeOffset.UtcNow;
@@ -578,15 +594,17 @@ public sealed class AssetHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.DeleteAssetResponse,
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> GetFileChunkAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<GetFileChunkRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -602,7 +620,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileChunkResponse,
-                StatusCode = 5,
+                StatusCode = ErrorCode.NotFound,
                 ErrorMessage = "Asset not found"
             };
         }
@@ -613,7 +631,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileChunkResponse,
-                StatusCode = 6,
+                StatusCode = ErrorCode.Conflict,
                 ErrorMessage = "File not found on disk"
             };
         }
@@ -625,7 +643,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileChunkResponse,
-                StatusCode = 14,
+                StatusCode = ErrorCode.InvalidArgument,
                 ErrorMessage = "Invalid chunk index"
             };
         }
@@ -681,7 +699,7 @@ public sealed class AssetHandler
             {
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.GetFileChunkResponse,
-                StatusCode = 13,
+                StatusCode = ErrorCode.InternalError,
                 ErrorMessage = "Failed to read file chunk from storage"
             };
         }
@@ -704,15 +722,17 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.GetFileChunkResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> PermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<PermanentDeleteAssetRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -723,7 +743,7 @@ public sealed class AssetHandler
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id) && a.IsDeleted, ct);
 
         if (asset == null)
-            return ErrorResponse(request, 5, "Deleted asset not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Deleted asset not found");
 
         db.DigitalAssets.Remove(asset);
         await db.SaveChangesAsync(ct);
@@ -735,25 +755,27 @@ public sealed class AssetHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.PermanentDeleteAssetResponse,
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> BulkPermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<BulkPermanentDeleteAssetRequest>(request.Payload.ToByteArray());
 
         if (req.Ids.Count == 0)
-            return ErrorResponse(request, 14, "No asset IDs provided");
+            return ErrorResponse(request, ErrorCode.InvalidArgument, "No asset IDs provided");
 
         var parsedIds = new List<Guid>(req.Ids.Count);
         foreach (var idStr in req.Ids)
         {
             if (!Guid.TryParse(idStr, out var guid))
-                return ErrorResponse(request, 14, $"Invalid asset ID: {idStr}");
+                return ErrorResponse(request, ErrorCode.InvalidArgument, $"Invalid asset ID: {idStr}");
             parsedIds.Add(guid);
         }
 
@@ -766,7 +788,7 @@ public sealed class AssetHandler
             .ToListAsync(ct);
 
         if (assets.Count == 0)
-            return ErrorResponse(request, 5, "No matching deleted assets found");
+            return ErrorResponse(request, ErrorCode.NotFound, "No matching deleted assets found");
 
         db.DigitalAssets.RemoveRange(assets);
         await db.SaveChangesAsync(ct);
@@ -785,7 +807,7 @@ public sealed class AssetHandler
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.BulkPermanentDeleteAssetResponse,
             Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 

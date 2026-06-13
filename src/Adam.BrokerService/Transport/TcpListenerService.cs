@@ -53,14 +53,10 @@ public sealed class TcpListenerService
         Port = port;
         LoadTlsCertificate();
         _logger.LogInformation("[TIMING] TLS certificate loaded in {ElapsedMs:F0}ms (TLS enabled: {TlsEnabled})", sw.Elapsed.TotalMilliseconds, TlsEnabled);
-        ConnectionDebugLogger.Info($"[SERVER] TLS certificate loaded in {sw.Elapsed.TotalMilliseconds:F0}ms (TLS enabled: {TlsEnabled})");
-
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _listener = new TcpListener(IPAddress.Any, port);
         _listener.Start(50);
         _logger.LogInformation("[TIMING] TcpListener.Start() completed in {ElapsedMs:F0}ms — now listening on port {Port}", sw.Elapsed.TotalMilliseconds, port);
-        ConnectionDebugLogger.Info($"[SERVER] TcpListener started in {sw.Elapsed.TotalMilliseconds:F0}ms on port {port}");
-
         _logger.LogInformation("Broker service listening on port {Port} (TLS: {Tls}, backlog=50)", port, TlsEnabled);
 
         _ = IdleMonitorLoopAsync(_cts.Token);
@@ -77,14 +73,12 @@ public sealed class TcpListenerService
 
                 _logger.LogInformation("[TIMING] AcceptTcpClientAsync returned in {AcceptMs:F0}ms (active connections: {Count})",
                     acceptMs, _connections.Count);
-                ConnectionDebugLogger.Info($"[SERVER] New TCP connection accepted in {acceptMs:F1}ms (active: {_connections.Count})");
-
                 if (_connections.Count >= MaxConnections)
                 {
                     Interlocked.Increment(ref _rejectedCount);
                     _logger.LogWarning("Connection rejected: max connections ({Max}) reached", MaxConnections);
                     ConnectionDebugLogger.Warn($"[SERVER] Connection rejected: max connections ({MaxConnections}) reached");
-                    client.Close();
+                client.Close();
                     continue;
                 }
 
@@ -95,8 +89,6 @@ public sealed class TcpListenerService
 
                 _logger.LogInformation("Client connected: {ConnectionId} (active: {Count})", connectionId, _connections.Count);
                 _logger.LogDebug("[DIAG] New connection from {RemoteEndpoint}", remoteEp);
-                ConnectionDebugLogger.Info($"[SERVER] Connection {connectionId} accepted from {remoteEp} (active: {_connections.Count})");
-
                 var task = HandleConnectionAsync(state, _cts.Token);
                 _connectionTasks.TryAdd(connectionId, task);
                 _ = task.ContinueWith(_ => _connectionTasks.TryRemove(connectionId, out Task? _), TaskScheduler.Default);
@@ -105,7 +97,6 @@ public sealed class TcpListenerService
         catch (OperationCanceledException)
         {
             _logger.LogInformation("[TIMING] TCP listener accept loop cancelled after {ElapsedMs:F0}ms total runtime", sw.Elapsed.TotalMilliseconds);
-            ConnectionDebugLogger.Info($"[SERVER] Accept loop cancelled after {sw.Elapsed.TotalMilliseconds:F0}ms");
         }
     }
 
@@ -118,8 +109,6 @@ public sealed class TcpListenerService
         _cts?.Cancel();
         _listener?.Stop();
         _logger.LogInformation("[TIMING] TcpListener stopped in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
-        ConnectionDebugLogger.Info($"[SERVER] TcpListener stopped in {sw.Elapsed.TotalMilliseconds:F0}ms");
-
         _logger.LogInformation("Broker service stopping: waiting for {Count} connection task(s) to drain", _connectionTasks.Count);
         ConnectionDebugLogger.Info($"[SERVER] Draining {_connectionTasks.Count} connection(s) with 30s timeout...");
 
@@ -133,7 +122,6 @@ public sealed class TcpListenerService
                 await Task.WhenAll(drainTasks.Select(t => t.WaitAsync(drainCts.Token)));
                 _logger.LogInformation("[TIMING] All {Count} connections drained in {ElapsedMs:F0}ms",
                     drainTasks.Length, sw.Elapsed.TotalMilliseconds);
-                ConnectionDebugLogger.Info($"[SERVER] All connections drained in {sw.Elapsed.TotalMilliseconds:F0}ms");
             }
             catch (OperationCanceledException)
             {
@@ -144,7 +132,6 @@ public sealed class TcpListenerService
         }
 
         _logger.LogInformation("[TIMING] Closing {Count} remaining connections...", _connections.Count);
-        ConnectionDebugLogger.Info($"[SERVER] Closing {_connections.Count} remaining connections");
         foreach (var kvp in _connections)
         {
             try { kvp.Value.Client.Close(); } catch { /* ignore */ }
@@ -153,7 +140,6 @@ public sealed class TcpListenerService
         _connectionTasks.Clear();
 
         _logger.LogInformation("[TIMING] TcpListenerService stopped in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
-        ConnectionDebugLogger.Info($"[SERVER] TcpListenerService stopped in {sw.Elapsed.TotalMilliseconds:F0}ms");
     }
 
     private void LoadTlsCertificate()
@@ -233,30 +219,25 @@ public sealed class TcpListenerService
 
         _logger.LogInformation("[TIMING] Connection {ConnectionId}: starting handler (local={LocalEP}, remote={RemoteEP})",
             state.Id, localEp, remoteEp);
-        ConnectionDebugLogger.Info($"[SERVER] HandleConnectionAsync: {state.Id} starting (local={localEp}, remote={remoteEp})");
-
         try
         {
             if (TlsEnabled && _serverCertificate != null)
             {
                 var tlsSw = Stopwatch.StartNew();
-                ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: TLS server handshake started");
                 var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
                 await sslStream.AuthenticateAsServerAsync(_serverCertificate, clientCertificateRequired: false, enabledSslProtocols: System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13, checkCertificateRevocation: false);
                 stream = sslStream;
                 _logger.LogInformation("[TIMING] Connection {ConnectionId}: TLS handshake completed in {ElapsedMs:F0}ms",
                     state.Id, tlsSw.Elapsed.TotalMilliseconds);
-                ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: TLS handshake completed in {tlsSw.Elapsed.TotalMilliseconds:F1}ms");
             }
             else
             {
-                ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: TLS not enabled, using plain TCP stream");
+                _logger.LogDebug("Connection {ConnectionId}: TLS not enabled, using plain TCP stream", state.Id);
             }
 
             // Register for change notification broadcasts
             _connectionRegistry.Register(state.Id, stream);
             _logger.LogDebug("Connection {ConnectionId}: registered for change notifications", state.Id);
-            ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: registered in ConnectionRegistry");
 
             while (!ct.IsCancellationRequested)
             {
@@ -264,12 +245,10 @@ public sealed class TcpListenerService
                 {
                     _logger.LogInformation("Connection {ConnectionId}: request limit ({Limit}) reached after {Count} requests, disconnecting (elapsed={ElapsedMs:F0}ms)",
                         state.Id, MaxRequestsPerConnection, state.RequestCount, connectionSw.Elapsed.TotalMilliseconds);
-                    ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: request limit ({MaxRequestsPerConnection}) reached, disconnecting");
                     break;
                 }
 
-                ConnectionDebugLogger.Trace($"[SERVER] Connection {state.Id}: waiting for envelope (messages handled: {messageCount})...");
-                var envelope = await TcpFrame.ReceiveAsync(stream, ct);
+                var envelope = await TcpFrame.ReceiveAsync(stream, ct: ct);
                 if (envelope == null)
                 {
                     _logger.LogInformation("Connection {ConnectionId}: null envelope received (client disconnected), handled {Count} messages in {ElapsedMs:F0}ms",
@@ -290,12 +269,10 @@ public sealed class TcpListenerService
                 envelope.ConnectionId = state.Id;
 
                 var requestSw = Stopwatch.StartNew();
-                ConnectionDebugLogger.Trace($"[SERVER] Connection {state.Id}: dispatching message #{messageCount} type={envelope.MessageType} corrId={envelope.CorrelationId}");
                 var response = await _handler.HandleAsync(envelope, ct);
-                await TcpFrame.SendAsync(stream, response, ct);
+                await TcpFrame.SendAsync(stream, response, ct: ct);
                 _logger.LogDebug("Connection {ConnectionId}: processed message #{Count} (type={Type}) in {ElapsedMs:F0}ms",
                     state.Id, messageCount, envelope.MessageType, requestSw.Elapsed.TotalMilliseconds);
-                ConnectionDebugLogger.Trace($"[SERVER] Connection {state.Id}: message #{messageCount} type={envelope.MessageType} processed in {requestSw.Elapsed.TotalMilliseconds:F1}ms (status={response.StatusCode})");
             }
         }
         catch (AuthenticationException ex)
@@ -336,7 +313,6 @@ public sealed class TcpListenerService
 
     private async Task IdleMonitorLoopAsync(CancellationToken ct)
     {
-        ConnectionDebugLogger.Trace("[SERVER] IdleMonitorLoop: started");
         while (!ct.IsCancellationRequested)
         {
             try
@@ -365,7 +341,6 @@ public sealed class TcpListenerService
             if (idleCount > 0)
                 ConnectionDebugLogger.Info($"[SERVER] IdleMonitor: disconnected {idleCount} idle connection(s) (active: {_connections.Count})");
         }
-        ConnectionDebugLogger.Trace("[SERVER] IdleMonitorLoop: exited");
     }
 
     private sealed class ConnectionState

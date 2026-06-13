@@ -1,0 +1,8 @@
+{
+  "$schema": "https://xunit.net/schema/v3/xunit.runner.schema.json",
+  "maxParallelThreads": 1,
+  "parallelizeTestCollections": false,
+  "parallelizeAssembly": false,
+  "diagnosticMessages": true,
+  "longRunningTestSeconds": 60
+}

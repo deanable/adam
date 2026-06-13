@@ -10,98 +10,141 @@
       <TextBlock Text="Metadata Editor" Classes="Title" FontWeight="Bold" />
 
       <!-- No asset state -->
-      <Border IsVisible="{Binding HasAsset, Converter={x:Static local:InverseBoolConverter2.Instance}}"
+      <Border IsVisible="{Binding HasAsset, Converter={x:Static local:InverseBoolConverter.Instance}}"
               VerticalAlignment="Center" HorizontalAlignment="Center" Padding="32">
-        <TextBlock Text="Select an asset to edit its metadata" Classes="Subheading" Foreground="Gray" />
+        <TextBlock Text="Select an asset to edit its metadata" Classes="Subheading" Foreground="{DynamicResource TextTertiaryBrush}" />
       </Border>
 
-      <StackPanel IsVisible="{Binding HasAsset}" Spacing="16">
-        <TextBlock Text="{Binding FileName}" Classes="Subheading" FontWeight="SemiBold" Foreground="#555" />
+      <StackPanel IsVisible="{Binding HasAsset}" Spacing="12">
+        <TextBlock Text="{Binding FileName}" Classes="Subheading" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
 
-        <Grid ColumnDefinitions="1*,1*" ColumnSpacing="16">
-          <!-- Editable fields — Phase 7: gated by CanEdit -->
-          <StackPanel Grid.Column="0" Spacing="8"
-                      IsEnabled="{Binding CanEdit}"
-                      ToolTip.Tip="{Binding EditPermissionTooltip}">
-            <TextBlock Text="Editable Metadata" FontWeight="SemiBold" Classes="Subheading" />
-            <Separator />
+        <Grid ColumnDefinitions="1*,1*" ColumnSpacing="12">
+          <!-- ═══ Editable fields card — Phase 7: gated by CanEdit ═══ -->
+          <Border Grid.Column="0"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1">
+            <StackPanel Spacing="8"
+                        IsEnabled="{Binding CanEdit}"
+                        ToolTip.Tip="{Binding EditPermissionTooltip}">
+              <!-- Section header with accent bar -->
+              <Grid ColumnDefinitions="3,*" Height="32">
+                <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="6,0,0,0" />
+                <TextBlock Grid.Column="1" Text="  Editable Metadata" FontWeight="SemiBold" Classes="Subheading"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Separator />
 
-            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" />
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" />
+              <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8,0,8,8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" />
 
-              <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" VerticalAlignment="Top" Margin="0,4,0,0" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}"
-                       AcceptsReturn="True" MaxHeight="80" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" VerticalAlignment="Top" Margin="0,4,0,0" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}"
+                         AcceptsReturn="True" MaxHeight="80" />
 
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Top" Margin="0,4,0,0" />
-              <controls:TagEditorControl Grid.Row="2" Grid.Column="1"
-                Tags="{Binding Tags}"
-                AutoCompleteSource="{Binding AutoCompleteSource}"
-                PlaceholderText="Add tag..."
-                Margin="0,2,0,0" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Top" Margin="0,4,0,0" />
+                <controls:TagEditorControl Grid.Row="2" Grid.Column="1"
+                  Tags="{Binding Tags}"
+                  AutoCompleteSource="{Binding AutoCompleteSource}"
+                  PlaceholderText="Add tag..."
+                  Margin="0,2,0,0" />
 
-              <TextBlock Grid.Row="3" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" Margin="0,4,0,0" />
-              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="1" />
-                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="2" />
-                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="3" />
-                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="4" />
-                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="5" />
-                <TextBlock Text="{Binding Rating}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" Margin="0,4,0,0" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="1" />
+                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="2" />
+                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="3" />
+                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="4" />
+                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="5" />
+                  <TextBlock Text="{Binding Rating}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                </StackPanel>
+              </Grid>
+
+              <Separator />
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0,8,8">
+                <Button Content="Save Changes" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
+                <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
               </StackPanel>
-            </Grid>
+            </StackPanel>
+          </Border>
 
-            <Button Content="Save Changes" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
-            <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="Green" />
-          </StackPanel>
+          <!-- ═══ Read-only EXIF / IPTC / XMP card ═══ -->
+          <Border Grid.Column="1"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1">
+            <StackPanel Spacing="6">
+              <!-- Section header with accent bar -->
+              <Grid ColumnDefinitions="3,*" Height="32">
+                <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="6,0,0,0" />
+                <TextBlock Grid.Column="1" Text="  Camera Data" FontWeight="SemiBold" Classes="Subheading"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Separator />
 
-          <!-- Read-only EXIF/IPTC/XMP -->
-          <StackPanel Grid.Column="1" Spacing="8">
-            <TextBlock Text="Camera Data (read-only)" FontWeight="SemiBold" Classes="Subheading" />
-            <Separator />
+              <!-- Sub-group: Camera -->
+              <TextBlock Text="  Camera" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         Margin="8,4,0,0" />
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" Margin="8,0,8,0">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Make:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CameraMake}" FontWeight="Medium" />
 
-            <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Camera Make:" />
-              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CameraMake}" FontWeight="Medium" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CameraModel}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="1" Grid.Column="0" Text="Camera Model:" />
-              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CameraModel}" FontWeight="Medium" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Lens:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LensModel}" FontWeight="Medium" />
+              </Grid>
 
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Lens:" />
-              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LensModel}" FontWeight="Medium" />
+              <!-- Sub-group: Exposure -->
+              <TextBlock Text="  Exposure" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         Margin="8,8,0,0" />
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="8,0,8,0">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Focal Length:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FocalLength}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="3" Grid.Column="0" Text="Focal Length:" />
-              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FocalLength}" FontWeight="Medium" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Aperture:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Aperture}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="4" Grid.Column="0" Text="Aperture:" />
-              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Aperture}" FontWeight="Medium" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Exposure:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ExposureTime}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="5" Grid.Column="0" Text="Exposure:" />
-              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ExposureTime}" FontWeight="Medium" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="ISO:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Iso}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="6" Grid.Column="0" Text="ISO:" />
-              <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Iso}" FontWeight="Medium" />
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Date Taken:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DateTaken}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="7" Grid.Column="0" Text="Date Taken:" />
-              <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding DateTaken}" FontWeight="Medium" />
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Flash:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Flash}" FontWeight="Medium" />
+              </Grid>
 
-              <TextBlock Grid.Row="8" Grid.Column="0" Text="Flash:" />
-              <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Flash}" FontWeight="Medium" />
+              <!-- Sub-group: Image Info -->
+              <TextBlock Text="  Image Info" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         Margin="8,8,0,0" />
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8,0,8,8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="GPS:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Gps}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="9" Grid.Column="0" Text="GPS:" />
-              <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding Gps}" FontWeight="Medium" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Creator:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Creator}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="10" Grid.Column="0" Text="Creator:" />
-              <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding Creator}" FontWeight="Medium" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Copyright:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Copyright}" FontWeight="Medium" />
 
-              <TextBlock Grid.Row="11" Grid.Column="0" Text="Copyright:" />
-              <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding Copyright}" FontWeight="Medium" />
-
-              <TextBlock Grid.Row="12" Grid.Column="0" Text="Headline:" />
-              <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding Headline}" FontWeight="Medium" />
-            </Grid>
-          </StackPanel>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Headline:" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Headline}" FontWeight="Medium" />
+              </Grid>
+            </StackPanel>
+          </Border>
         </Grid>
       </StackPanel>
     </StackPanel>

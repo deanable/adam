@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia.Headless" Version="12.0.3" />
     <PackageReference Include="Avalonia.Skia" Version="12.0.3" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />

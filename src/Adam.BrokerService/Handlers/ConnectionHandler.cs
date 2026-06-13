@@ -45,16 +45,19 @@ public sealed class ConnectionHandler : IConnectionHandler
 
     public async Task<Envelope> HandleAsync(Envelope request, CancellationToken ct = default)
     {
-        var sw = Stopwatch.StartNew();
-        ConnectionDebugLogger.Trace($"[DISPATCH] conn={request.ConnectionId}, type={request.MessageType}, corrId={request.CorrelationId}");
+        if (request == null)
+        {
+            ConnectionDebugLogger.Warn("[DISPATCH] Received null request envelope");
+            return CreateErrorResponse(new Envelope(), ErrorCode.BadRequest, "Null request envelope");
+        }
 
+        var sw = Stopwatch.StartNew();
         try
         {
             Envelope response;
             switch (request.MessageType)
             {
                 case MessageTypeCode.LoginRequest:
-                    ConnectionDebugLogger.Info($"[DISPATCH] LoginRequest from conn={request.ConnectionId}");
                     response = await _authHandler.LoginAsync(request, ct);
                     break;
                 case MessageTypeCode.ValidateTokenRequest:
@@ -182,17 +185,16 @@ public sealed class ConnectionHandler : IConnectionHandler
                     break;
                 default:
                     ConnectionDebugLogger.Warn($"[DISPATCH] Unknown message type: {request.MessageType} from conn={request.ConnectionId}");
-                    return CreateErrorResponse(request, 3, $"Unknown message type: {request.MessageType}");
+                    return CreateErrorResponse(request, ErrorCode.UnknownMessageType, $"Unknown message type: {request.MessageType}");
             }
 
-            ConnectionDebugLogger.Trace($"[DISPATCH] type={request.MessageType} completed in {sw.Elapsed.TotalMilliseconds:F1}ms (status={response.StatusCode})");
             return response;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling {MessageType}", request.MessageType);
             ConnectionDebugLogger.Error(ex, $"[DISPATCH] Error handling {request.MessageType} from conn={request.ConnectionId} after {sw.Elapsed.TotalMilliseconds:F0}ms");
-            return CreateErrorResponse(request, 13, "Internal server error");
+            return CreateErrorResponse(request, ErrorCode.InternalError, "Internal server error");
         }
     }
 

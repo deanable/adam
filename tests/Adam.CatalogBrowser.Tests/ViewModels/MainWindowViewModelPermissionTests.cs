@@ -13,7 +13,7 @@ namespace Adam.CatalogBrowser.Tests.ViewModels;
 /// Tests for Phase 7 permission-aware UI properties, session status text,
 /// and session check timer behavior on <see cref="MainWindowViewModel"/>.
 /// </summary>
-public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
+public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 {
     private readonly string _basePath;
     private readonly BrokerClient _broker;
@@ -588,7 +588,9 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
         vm.AdminPermissionTooltip.Should().BeNull();
     }
 
-    public async ValueTask DisposeAsync()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
         await _broker.DisposeAsync();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
@@ -599,7 +601,4 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncDisposable
         }
         catch (IOException) { }
     }
-
-    // This class uses IAsyncDisposable for cleanup but xUnit expects
-    // IAsyncLifetime for async setup. We use constructor + manual setup in each test.
 }

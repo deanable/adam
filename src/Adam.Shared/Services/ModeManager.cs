@@ -3,19 +3,23 @@ using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.Shared.Services;
 
 public sealed class ModeManager
 {
     private readonly string _basePath;
+    private readonly ILogger<ModeManager> _logger;
     private DbProviderConfig? _dbConfig;
 
-    public ModeManager(string basePath, BrokerClient? broker = null, AuthSession? authSession = null)
+    public ModeManager(string basePath, BrokerClient? broker = null, AuthSession? authSession = null, ILogger<ModeManager>? logger = null)
     {
         _basePath = basePath;
         BrokerClient = broker;
         AuthSession = authSession;
+        _logger = logger ?? NullLogger<ModeManager>.Instance;
     }
 
     public string Mode { get; private set; } = "Standalone";
@@ -34,8 +38,13 @@ public sealed class ModeManager
     /// <summary>Optional FTS service injected via DI for standalone mode initialization.</summary>
     public IFtsService? FtsService { get; set; }
 
+    /// <summary>Startup profiling timing, measured by InitializeAsync (T12.12).</summary>
+    public long InitElapsedMs { get; private set; }
+
     public async Task InitializeAsync()
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         Mode = "Standalone";
         DbPath = Path.Combine(_basePath, ".adam", "catalog.db");
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
@@ -46,8 +55,8 @@ public sealed class ModeManager
             ConnectionString = $"Data Source={DbPath}"
         };
 
-        System.Diagnostics.Debug.WriteLine($"[adam] ModeManager DbPath: {DbPath}");
-        System.Diagnostics.Debug.WriteLine($"[adam] ModeManager basePath: {_basePath}");
+        _logger.LogDebug("ModeManager DbPath: {DbPath}", DbPath);
+        _logger.LogDebug("ModeManager basePath: {BasePath}", _basePath);
 
         await using var db = CreateDbContext();
         await db.Database.MigrateAsync();
@@ -58,13 +67,17 @@ public sealed class ModeManager
             try
             {
                 await FtsService.EnsureReadyAsync();
-                System.Diagnostics.Debug.WriteLine($"[adam] FTS5 index ready");
+                _logger.LogDebug("FTS5 index ready");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[adam] FTS5 init failed (non-fatal): {ex.Message}");
+                _logger.LogWarning(ex, "FTS5 init failed (non-fatal): {Message}", ex.Message);
             }
         }
+
+        sw.Stop();
+        InitElapsedMs = sw.ElapsedMilliseconds;
+        _logger.LogInformation("ModeManager.InitializeAsync completed in {ElapsedMs}ms", InitElapsedMs);
     }
 
     public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite", string? connectionString = null)

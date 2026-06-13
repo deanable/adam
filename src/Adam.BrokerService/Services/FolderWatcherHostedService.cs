@@ -14,6 +14,11 @@ namespace Adam.BrokerService.Services;
 /// <summary>
 /// Hosted service that watches configured folders for new or modified files
 /// and auto-indexes them into the catalog database.
+///
+/// File system events are collected into a batch dictionary and processed
+/// together after a 5-second debounce window. This coalesces high-volume
+/// events (e.g., copying 1000 files) into a single processing pass with
+/// deduplication of last-write-wins per path.
 /// </summary>
 public sealed class FolderWatcherHostedService : IHostedService, IDisposable
 {
@@ -21,8 +26,17 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
     private readonly ILogger<FolderWatcherHostedService> _logger;
     private readonly IConfiguration _configuration;
     private readonly List<FileSystemWatcher> _watchers = new();
-    private readonly ConcurrentDictionary<string, System.Threading.Timer> _debounceTimers = new();
-    private readonly TimeSpan _debounceWindow = TimeSpan.FromMilliseconds(500);
+
+    // ── Batch collection (replaces per-path debounce timers) ──
+
+    private sealed record FileSystemChange(string Path, WatcherChangeTypes ChangeType, string? OldPath);
+
+    private ConcurrentDictionary<string, FileSystemChange> _pendingChanges = new();
+    private System.Threading.Timer? _batchTimer;
+    private readonly TimeSpan _batchWindow = TimeSpan.FromSeconds(5);
+
+    // ── Periodic watcher refresh ──
+
     private System.Threading.Timer? _refreshTimer;
 
     public FolderWatcherHostedService(IServiceProvider serviceProvider, ILogger<FolderWatcherHostedService> logger, IConfiguration configuration)
@@ -34,6 +48,9 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
 
     public async Task StartAsync(CancellationToken ct)
     {
+        // Create the batch timer in a paused state (fires only after ResetBatchTimer is called)
+        _batchTimer = new System.Threading.Timer(OnBatchTimerElapsed, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+
         await RefreshWatchersAsync(ct);
         _refreshTimer = new System.Threading.Timer(async _ =>
         {
@@ -109,6 +126,10 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
         _refreshTimer?.Dispose();
         _refreshTimer = null;
 
+        // Stop and drain the batch timer
+        _batchTimer?.Dispose();
+        _batchTimer = null;
+
         foreach (var watcher in _watchers)
         {
             watcher.EnableRaisingEvents = false;
@@ -116,11 +137,7 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
         }
         _watchers.Clear();
 
-        foreach (var timer in _debounceTimers.Values)
-        {
-            timer.Dispose();
-        }
-        _debounceTimers.Clear();
+        _pendingChanges.Clear();
 
         _logger.LogInformation("Folder watcher stopped");
         return Task.CompletedTask;
@@ -135,48 +152,79 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
             EnableRaisingEvents = true
         };
 
-        watcher.Created += (_, e) => Debounce(e.FullPath, () => HandleCreatedAsync(e.FullPath));
-        watcher.Changed += (_, e) => Debounce(e.FullPath, () => HandleChangedAsync(e.FullPath));
-        watcher.Renamed += (_, e) => Debounce(e.FullPath, () => HandleRenamedAsync(e.OldFullPath, e.FullPath));
-        watcher.Deleted += (_, e) => Debounce(e.FullPath, () => HandleDeletedAsync(e.FullPath));
+        watcher.Created += OnFileSystemEvent;
+        watcher.Changed += OnFileSystemEvent;
+        watcher.Renamed += OnRenamed;
+        watcher.Deleted += OnFileSystemEvent;
 
         _watchers.Add(watcher);
         _logger.LogInformation("Watching folder: {Folder}", folder);
     }
 
-    private void Debounce(string path, Func<Task> action)
-    {
-        if (_debounceTimers.TryGetValue(path, out System.Threading.Timer? existingTimer))
-        {
-            existingTimer?.Dispose();
-            _debounceTimers.TryRemove(path, out System.Threading.Timer? _);
-        }
+    // ── Batch collection event handlers ──
 
-        var timer = new System.Threading.Timer(async _ =>
+    private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
+    {
+        _pendingChanges[e.FullPath] = new FileSystemChange(e.FullPath, e.ChangeType, null);
+        ResetBatchTimer();
+    }
+
+    private void OnRenamed(object sender, RenamedEventArgs e)
+    {
+        // Also record the old path so HandleRenamedAsync can find the asset
+        _pendingChanges[e.FullPath] = new FileSystemChange(e.FullPath, e.ChangeType, e.OldFullPath);
+        ResetBatchTimer();
+    }
+
+    private void ResetBatchTimer()
+    {
+        // Reset the batch timer to fire after _batchWindow from the most recent event.
+        // System.Threading.Timer.Change is thread-safe.
+        _batchTimer?.Change(_batchWindow, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>
+    /// Called when the batch timer elapses. Snapshots the pending changes,
+    /// clears the collection, and processes each unique path.
+    /// </summary>
+    private async void OnBatchTimerElapsed(object? state)
+    {
+        // Atomically swap the pending dictionary with a fresh one
+        var batch = Interlocked.Exchange(ref _pendingChanges, new ConcurrentDictionary<string, FileSystemChange>());
+        if (batch.IsEmpty)
+            return;
+
+        _logger.LogDebug("Processing batch of {Count} file system change(s)", batch.Count);
+
+        // Deduplicate by path (last-write-wins — the dictionary already guarantees this)
+        foreach (var change in batch.Values)
         {
-            _debounceTimers.TryRemove(path, out System.Threading.Timer? _);
             try
             {
-                await action();
+                switch (change.ChangeType)
+                {
+                    case WatcherChangeTypes.Created:
+                        await IngestFileAsync(change.Path, isNew: true);
+                        break;
+                    case WatcherChangeTypes.Changed:
+                        await IngestFileAsync(change.Path, isNew: false);
+                        break;
+                    case WatcherChangeTypes.Renamed:
+                        await HandleRenamedAsync(change.OldPath!, change.Path);
+                        break;
+                    case WatcherChangeTypes.Deleted:
+                        await HandleDeletedAsync(change.Path);
+                        break;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing watched file: {Path}", path);
+                _logger.LogError(ex, "Error processing batched change: {Path} ({ChangeType})", change.Path, change.ChangeType);
             }
-        }, null, _debounceWindow, Timeout.InfiniteTimeSpan);
-
-        _debounceTimers[path] = timer;
+        }
     }
 
-    private async Task HandleCreatedAsync(string path)
-    {
-        await IngestFileAsync(path, isNew: true);
-    }
-
-    private async Task HandleChangedAsync(string path)
-    {
-        await IngestFileAsync(path, isNew: false);
-    }
+    // ── Individual file processing ──
 
     private async Task IngestFileAsync(string path, bool isNew)
     {

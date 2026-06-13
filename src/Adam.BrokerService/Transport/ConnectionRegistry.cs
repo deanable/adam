@@ -105,7 +105,7 @@ public sealed class ConnectionRegistry : IDisposable
             await entry.Lock.WaitAsync(ct);
             try
             {
-                await TcpFrame.SendAsync(entry.Stream, envelope, ct);
+                await TcpFrame.SendAsync(entry.Stream, envelope, ct: ct);
                 return true;
             }
             finally

@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Data.Converters;
 using Adam.CatalogBrowser.ViewModels;
 
 namespace Adam.CatalogBrowser.Views;
@@ -20,12 +19,3 @@ public partial class TrashView : UserControl
     }
 }
 
-public class InverseBoolConverter3 : IValueConverter
-{
-    public static readonly InverseBoolConverter3 Instance = new();
-    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => value is bool b ? !b : value;
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => value is bool b ? !b : value;
-}

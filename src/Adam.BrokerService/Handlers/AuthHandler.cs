@@ -61,6 +61,8 @@ public sealed class AuthHandler
 
     public async Task<Envelope> LoginAsync(Envelope request, CancellationToken ct)
     {
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var loginReq = ProtoHelper.Deserialize<LoginRequest>(request.Payload.ToByteArray());
         var clientIp = request.ClientIp ?? "unknown";
 
@@ -69,7 +71,7 @@ public sealed class AuthHandler
         {
             _logger.LogWarning("SECURITY: Rate limit exceeded for username '{Username}' from IP '{ClientIp}'. CorrelationId: {CorrelationId}",
                 loginReq.Username, clientIp, request.CorrelationId);
-            return ErrorResponse(request, 16, "Too many login attempts. Please try again later.");
+            return ErrorResponse(request, ErrorCode.AuthDenied, "Too many login attempts. Please try again later.");
         }
 
         using var scope = _serviceProvider.CreateScope();
@@ -82,14 +84,14 @@ public sealed class AuthHandler
         {
             _logger.LogWarning("SECURITY: Failed login attempt for username '{Username}' from IP '{ClientIp}'. CorrelationId: {CorrelationId}",
                 loginReq.Username, clientIp, request.CorrelationId);
-            return ErrorResponse(request, 16, "Invalid username or password");
+            return ErrorResponse(request, ErrorCode.AuthDenied, "Invalid username or password");
         }
 
         if (!user.IsActive)
         {
             _logger.LogWarning("SECURITY: Deactivated account login attempt for username '{Username}' from IP '{ClientIp}'. CorrelationId: {CorrelationId}",
                 loginReq.Username, clientIp, request.CorrelationId);
-            return ErrorResponse(request, 7, "Account is deactivated");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Account is deactivated");
         }
 
         _logger.LogInformation("SECURITY: Successful login for username '{Username}' from IP '{ClientIp}'. CorrelationId: {CorrelationId}",
@@ -178,7 +180,7 @@ public sealed class AuthHandler
                     CorrelationId = request.CorrelationId,
                     MessageType = MessageTypeCode.ValidateTokenResponse,
                     Payload = ByteString.CopyFrom(ProtoHelper.Serialize(invalidResponse)),
-                    StatusCode = 7
+                    StatusCode = ErrorCode.Forbidden
                 };
             }
 
@@ -206,7 +208,7 @@ public sealed class AuthHandler
                 CorrelationId = request.CorrelationId,
                 MessageType = MessageTypeCode.ValidateTokenResponse,
                 Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
-                StatusCode = 16
+                StatusCode = ErrorCode.AuthDenied
             };
         }
     }

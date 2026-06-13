@@ -23,7 +23,7 @@ public sealed class WatchedFolderHandler
     public async Task<Envelope> ListAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -48,15 +48,18 @@ public sealed class WatchedFolderHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.ListWatchedFoldersResponse,
-            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response))
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> CreateAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:create", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<CreateWatchedFolderRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -87,15 +90,18 @@ public sealed class WatchedFolderHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.CreateWatchedFolderResponse,
-            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response))
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> UpdateAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<UpdateWatchedFolderRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -104,7 +110,7 @@ public sealed class WatchedFolderHandler
         var id = Guid.Parse(req.Id);
         var folder = await db.WatchedFolders.FindAsync(new object[] { id }, ct);
         if (folder == null)
-            return ErrorResponse(request, 4, "Watched folder not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Watched folder not found");
 
         folder.Path = req.Path;
         folder.IsEnabled = req.IsEnabled;
@@ -118,15 +124,17 @@ public sealed class WatchedFolderHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.UpdateAssetResponse,
-            StatusCode = 0
+            StatusCode = ErrorCode.Success
         };
     }
 
     public async Task<Envelope> DeleteAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var req = ProtoHelper.Deserialize<DeleteWatchedFolderRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
@@ -135,7 +143,7 @@ public sealed class WatchedFolderHandler
         var id = Guid.Parse(req.Id);
         var folder = await db.WatchedFolders.FindAsync(new object[] { id }, ct);
         if (folder == null)
-            return ErrorResponse(request, 4, "Watched folder not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Watched folder not found");
 
         db.WatchedFolders.Remove(folder);
         await db.SaveChangesAsync(ct);
@@ -148,7 +156,8 @@ public sealed class WatchedFolderHandler
         {
             CorrelationId = request.CorrelationId,
             MessageType = MessageTypeCode.DeleteWatchedFolderResponse,
-            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response))
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
         };
     }
 

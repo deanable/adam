@@ -69,170 +69,130 @@
     <KeyBinding Gesture="F2" Command="{Binding Sidebar.F2RenameCommand}" />
   </Window.KeyBindings>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <Grid RowDefinitions="Auto,*,Auto">
 
-    <!-- Title bar -->
-    <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" Padding="8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
-        <TextBlock Text="adam" Classes="Title" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
-          <!-- Navigation -->
-          <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" />
+    <!-- ════════════════════════════════════════════════ -->
+    <!--  Title bar (merged with connection controls)    -->
+    <!-- ════════════════════════════════════════════════ -->
+    <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" Padding="6,4">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+
+        <!-- Logo + Navigation -->
+        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="adam" Classes="Title" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="8,0" VerticalAlignment="Center" />
+          <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="12" />
           <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  Classes="NavButton"
-                  IsEnabled="{Binding CanIngest}"
-                  ToolTip.Tip="{Binding IngestPermissionTooltip}" />
+                  Classes="NavButton" IsEnabled="{Binding CanIngest}" ToolTip.Tip="{Binding IngestPermissionTooltip}" FontSize="12" />
           <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  Classes="NavButton"
-                  IsEnabled="{Binding CanEditMetadata}"
-                  ToolTip.Tip="{Binding MetadataPermissionTooltip}" />
+                  Classes="NavButton" IsEnabled="{Binding CanEditMetadata}" ToolTip.Tip="{Binding MetadataPermissionTooltip}" FontSize="12" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  Classes="NavButton"
-                  IsEnabled="{Binding CanAudit}"
-                  ToolTip.Tip="{Binding AuditPermissionTooltip}" />
-
-          <!-- Admin / Service Manager separator -->
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="8,0" VerticalAlignment="Center"
+                  Classes="NavButton" IsEnabled="{Binding CanAudit}" ToolTip.Tip="{Binding AuditPermissionTooltip}" FontSize="12" />
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center"
                      IsVisible="{Binding CanAdminister}" />
           <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"
                   Foreground="{DynamicResource AdminTextBrush}" Background="{DynamicResource AdminBrush}" BorderThickness="0"
-                  FontSize="11" Padding="8,2" CornerRadius="3" Margin="0,0,8,0"
-                  Cursor="Hand"
-                  IsEnabled="{Binding CanAdminister}"
-                  ToolTip.Tip="{Binding AdminPermissionTooltip}">
+                  FontSize="11" Padding="6,2" CornerRadius="3" Cursor="Hand"
+                  IsEnabled="{Binding CanAdminister}" ToolTip.Tip="{Binding AdminPermissionTooltip}">
             <Button.Styles>
               <Style Selector="Button:pointerover">
                 <Setter Property="Background" Value="{DynamicResource AdminHoverBrush}" />
               </Style>
             </Button.Styles>
           </Button>
-
-          <!-- Mode separator -->
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="8,0" VerticalAlignment="Center" />
-
-          <!-- Mode toggle -->
-          <TextBlock Text="Mode:" Classes="Body" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-          <Button Content="Local" Command="{Binding Connection.ToggleLocalModeCommand}"
-                  Background="{Binding Connection.IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
-                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
-                  CornerRadius="3" Cursor="Hand" />
-          <Button Content="Service" Command="{Binding Connection.ToggleServiceModeCommand}"
-                  Background="{Binding Connection.IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
-                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2"
-                  CornerRadius="3" Cursor="Hand" />
         </StackPanel>
 
-        <TextBlock Grid.Column="2" Text="{Binding StatusBar.StatusText}" Classes="Body" Foreground="{DynamicResource TitleBarStatusBrush}" VerticalAlignment="Center" Margin="8,0" />
+        <!-- Status text -->
+        <TextBlock Grid.Column="1" Text="{Binding StatusBar.StatusText}" Classes="Body"
+                   Foreground="{DynamicResource TitleBarStatusBrush}" VerticalAlignment="Center"
+                   Margin="12,0,8,0" TextTrimming="CharacterEllipsis" />
 
-        <!-- Connection status indicator – green dot for local DB, green/gray for service -->
-        <Ellipse Grid.Column="3" Width="8" Height="8" Fill="LimeGreen"
-                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
-          <ToolTip.Tip>
-            <StackPanel Spacing="2">
-              <TextBlock Text="Local Database" Classes="Body" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" />
-              <TextBlock Text="Status: Connected" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}">
-                <Run Text="Path: " />
-                <Run Text="{Binding ModeManager.DbPath}" />
-              </TextBlock>
+        <!-- Mode toggle + Connection controls -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" VerticalAlignment="Center" />
+          <TextBlock Text="Mode:" Classes="Body" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" Margin="4,0,4,0" />
+          <Button Content="Local" Command="{Binding Connection.ToggleLocalModeCommand}"
+                  Background="{Binding Connection.IsLocalMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2" CornerRadius="3" Cursor="Hand" />
+          <Button Content="Service" Command="{Binding Connection.ToggleServiceModeCommand}"
+                  Background="{Binding Connection.IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
+                  Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2" CornerRadius="3" Cursor="Hand" />
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="4,0" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Connection area: compact context-dependent controls -->
+        <Border Grid.Column="3" CornerRadius="4" Padding="6,2"
+                Background="{DynamicResource SurfaceLightBrush}">
+          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+
+            <!-- === Local mode === -->
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding Connection.IsLocalMode}">
+              <Ellipse Width="8" Height="8" Fill="LimeGreen" VerticalAlignment="Center" />
+              <TextBlock Text="Local DB" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                         FontWeight="SemiBold"
+                         ToolTip.Tip="Local SQLite database" />
+              <TextBlock Text="{Binding ModeManager.DbPath}" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200"
+                         ToolTip.Tip="{Binding ModeManager.DbPath}" />
             </StackPanel>
-          </ToolTip.Tip>
-        </Ellipse>
-        <Ellipse Grid.Column="3" Width="8" Height="8"
-                 Fill="{Binding Connection.IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
-                 VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsServiceMode}">
-          <ToolTip.Tip>
-            <StackPanel Spacing="2">
-              <TextBlock Text="Service Connection" Classes="Body" FontWeight="Bold" Foreground="{DynamicResource PrimaryHoverBrush}" />
-              <TextBlock Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}">
-                <Run Text="Status: " />
-                <Run Text="{Binding Connection.ServiceConnectionStatus}" />
-              </TextBlock>
-              <TextBlock Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}">
-                <Run Text="Host: " />
-                <Run Text="{Binding Connection.ServiceHost}" />
-              </TextBlock>
-              <TextBlock Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}">
-                <Run Text="Port: " />
-                <Run Text="{Binding Connection.ServicePort}" />
-              </TextBlock>
+
+            <!-- === Service mode: not connected === -->
+            <StackPanel Orientation="Horizontal" Spacing="4"
+                        IsVisible="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}">
+              <TextBlock Text="Host:" Classes="Caption" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <TextBox Text="{Binding Connection.ServiceHost}" Width="80" FontSize="11" Padding="2,1" />
+              <TextBlock Text="Port:" Classes="Caption" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding Connection.ServicePort}" Minimum="1" Maximum="65535" Increment="1"
+                              Width="60" FontSize="11" />
+              <Button Content="Connect" Command="{Binding Connection.ConnectToServiceCommand}"
+                      FontSize="10" Padding="6,1" Background="{DynamicResource SuccessHoverBrush}" Foreground="White"
+                      BorderThickness="0" CornerRadius="3" Cursor="Hand" />
             </StackPanel>
-          </ToolTip.Tip>
-        </Ellipse>
-        <TextBlock Grid.Column="4" Text="Local DB" Classes="Caption" Foreground="{DynamicResource TitleBarTextSubtleBrush}"
-                   VerticalAlignment="Center" Margin="2,0" IsVisible="{Binding Connection.IsLocalMode}">
-          <ToolTip.Tip>
-            <TextBlock Text="{Binding ModeManager.DbPath}" Classes="Body" Foreground="{DynamicResource TextSecondaryBrush}" />
-          </ToolTip.Tip>
-        </TextBlock>
-        <TextBlock Grid.Column="4" Text="{Binding Connection.ServiceConnectionStatus}" Classes="Caption"
-                   Foreground="{DynamicResource TitleBarTextSubtleBrush}" VerticalAlignment="Center" Margin="2,0"
-                   IsVisible="{Binding Connection.IsServiceMode}" />
+
+            <!-- === Service mode: connected === -->
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding Connection.IsConnectedToService}">
+              <Ellipse Width="8" Height="8"
+                       Fill="{Binding Connection.IsConnectedToService, Converter={x:Static views:BoolToStatusColorConverter.Instance}}"
+                       VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Connection.ServiceConnectionStatus}" Classes="Body"
+                         Foreground="{DynamicResource PrimaryHoverBrush}" VerticalAlignment="Center" FontWeight="SemiBold" />
+              <Button Content="Logout" Command="{Binding Connection.LogoutCommand}"
+                      FontSize="10" Padding="6,1" Background="{DynamicResource WarningBrush}" Foreground="White"
+                      BorderThickness="0" CornerRadius="3" Cursor="Hand">
+                <Button.Styles>
+                  <Style Selector="Button:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource WarningHoverBrush}" />
+                  </Style>
+                </Button.Styles>
+              </Button>
+              <Button Content="Disconnect" Command="{Binding Connection.DisconnectFromServiceCommand}"
+                      FontSize="10" Padding="6,1" Background="{DynamicResource DangerBrush}" Foreground="White"
+                      BorderThickness="0" CornerRadius="3" Cursor="Hand">
+                <Button.Styles>
+                  <Style Selector="Button:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}" />
+                  </Style>
+                </Button.Styles>
+              </Button>
+            </StackPanel>
+
+          </StackPanel>
+        </Border>
+
       </Grid>
     </Border>
 
-    <!-- Connection panel – shows connection controls in Service mode, status in Local mode -->
-    <Border Grid.Row="1" Background="{DynamicResource SuccessBackgroundBrush}" Padding="6,4" IsVisible="{Binding Connection.IsLocalMode}">
-      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-        <Ellipse Width="8" Height="8" Fill="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
-        <TextBlock Text="Using local database" Classes="Body" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" FontWeight="Medium" />
-        <TextBlock Text="{Binding ModeManager.DbPath}" Classes="Caption" Foreground="{DynamicResource SuccessLightBrush}" VerticalAlignment="Center" />
-      </StackPanel>
-    </Border>
-    <Border Grid.Row="1" Background="{DynamicResource ServiceModeBrush}" Padding="6,4" IsVisible="{Binding Connection.IsServiceMode}">
-      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-        <TextBlock Text="Host:" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
-        <TextBox Text="{Binding Connection.ServiceHost}" Width="120" FontSize="11" Padding="2,1"
-                 IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
-        <TextBlock Text="Port:" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
-        <NumericUpDown Value="{Binding Connection.ServicePort}" Minimum="1" Maximum="65535" Increment="1"
-                        Width="100" FontSize="11"
-                        IsEnabled="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}" />
-        <Button Content="Connect" Command="{Binding Connection.ConnectToServiceCommand}" FontSize="11" Padding="8,2"
-                Background="{DynamicResource SuccessHoverBrush}" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}"
-                Cursor="Hand">
-          <Button.Styles>
-            <Style Selector="Button:disabled">
-              <Setter Property="Background" Value="{DynamicResource DisabledButtonBrush}" />
-            </Style>
-            <Style Selector="Button:pointerover">
-              <Setter Property="Background" Value="#2E7D32" />
-            </Style>
-          </Button.Styles>
-        </Button>
-        <Button Content="Logout" Command="{Binding Connection.LogoutCommand}" FontSize="11" Padding="8,2"
-                Background="{DynamicResource WarningBrush}" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding Connection.IsConnectedToService}"
-                Cursor="Hand">
-          <Button.Styles>
-            <Style Selector="Button:disabled">
-              <Setter Property="Background" Value="{DynamicResource DisabledButtonBrush}" />
-            </Style>
-            <Style Selector="Button:pointerover">
-              <Setter Property="Background" Value="{DynamicResource WarningHoverBrush}" />
-            </Style>
-          </Button.Styles>
-        </Button>
-        <Button Content="Disconnect" Command="{Binding Connection.DisconnectFromServiceCommand}" FontSize="11" Padding="8,2"
-                Background="{DynamicResource DangerBrush}" Foreground="White" BorderThickness="0" CornerRadius="3"
-                IsVisible="{Binding Connection.IsConnectedToService}"
-                Cursor="Hand">
-          <Button.Styles>
-            <Style Selector="Button:disabled">
-              <Setter Property="Background" Value="{DynamicResource DisabledButtonBrush}" />
-            </Style>
-            <Style Selector="Button:pointerover">
-              <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}" />
-            </Style>
-          </Button.Styles>
-        </Button>
-        <TextBlock Text="{Binding Connection.ServiceConnectionStatus}" Classes="Body" Foreground="{DynamicResource PrimaryHoverBrush}" VerticalAlignment="Center" Margin="4,0,0,0" />
-      </StackPanel>
-    </Border>
-
-    <!-- 3-column layout -->
-    <Grid Grid.Row="2" ColumnDefinitions="1.5*,Auto,3*,Auto,1.5*" Background="White">
+    <!-- ════════════════════════════════════════════════ -->
+    <!--  3-column layout: Sidebar | Content | Right     -->
+    <!-- ════════════════════════════════════════════════ -->
+    <Grid Grid.Row="1" Background="White">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.5*" MinWidth="180" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="3*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="1.5*" MinWidth="180" />
+      </Grid.ColumnDefinitions>
 
       <!-- Left sidebar -->
       <Border Grid.Column="0" Background="{DynamicResource SurfaceSubtleBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0" MinWidth="180">
@@ -327,7 +287,7 @@
 
             <!-- Date Taken -->
             <Expander Header="Date Taken" IsExpanded="True" Padding="8,4" Background="Transparent">
-              <TreeView ItemsSource="{Binding Sidebar.DateTakenTree}" SelectedItem="{Binding Sidebar.SelectedDateTaken}"
+              <TreeView x:Name="DateTakenTree" ItemsSource="{Binding Sidebar.DateTakenTree}" SelectedItem="{Binding Sidebar.SelectedDateTaken}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
                   <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -634,7 +594,7 @@
     </Grid>
 
     <!-- Toast notification overlay -->
-    <Border Grid.Row="0" Grid.RowSpan="4"
+    <Border Grid.Row="0" Grid.RowSpan="3"
             IsVisible="{Binding ToastService.HasNotifications}"
             Background="Transparent"
             HorizontalAlignment="Right"
@@ -666,7 +626,7 @@
     </Border>
 
     <!-- Status bar -->
-    <Border Grid.Row="3" Background="{DynamicResource SurfaceDisabledBrush}" Padding="4,2">
+    <Border Grid.Row="2" Background="{DynamicResource SurfaceDisabledBrush}" Padding="4,2">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <TextBlock Text="{Binding StatusBar.StatusText}" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
 

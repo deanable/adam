@@ -21,7 +21,10 @@
             <Button Grid.Column="1" Content="Select Folder" Click="OnSelectFolderClick"
                     HorizontalAlignment="Stretch" Height="32" />
           </Grid>
-          <Border BorderBrush="{DynamicResource TextEmptySecondaryBrush}" BorderThickness="1" Padding="16" CornerRadius="4" Background="{DynamicResource SurfaceDisabledBrush}">
+          <Border x:Name="DropZoneBorder"
+                  BorderBrush="{DynamicResource TextEmptySecondaryBrush}" BorderThickness="1" Padding="16" CornerRadius="4"
+                  Background="{DynamicResource SurfaceDisabledBrush}"
+                  >
             <TextBlock Text="Or drag and drop files or folders here" Classes="Body" Foreground="{DynamicResource TextPlaceholderBrush}"
                        HorizontalAlignment="Center" />
           </Border>

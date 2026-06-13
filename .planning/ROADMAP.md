@@ -3,7 +3,7 @@
 **Project:** adam — Digital Asset Management System  
 **Updated:** 2026-06-13 (v1.0 shipped, v2 plans expanded to ultra-detailed level)
 **Granularity:** Standard  
-**Phases:** 12
+**Phases:** 14 planned (12 complete, 13-14 on roadmap)
 
 ## Overview
 
@@ -18,9 +18,11 @@
 | 7 | Client RBAC & Hardening | Permission-aware UI and session stability | ADMIN-01, ADMIN-04 | ✅ Complete |
 | 8 | v1.0 Polish & Ship | UI polish, docs, packaging, stabilization | All v1 Final | ✅ Complete |
 | 9 | AI Image Tagging | Local LFM2-VL auto-tagging of images via LiquidVision.Core | AI-01 to AI-08 | ✅ Complete |
-| 10 | Sidebar CRUD & Tree Interaction | XAML ContextFlyout context menus, cascade delete, inline rename, broker handlers, filter state | UI-V2-01 to UI-V2-08 | 📋 Ultra-detailed plan |
-| 11 | Full-Text Search (FTS5) | SearchService → IFtsService integration, dedicated search bar, highlighting, suggestions | PERF-01, META-V2-01 | 📋 Ultra-detailed plan |
-| 12 | Performance Optimization | Decode-to-size, VirtualizingStackPanel tuning, bitmap disposal, lazy init, startup profiling | PERF-02 to PERF-05 | 📋 Ultra-detailed plan |
+| 10 | Sidebar CRUD & Tree Interaction | XAML ContextFlyout context menus, cascade delete, inline rename, broker handlers, filter state | UI-V2-01 to UI-V2-08 | ✅ Complete |
+| 11 | Full-Text Search (FTS5) | SearchService → IFtsService integration, dedicated search bar, highlighting, suggestions | PERF-01, META-V2-01 | ✅ Complete |
+| 12 | Performance Optimization | Decode-to-size, VirtualizingStackPanel tuning, bitmap disposal, lazy init, startup profiling | PERF-02 to PERF-05 | ✅ Complete |
+| 13 | Production Hardening | Solution file, CI fix, null-handler validation, protobuf docs, logging, watcher batching, EF Core prep | CONCERNS-01 to CONCERNS-07 | 📋 Planned |
+| 14 | Feature Growth | Batch metadata editing, CSV import/export, activity feed, compare/loupe, AI tag refinement | META-V2-02, META-V2-03, COLL-V2-01, COLL-V2-03, CATA-05, CATA-06 | 📋 Planned |
 
 ## Phase Details
 
@@ -93,8 +95,10 @@ Production-ready server administration and database flexibility.
 ### v1.2 — Client Polish (Phases 7-8) ✅
 Permission-aware UI and v1.0 polish & ship — all complete.
 
-### v2.0 — Advanced Features & Performance (Phases 10-12)
+### v2.0 — Advanced Features & Performance (Phases 10-12) ✅
 Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+ asset collections.
+
+**Status:** 🏁 Archived to `.planning/milestones/v2.0-release.md`
 
 ### Phase 9: AI Image Tagging ✅
 **Goal:** Integrate the in-repo `LiquidVision.Core` (LFM2-VL ONNX vision model) into ADAM so users can auto-generate descriptions, keywords, and categories for image assets locally, with no Python or cloud dependency.
@@ -117,51 +121,80 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 - ✅ Non-image assets are skipped; AI tagging is fully opt-in.
 
 ---
-### Phase 10: Sidebar CRUD & Tree Interaction 📋
+### Phase 10: Sidebar CRUD & Tree Interaction ✅
 **Goal:** Complete sidebar tree interaction model — **XAML ContextFlyout** context menus, **cascade delete** (parent + children), inline rename (F2/double-click), broker-side CRUD handlers with ChangeNotification broadcast, visual filter state indicators.
 
-**Depends on:** Phases 1–9, Phase 7 (permission infrastructure)
-
-**Wave structure:**
-1. **Wave 1 — Client CRUD**: Dynamic ContextFlyout population, inline rename completion, cascade delete with confirmation, filter commands, visual filter state
-2. **Wave 2 — Broker Handlers**: Verify/update existing handlers with cascade+ChangeNotification; verify protobuf contracts
-3. **Wave 3 — Filter UX**: "Filter by this"/"Clear filter" context menu entries
+**Deliverables:**
+1. ✅ **XAML ContextFlyout context menus** — dynamic code-behind population for all node types (Keywords, Categories, Collections, Folders) with Create/Rename/Delete/Filter entries
+2. ✅ **Inline rename** — F2 or double-click, Enter commits, Escape cancels
+3. ✅ **Cascade delete** — recursive descendant deletion with confirmation dialog showing child count
+4. ✅ **Filter commands** — "Filter by this" / "Clear filter" on every node type
+5. ✅ **Visual filter state** — `IsActiveFilter` property with bold blue indicator on active filter nodes
+6. ✅ **Broker handlers** — cascade delete + ChangeNotification broadcast added to all CRUD handlers
+7. ✅ **Keyboard shortcuts** — F2 rename, P/X flags, Enter reveal, Ctrl+F search focus
+8. ✅ **41 SidebarCrud tests** — all passing
 
 **Key decisions:**
-- XAML ContextFlyout with dynamic code-behind population (polymorphic node types)
-- Cascade delete all children when deleting parent node (always, no re-parent option)
+- XAML ContextFlyout with code-behind population (polymorphic node types can't use compiled bindings)
+- Cascade delete always (no re-parent option)
 - Permission gating via existing Phase 7 CanEditMetadata/CanCreateMetadata
 
-### Phase 11: Full-Text Search (FTS5) 📋
-**Goal:** Complete FTS integration — wire existing IFtsService implementations into SearchService, add dedicated search bar with autocomplete suggestions, search result highlighting in gallery tiles, multi-provider validation.
+### Phase 11: Full-Text Search (FTS5) ✅
+**Goal:** Complete FTS integration — wire IFtsService implementations into SearchService, add search bar with autocomplete, search highlighting, multi-provider validation.
 
-> **Note:** FTS infrastructure layer (IFtsService, SqliteFtsService, PostgresFtsService, SqlServerFtsService) already substantially implemented in working tree.
+**Deliverables:**
+1. ✅ **IFtsService interface** — `SearchAsync`, `GetSuggestionsAsync`, `IsAvailableAsync`, `EnsureReadyAsync`, `RebuildIndexAsync`
+2. ✅ **SqliteFtsService** — FTS5 virtual table with rowid mapping, bm25() ranking, sync triggers, prefix matching, phrase queries
+3. ✅ **PostgresFtsService** — tsvector/tsquery with GIN index
+4. ✅ **SqlServerFtsService** — full-text catalog with CONTAINS
+5. ✅ **SearchService dual-path** — IFtsService when available, LIKE fallback
+6. ✅ **Search bar UI** — dedicated TextBox above gallery, 300ms debounce, Ctrl+F shortcut
+7. ✅ **Search suggestions** — Popup dropdown with autocomplete
+8. ✅ **Result highlighting** — bold match in title, matched-fields badge in tile
+9. ✅ **29 FTS tests** — all passing
 
-**Depends on:** Phases 1–9, Phase 6 (multi-provider infrastructure)
+### Phase 12: Performance Optimization ✅
+**Goal:** Optimize thumbnails, virtualization, and startup for 100K+ asset collections.
 
-**Wave structure:**
-1. **Wave 1 — SearchService**: Replace LIKE logic with IFtsService calls; preserve non-FTS filter parameters
-2. **Wave 2 — Search UI**: Dedicated search bar above gallery, autocomplete suggestions Popup, result highlighting in tiles
-3. **Wave 3 — Tests**: 15+ comprehensive FTS tests across all providers
+**Deliverables:**
+1. ✅ **Decode-to-size** — `DecoderOptions.TargetSize` in ImageThumbnailExtractor constrains decode to maxSize, avoids full-decode of large sources
+2. ✅ **Thumbnail cache timestamps** — LastWriteTimeUtc comparison skips regeneration for unchanged sources
+3. ✅ **Bitmap lifecycle** — AssetListItem implements IDisposable with CancelPendingLoad(), old bitmap disposal in Thumbnail setter, cache removal before dispose
+4. ✅ **Collection cleanup** — AssetGalleryViewModel disposes items before Assets.Clear() in search and load paths
+5. ✅ **Startup profiling** — Stopwatch telemetry with [PERF] log messages for DB init, sidebar load, gallery load, total startup
+6. ⏭️ **Skipped:** BufferFactor (not in Avalonia 12 API), SkiaOptions (API uncertain), compiled bindings (polymorphic templates), lazy AI tagging (already lazy by default)
 
 **Key decisions:**
-- Dedicated search bar above gallery (not integrated into sidebar/filter panel)
-- SearchService gets dual path (FTS when available, LIKE fallback when not)
-
-### Phase 12: Performance Optimization 📋
-**Goal:** Optimize thumbnail caching (decode-to-size), gallery virtualization (VirtualizingStackPanel tuning), and startup time (lazy init, compiled bindings, profiling). Targets: <3s cold start, smooth 100K scroll, bounded memory.
-
-**Depends on:** Phases 1–9
-
-**Wave structure:**
-1. **Wave 1 — Thumbnails**: Decode-to-size with fallback; last-write-time cache validation
-2. **Wave 2 — Virtualization**: VirtualizingStackPanel BufferFactor tuning; bitmap disposal (IDisposable); load cancellation on scroll-out; GPU cache config
-3. **Wave 3 — Startup**: Lazy initialization; compiled bindings; async sidebar loading; Stopwatch telemetry
-
-**Key decisions:**
-- Decode-to-size with full-decode fallback for unsupported formats (RAW)
-- Avalonia VirtualizingStackPanel with BufferFactor tuning (no custom virtual panel)
-- ThumbnailCache already implemented (256MB LRU in-memory)
+- Decode-to-size via ImageSharp DecoderOptions.TargetSize (not SKBitmap.DecodeToWidth)
+- `_previousActiveFilterNode` tracking for IsActiveFilter (tree-walk misses standalone nodes)
+- Startup profiling via ConnectionDebugLogger (not external telemetry)
 
 ---
-*Roadmap updated: 2026-06-13 — v1.0 shipped, v2 plans expanded to ultra-detailed level*
+## Milestones
+
+### v2.x — Production Hardening & Feature Growth (Phases 13-14)
+
+**Phase 13 — Production Hardening** 📋
+**Goal:** Fix accumulated technical debt before building new features. Solution file, CI fixes, null-handler validation, protobuf contract documentation, logging standardization, FolderWatcher batching, EF Core 10 stable migration prep.
+
+**Depends on:** Phases 1-12
+
+**Waves:**
+1. **Project Infrastructure** — solution file, CI fixes for CatalogBrowser tests
+2. **Code Quality** — null-payload guards on all broker handlers, protobuf contract documentation
+3. **Infrastructure & Observability** — logging standardization, FolderWatcher debounce/batch
+4. **EF Core Stabilization** — migration prep for EF Core 10 RTM
+
+**Phase 14 — Feature Growth** 📋
+**Goal:** Deliver the v2 user-facing features. Batch metadata editing, CSV/XMP import/export, activity feed, full-resolution loupe/compare views, AI tag refinement with confidence scores.
+
+**Depends on:** Phase 13
+
+**Waves:**
+1. **Batch Operations** — batch metadata editing, CSV/XMP import/export
+2. **Collaboration** — activity feed / notification panel
+3. **Views & AI** — compare/loupe view completion, AI tag refinement
+
+---
+*Roadmap updated: 2026-06-13 — Phase 13-14 planned. Ready for Phase 13 execution.*
+

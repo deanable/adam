@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -286,12 +285,3 @@ public partial class AssetGalleryView : UserControl
     }
 }
 
-public class InverseBoolConverter : IValueConverter
-{
-    public static readonly InverseBoolConverter Instance = new();
-    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => value is bool b ? !b : value;
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => value is bool b ? !b : value;
-}

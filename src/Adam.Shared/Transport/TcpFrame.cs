@@ -10,18 +10,18 @@ public static class TcpFrame
     /// Default timeout for receiving data from a peer (5 minutes).
     /// Prevents hanging indefinitely if a peer sends a length header but no payload.
     /// </summary>
-    private const int ReceiveTimeoutMs = 300_000;
+    public const int DefaultReceiveTimeoutMs = 300_000;
 
     /// <summary>
     /// Default timeout for sending data to a peer (30 seconds).
     /// Prevents blocking indefinitely if a peer stops reading.
     /// </summary>
-    private const int SendTimeoutMs = 30_000;
+    public const int DefaultSendTimeoutMs = 30_000;
 
-    public static async Task SendAsync(Stream stream, Envelope envelope, CancellationToken ct = default)
+    public static async Task SendAsync(Stream stream, Envelope envelope, int sendTimeoutMs = DefaultSendTimeoutMs, CancellationToken ct = default)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(SendTimeoutMs);
+        timeoutCts.CancelAfter(sendTimeoutMs);
         var linkedCt = timeoutCts.Token;
 
         var payload = ProtoHelper.Serialize(envelope);
@@ -32,11 +32,11 @@ public static class TcpFrame
         await stream.FlushAsync(linkedCt).ConfigureAwait(false);
     }
 
-    public static async Task<Envelope?> ReceiveAsync(Stream stream, CancellationToken ct = default)
+    public static async Task<Envelope?> ReceiveAsync(Stream stream, int receiveTimeoutMs = DefaultReceiveTimeoutMs, CancellationToken ct = default)
     {
         // Apply a read timeout so we don't hang forever if a peer disconnects mid-frame
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(ReceiveTimeoutMs);
+        timeoutCts.CancelAfter(receiveTimeoutMs);
         var linkedCt = timeoutCts.Token;
 
         var lengthBuffer = new byte[4];

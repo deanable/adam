@@ -32,7 +32,7 @@ public sealed class UserHandler
     public async Task<Envelope> ListUsersAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "user:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -69,7 +69,7 @@ public sealed class UserHandler
     public async Task<Envelope> ListRolesAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "role:read", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -98,22 +98,24 @@ public sealed class UserHandler
     public async Task<Envelope> CreateUserAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "user:create", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var createReq = ProtoHelper.Deserialize<CreateUserRequest>(request.Payload.ToByteArray());
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         if (await db.Users.AnyAsync(u => u.Username == createReq.Username, ct))
-            return ErrorResponse(request, 6, "Username already exists");
+            return ErrorResponse(request, ErrorCode.Conflict, "Username already exists");
 
         if (await db.Users.AnyAsync(u => u.Email == createReq.Email, ct))
-            return ErrorResponse(request, 6, "Email already exists");
+            return ErrorResponse(request, ErrorCode.Conflict, "Email already exists");
 
         var roleId = Guid.Parse(createReq.RoleId);
         if (!await db.Roles.AnyAsync(r => r.Id == roleId, ct))
-            return ErrorResponse(request, 5, "Role not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "Role not found");
 
         var user = new User
         {
@@ -157,8 +159,10 @@ public sealed class UserHandler
     public async Task<Envelope> UpdateUserAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "user:update", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var updateReq = ProtoHelper.Deserialize<UpdateUserRequest>(request.Payload.ToByteArray());
         var userId = Guid.Parse(updateReq.UserId);
 
@@ -167,14 +171,14 @@ public sealed class UserHandler
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user == null)
-            return ErrorResponse(request, 5, "User not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "User not found");
 
         var changes = new List<string>();
 
         if (updateReq.Email != null && updateReq.Email != user.Email)
         {
             if (await db.Users.AnyAsync(u => u.Email == updateReq.Email && u.Id != userId, ct))
-                return ErrorResponse(request, 6, "Email already exists");
+                return ErrorResponse(request, ErrorCode.Conflict, "Email already exists");
             user.Email = updateReq.Email;
             changes.Add("email");
         }
@@ -191,7 +195,7 @@ public sealed class UserHandler
         {
             var roleId = Guid.Parse(updateReq.RoleId);
             if (!await db.Roles.AnyAsync(r => r.Id == roleId, ct))
-                return ErrorResponse(request, 5, "Role not found");
+                return ErrorResponse(request, ErrorCode.NotFound, "Role not found");
             user.RoleId = roleId;
             changes.Add("role");
             roleChanged = true;
@@ -225,22 +229,24 @@ public sealed class UserHandler
     public async Task<Envelope> DeleteUserAsync(Envelope request, CancellationToken ct)
     {
         if (!await _authz.HasPermissionAsync(request, "user:delete", ct))
-            return ErrorResponse(request, 7, "Forbidden");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
         var deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
         var userId = Guid.Parse(deleteReq.UserId);
         var callerId = _authHandler.GetUserId(request);
 
         // Prevent self-deactivation: admin cannot deactivate their own account
         if (userId == Guid.Parse(callerId))
-            return ErrorResponse(request, 7, "Cannot deactivate your own account");
+            return ErrorResponse(request, ErrorCode.Forbidden, "Cannot deactivate your own account");
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user == null)
-            return ErrorResponse(request, 5, "User not found");
+            return ErrorResponse(request, ErrorCode.NotFound, "User not found");
 
         // Soft-delete: deactivate instead of removing
         user.IsActive = false;

@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Adam.CatalogBrowser.ViewModels;
 
@@ -8,20 +10,51 @@ namespace Adam.CatalogBrowser.Views;
 
 public partial class IngestionView : UserControl
 {
+    private static readonly IBrush HighlightBorderBrush = new SolidColorBrush(Color.FromRgb(0, 90, 158));
+    private static readonly IBrush HighlightBackgroundBrush = new SolidColorBrush(Color.FromRgb(230, 242, 255));
+    private static readonly Thickness HighlightBorderThickness = new(2);
+    private IBrush? _restoreBorderBrush;
+    private IBrush? _restoreBackground;
+
     public IngestionView()
     {
         InitializeComponent();
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+
+        if (e.DataTransfer.Contains(DataFormat.File))
+        {
+            // Save original values once
+            _restoreBorderBrush ??= DropZoneBorder.BorderBrush;
+            _restoreBackground ??= DropZoneBorder.Background;
+
+            DropZoneBorder.BorderBrush = HighlightBorderBrush;
+            DropZoneBorder.BorderThickness = HighlightBorderThickness;
+            DropZoneBorder.Background = HighlightBackgroundBrush;
+        }
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        // Restore original appearance
+        DropZoneBorder.BorderThickness = new Thickness(1);
+        if (_restoreBorderBrush != null) DropZoneBorder.BorderBrush = _restoreBorderBrush;
+        if (_restoreBackground != null) DropZoneBorder.Background = _restoreBackground;
+        _restoreBorderBrush = null;
+        _restoreBackground = null;
     }
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
+        // Reset visual state immediately
+        OnDragLeave(sender, e);
+
         if (e.DataTransfer.TryGetFiles() is not { } files) return;
         if (DataContext is not IngestionViewModel vm) return;
 

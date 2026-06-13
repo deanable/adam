@@ -9,7 +9,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Adam.BrokerService.Tests/Adam.BrokerService.Tests.csproj" />
     <Project Path="tests/Adam.CatalogBrowser.Tests/Adam.CatalogBrowser.Tests.csproj" />
-    <Project Path="tests/Adam.Shared.Tests/Adam.Shared.Tests.csproj" />
     <Project Path="tests/Adam.ServiceManager.Tests/Adam.ServiceManager.Tests.csproj" />
+    <Project Path="tests/Adam.Shared.Tests/Adam.Shared.Tests.csproj" />
   </Folder>
 </Solution>

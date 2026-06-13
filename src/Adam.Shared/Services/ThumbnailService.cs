@@ -52,8 +52,27 @@ public class ThumbnailService
     {
         var thumbnailPath = GetThumbnailPath(sourcePath, thumbnailDirectory);
 
-        if (File.Exists(thumbnailPath) && orientation == ImageOrientation.Normal)
-            return thumbnailPath;
+        // T12.4: Check if the existing thumbnail is still fresh by comparing
+        // LastWriteTimeUtc against the source file. This avoids regenerating
+        // thumbnails for unchanged files even when orientation is applied.
+        if (File.Exists(thumbnailPath))
+        {
+            try
+            {
+                var sourceInfo = new FileInfo(sourcePath);
+                var thumbInfo = new FileInfo(thumbnailPath);
+                if (thumbInfo.LastWriteTimeUtc >= sourceInfo.LastWriteTimeUtc &&
+                    orientation == ImageOrientation.Normal)
+                {
+                    return thumbnailPath;
+                }
+            }
+            catch
+            {
+                // If we can't stat the source (e.g. permission, network path),
+                // fall through to regenerate the thumbnail.
+            }
+        }
 
         Directory.CreateDirectory(thumbnailDirectory);
 

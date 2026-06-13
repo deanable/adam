@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Adam.ServiceManager.Services;
 using Avalonia;
 
@@ -14,7 +13,7 @@ public static class Program
             var requestFile = args[1];
             var logFile = args.Length >= 4 && args[2] == "--log" ? args[3] : null;
 
-            Debug.WriteLine($"[adam-service] Elevated mode: requestFile={requestFile}, logFile={logFile ?? "(none)"}");
+            Console.Error.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}|ELEVATED] Elevated mode: requestFile={requestFile}, logFile={logFile ?? "(none)"}");
             Console.Error.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}|ELEVATED] Program.Main: Elevated mode starting");
             Console.Error.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}|ELEVATED] PID={Environment.ProcessId}, ProcessPath={Environment.ProcessPath}");
             Console.Error.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}|ELEVATED] Args: {string.Join(" ", args.Select(a => a.Contains(' ') ? $"\"{a}\"" : a))}");

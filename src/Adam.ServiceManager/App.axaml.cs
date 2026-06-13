@@ -35,8 +35,11 @@ public partial class App : Application
             var config = Config;
             var services = new ServiceCollection();
             var basePath = AppContext.BaseDirectory;
-            System.Diagnostics.Debug.WriteLine($"[adam-service] App basePath: {basePath}");
             var logPath = Path.Combine(basePath, "adam-service-manager.log");
+
+            // Startup logging is deferred until the DI provider is built below.
+            // The basePath and config will be logged as structured entries there.
+
 
             // Create a shared capture for service installation logs (sc.exe, netsh, elevated process)
             var serviceLogCapture = new System.Collections.ObjectModel.ObservableCollection<string>();
@@ -68,6 +71,11 @@ public partial class App : Application
 
             var provider = services.BuildServiceProvider();
             var startupLogger = provider.GetRequiredService<ILogger<App>>();
+
+            startupLogger.LogDebug("ServiceManager App basePath: {BasePath}", basePath);
+            startupLogger.LogInformation("ServiceManager starting (host={ServiceHost}, port={ServicePort})",
+                config.ServiceHost, config.ServicePort);
+
 
             // Initialize the database based on configuration.
             //

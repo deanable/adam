@@ -54,7 +54,7 @@ public sealed class StatusHandler
             if (installer == null)
             {
                 _logger.LogWarning("No service installer available for this platform");
-                return ErrorResponse(request, 13, "No service installer available for this platform");
+                return ErrorResponse(request, ErrorCode.InternalError, "No service installer available for this platform");
             }
 
             _logger.LogInformation("[DIAG] Resolved installer: {Type} (IsSupported={IsSupported}, ServiceName='{ServiceName}')",
@@ -67,7 +67,7 @@ public sealed class StatusHandler
             if (status == ServiceStatus.NotInstalled)
             {
                 _logger.LogWarning("Service is not installed — returning error");
-                return ErrorResponse(request, 5, "Service is not installed");
+                return ErrorResponse(request, ErrorCode.NotFound, "Service is not installed");
             }
 
             if (status == ServiceStatus.Running)
@@ -93,7 +93,7 @@ public sealed class StatusHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "[TIMING] Failed to start service via remote request after {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
-            return ErrorResponse(request, 13, $"Failed to start service: {ex.Message}");
+            return ErrorResponse(request, ErrorCode.InternalError, $"Failed to start service: {ex.Message}");
         }
     }
 
@@ -109,7 +109,7 @@ public sealed class StatusHandler
             if (installer == null)
             {
                 _logger.LogWarning("No service installer available for this platform");
-                return ErrorResponse(request, 13, "No service installer available for this platform");
+                return ErrorResponse(request, ErrorCode.InternalError, "No service installer available for this platform");
             }
 
             _logger.LogInformation("[DIAG] Resolved installer: {Type} (IsSupported={IsSupported}, ServiceName='{ServiceName}')",
@@ -122,7 +122,7 @@ public sealed class StatusHandler
             if (status == ServiceStatus.NotInstalled)
             {
                 _logger.LogWarning("Service is not installed — returning error");
-                return ErrorResponse(request, 5, "Service is not installed");
+                return ErrorResponse(request, ErrorCode.NotFound, "Service is not installed");
             }
 
             if (status == ServiceStatus.Stopped)
@@ -141,7 +141,7 @@ public sealed class StatusHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "[TIMING] Failed to stop service via remote request after {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
-            return ErrorResponse(request, 13, $"Failed to stop service: {ex.Message}");
+            return ErrorResponse(request, ErrorCode.InternalError, $"Failed to stop service: {ex.Message}");
         }
     }
 
