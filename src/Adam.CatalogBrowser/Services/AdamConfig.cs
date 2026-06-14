@@ -36,6 +36,21 @@ public sealed class AdamConfig
     /// </summary>
     public string LastUsername { get; set; } = string.Empty;
 
+    // ── AI Model selection ──
+
+    /// <summary>
+    /// Hugging Face repository ID of the selected AI tagging model.
+    /// Defaults to the LFM2-VL 1.6B ONNX model.
+    /// </summary>
+    public string AiModelId { get; set; } = "onnx-community/LFM2-VL-1.6B-ONNX";
+
+    /// <summary>
+    /// Weight precision of the selected AI tagging model (e.g. "Q4F16", "Fp16").
+    /// </summary>
+    public string AiPrecision { get; set; } = "Q4F16";
+
+    // ── Recent hosts ──
+
     /// <summary>
     /// Recently used server addresses in "host:port" format.
     /// Most recent at index 0. Max 5 entries. Deduplicated.

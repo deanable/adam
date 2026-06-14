@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
 using LiquidVision.Core;
+using LiquidVision.Core.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -48,6 +49,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         DeleteService deleteService,
         ToastService toastService,
         AiTaggingService? aiTaggingService = null,
+        LiquidVisionOptions? liquidVisionOptions = null,
         bool startUp = true,
         bool startSessionTimer = true,
         IUiDispatcher? dispatcher = null)
@@ -62,6 +64,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
+        AiModelSelector = new AiModelSelectorViewModel(aiTaggingService, liquidVisionOptions ?? new LiquidVisionOptions());
         MetadataEditor = metadataEditor;
         AuditLog = auditLog;
         PropertyInspector = propertyInspector;
@@ -426,6 +429,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public PropertyInspectorViewModel PropertyInspector { get; }
     public ConnectionViewModel Connection { get; }
     public StatusBarViewModel StatusBar { get; }
+    public AiModelSelectorViewModel AiModelSelector { get; }
 
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowIngestionCommand { get; }
