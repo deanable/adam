@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 10 | ✅ | 1/1 | 100% | Archived |
 | 11 | ✅ | 1/1 | 100% | Archived |
 | 12 | ✅ | 1/1 | 100% | Archived |
-| **13** | 🔧 In Progress | 1/1 | 25% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ | Wave 4: EF Core migration guide ✅ |
+| **13** | 🔧 In Progress | 1/1 | 42% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ | Wave 4: EF Core migration guide ✅ | Wave 5: Handler validation tests (29) ✅, AI model upgrade plan ✅ |
 | **14** | 📋 Planned | 1/1 | 0% | Feature Growth — batch editing, CSV import/export, activity feed, compare/loupe, AI refinement |
 
 ## Milestone Archives

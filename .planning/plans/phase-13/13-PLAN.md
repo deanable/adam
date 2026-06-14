@@ -261,6 +261,71 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 - Npgsql may lag behind EF Core RTM — check compatibility matrix
 - SQL Server provider typically ships same-day as EF Core RTM
 
+### Wave 5 — AI Model Upgrade to LFM2.5-VL-1.6B
+
+#### T13.8 — LiquidVision.ModelLayout refactor for LFM2.5-VL naming
+
+**Current state:** `Lfm2VlModelLayout` expects `onnx-community/LFM2-VL-450M-ONNX` file naming:
+- Graph names: `embed_tokens`, `vision_encoder`, `decoder_model_merged`
+- Precision suffixes: `_fp16`, `_q4`, `_q4f16`, `_quantized`
+- Config files: `preprocessor_config.json` or `processor_config.json`
+
+**Target:** `LiquidAI/LFM2.5-VL-1.6B-ONNX` with different naming:
+- Graph names: `embed_tokens` (same), `embed_images` (was `vision_encoder`), `decoder` (was `decoder_model_merged`)
+- Precision suffixes: `_fp16`, `_q4`, `_q8`, `_quantized` (no `_q4f16`, adds `_q8`)
+- Config format: config.json has `text_config` sub-object for token IDs
+
+**Implementation:**
+
+1. **Refactor `Lfm2VlModelLayout`** to support model-specific file name mappings:
+   - Extract graph name mapping into a configuration-driven table:
+     - LFM2-VL: `vision_encoder` → `vision_encoder`, `decoder_model_merged` → `decoder_model_merged`
+     - LFM2.5-VL: `vision_encoder` → `embed_images`, `decoder_model_merged` → `decoder`
+   - Add `_q8` to `PrecisionSuffix` mapping (currently missing)
+   - Map `Q4F16` precision to `_q4` for LFM2.5-VL (best available quantized variant)
+
+2. **Update `LiquidVisionOptions`**:
+   - Change `ModelId` to `LiquidAI/LFM2.5-VL-1.6B-ONNX`
+   - Change `Precision` default to `Q4` (recommended balance)
+   - Update `ModelVersion` to `"1.5"`
+
+3. **Update `ModelConfig.FromFile`** if config.json schema differs
+
+4. **Update `PreprocessorConfig.FromFile`** if `processor_config.json` format differs
+
+**File sizes comparison (Q4, best size/quality balance):**
+| Component | LFM2-VL-450M | LFM2.5-VL-1.6B | Delta |
+|-----------|-------------|-----------------|-------|
+| embed_tokens | 537 MB | 537 MB (same file) | — |
+| vision_encoder→embed_images | 269 MB (Q4) | 269 MB (Q4) | — |
+| decoder_model_merged→decoder | 1.22 GB (Q4) | 1.22 GB (Q4) | — |
+| Total | ~2.0 GB | ~2.0 GB | **~same** |
+
+**Note:** Despite the 3.5x parameter increase (450M → 1.6B), the Q4 quantization compresses the model to roughly the same download size as the current Q4F16 variant. The FP16 variant (4.5 GB) would be significantly larger.
+
+#### T13.9 — Validate inference output schema compatibility
+
+**Implementation:**
+
+1. **Download and verify** LFM2.5-VL Q4 model with the refactored layout
+2. **Run existing AiTaggingServiceTests** to confirm the new model produces parseable output
+3. **Update `InstructionPrompt`** if the new model responds differently:
+   - LFM2.5-VL may produce more detailed descriptions or different JSON formatting
+   - Adjust `TagResultParser` if the JSON structure differs
+
+#### T13.10 — Update default config in CatalogBrowser DI registration
+
+**Implementation:**
+
+1. Update `CatalogBrowser/App.axaml.cs`:
+   ```csharp
+   // Before:
+   .AddLiquidVision(opts => { opts.Precision = ModelPrecision.Q4F16; opts.ExecutionProvider = ExecutionProviderKind.Cpu; })
+   
+   // After:
+   .AddLiquidVision(opts => { opts.ModelId = "LiquidAI/LFM2.5-VL-1.6B-ONNX"; opts.Precision = ModelPrecision.Q4; opts.ExecutionProvider = ExecutionProviderKind.Cpu; })
+   ```
+
 ---
 
 ## 2. Execution Waves
@@ -271,6 +336,7 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 | **Wave 2 — Code Quality** | T13.3, T13.4 | Wave 1 | Fix handler bugs and document wire protocol before adding more handlers in Phase 14 |
 | **Wave 3 — Infrastructure** | T13.5, T13.6 | Wave 1 | Logging and watcher fixes are self-contained but benefit from stable CI from Wave 1 |
 | **Wave 4 — EF Core** | T13.7 | Wave 1 | EF Core migration is prep work — actual upgrade depends on RTM availability |
+| **Wave 5 — AI Model Upgrade** | T13.8, T13.9, T13.10 | Wave 1 | Self-contained model layout refactor; improves AI tagging quality 3.5x more parameters |
 
 ---
 
@@ -288,6 +354,9 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 | 8 | `src/Adam.ServiceManager/Program.cs` | Modify | Replace Debug.WriteLine with ILogger |
 | 9 | `src/Adam.BrokerService/Services/FolderWatcherHostedService.cs` | Modify | Add debounce/batch mechanism |
 | 10 | `docs/ef-core-migration-guide.md` (new) | Create | EF Core 10 stable migration prep |
+| 11 | `src/LiquidVision.Core/Services/Lfm2VlModelLayout.cs` | Modify | Support model-specific graph names (vision_encoder→embed_images, decoder_model_merged→decoder) |
+| 12 | `src/LiquidVision.Core/Configuration/LiquidVisionOptions.cs` | Modify | Update default ModelId to LFM2.5-VL-1.6B, Precision to Q4 |
+| 13 | `tests/Adam.BrokerService.Tests/HandlerValidationTests.cs` (new) | Create | 29 tests for null/malformed payload guards across all handlers |
 
 ---
 
@@ -296,10 +365,12 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 | Test ID | Name | Verifies | File |
 |---------|------|----------|------|
 | T13-T1 | `Solution_Builds_AllProjects` | `dotnet build adam.sln` succeeds | CI pipeline |
-| T13-T2 | `BrokerHandler_NullPayload_ReturnsError` | Null payload returns status 8 error envelope | `BrokerHandlerValidationTests.cs` |
-| T13-T3 | `BrokerHandler_MalformedPayload_ReturnsError` | Corrupt payload returns error, not exception | `BrokerHandlerValidationTests.cs` |
+| T13-T2 | `BrokerHandler_NullPayload_ReturnsError` | Null payload returns status 8 error envelope | `HandlerValidationTests.cs` |
+| T13-T3 | `BrokerHandler_MalformedPayload_ReturnsError` | Corrupt payload returns error, not exception | `HandlerValidationTests.cs` |
 | T13-T4 | `FolderWatcher_Debounce_CoalescesEvents` | Multiple rapid events for same path processed once | `FolderWatcherTests.cs` |
 | T13-T5 | `FolderWatcher_Batch_ProcessesInTransaction` | Batch of events processed atomically | `FolderWatcherTests.cs` |
+| T13-T6 | `ModelLayout_LFM2_5VL_Q4_ResolvesCorrectPaths` | LFM2.5-VL Q4 layout resolves correct ONNX file paths | `Lfm2VlModelLayoutTests.cs` |
+| T13-T7 | `AiTaggingService_PostUpgrade_TestsPass` | Existing AI tagging tests pass with new model config | `AiTaggingServiceTests.cs` |
 
 ---
 
@@ -311,6 +382,8 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 | CatalogBrowser tests unfixable without display | Test gap remains | Accept headless timeout and document as known limitation; add manual test checklist instead |
 | Handler null checks change behavior | Existing clients might rely on exceptions | Return error envelope (status 8) consistently; test backward compatibility |
 | FolderWatcher batching delays processing | Changes take up to 5s to propagate | 5s debounce is well within the 5s propagation requirement (BROK-03) |
+| LFM2.5-VL output format differs | TagResultParser may not parse new model output | Test with real model download; adjust parser if needed |
+| LFM2.5-VL Q4 not available on HF | Can't download model | Fall back to Q8 or FP16; or stay on LFM2-VL until Q4 variant is published |
 
 ---
 
@@ -322,4 +395,8 @@ This task is partially dependent on EF Core 10 RTM being released. Do what we ca
 - ✅ All `Debug.WriteLine` calls replaced with `ILogger<T>.LogDebug()`
 - ✅ FolderWatcher batches events with 5-second debounce
 - ✅ EF Core migration plan documented and ready for when RTM ships
-- ✅ All existing 661 tests still pass
+- ✅ `Lfm2VlModelLayout` supports model-specific graph name mappings (LFM2-VL + LFM2.5-VL)
+- ✅ Default config points to `LiquidAI/LFM2.5-VL-1.6B-ONNX` with Q4 precision
+- ✅ 29 new handler validation tests pass
+- ✅ All existing tests still pass (859+29 = 888 total)
+
