@@ -308,6 +308,56 @@
               </TreeView>
             </Expander>
 
+            <!-- T14.5: Rating filter -->
+            <Expander Header="Rating" IsExpanded="False" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.RatingFilterOptions}"
+                       SelectedIndex="{Binding Sidebar.SelectedRatingFilter}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,2">
+                      <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               IsVisible="{Binding IsActive, RelativeSource={RelativeSource AncestorType=ListBox}, FallbackValue=False}" />
+                      <TextBlock Grid.Column="1" Text="{Binding}" Classes="Body"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Expander>
+
+            <!-- T14.5: Label filter -->
+            <Expander Header="Label" IsExpanded="False" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.LabelFilterOptions}"
+                       SelectedIndex="{Binding Sidebar.SelectedLabelFilter}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" Classes="Body"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Margin="12,2" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Expander>
+
+            <!-- T14.5: Flag filter -->
+            <Expander Header="Flag" IsExpanded="False" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.FlagFilterOptions}"
+                       SelectedIndex="{Binding Sidebar.SelectedFlagFilter}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" Classes="Body"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Margin="12,2" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Expander>
+
           </StackPanel>
         </ScrollViewer>
       </Border>

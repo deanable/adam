@@ -228,7 +228,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 }
             }
 
-            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo);
+            // T14.5: Advanced filters — rating, label, flag
+            var ratingFilter = sidebar.SelectedRatingFilter;
+            var labelFilter = sidebar.SelectedLabelFilter;
+            var flagFilter = sidebar.SelectedFlagFilter;
+
+            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo, ratingFilter, labelFilter, flagFilter);
         };
 
         ingestion.IngestionCompleted += () =>

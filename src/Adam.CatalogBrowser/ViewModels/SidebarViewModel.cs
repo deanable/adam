@@ -113,6 +113,102 @@ public class SidebarViewModel : INotifyPropertyChanged
         private set { _dateTakenTree = value; OnPropertyChanged(); }
     }
 
+    // T14.5: Advanced filter properties
+    private int _selectedRating;
+    private int _selectedLabel;
+    private int _selectedFlag;
+    private bool _isRatingFilterActive;
+    private bool _isLabelFilterActive;
+    private bool _isFlagFilterActive;
+
+    /// <summary>
+    /// Rating filter: 0 = Any, 1 = Unrated, 2..6 = 1..5 stars.
+    /// </summary>
+    public int SelectedRatingFilter
+    {
+        get => _selectedRating;
+        set
+        {
+            if (_selectedRating == value) return;
+            _selectedRating = value;
+            _isRatingFilterActive = value > 0;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRatingFilterActive));
+            OnFilterChanged();
+        }
+    }
+
+    public bool IsRatingFilterActive => _isRatingFilterActive;
+
+    /// <summary>
+    /// Label filter: 0 = Any, 1 = None, 2..6 = Red..Purple.
+    /// </summary>
+    public int SelectedLabelFilter
+    {
+        get => _selectedLabel;
+        set
+        {
+            if (_selectedLabel == value) return;
+            _selectedLabel = value;
+            _isLabelFilterActive = value > 0;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsLabelFilterActive));
+            OnFilterChanged();
+        }
+    }
+
+    public bool IsLabelFilterActive => _isLabelFilterActive;
+
+    /// <summary>
+    /// Flag filter: 0 = Any, 1 = Unflagged, 2 = Pick, 3 = Reject.
+    /// </summary>
+    public int SelectedFlagFilter
+    {
+        get => _selectedFlag;
+        set
+        {
+            if (_selectedFlag == value) return;
+            _selectedFlag = value;
+            _isFlagFilterActive = value > 0;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsFlagFilterActive));
+            OnFilterChanged();
+        }
+    }
+
+    public bool IsFlagFilterActive => _isFlagFilterActive;
+
+    // T14.5: Advanced filter option lists
+    public ObservableCollection<string> RatingFilterOptions { get; } =
+    [
+        "Any rating",
+        "Unrated",
+        "★ 1",
+        "★★ 2",
+        "★★★ 3",
+        "★★★★ 4",
+        "★★★★★ 5"
+    ];
+
+    public ObservableCollection<string> LabelFilterOptions { get; } =
+    [
+        "Any label",
+        "None",
+        "Red",
+        "Green",
+        "Blue",
+        "Yellow",
+        "Purple"
+    ];
+
+    public ObservableCollection<string> FlagFilterOptions { get; } =
+    [
+        "Any flag",
+        "Unflagged",
+        "Pick",
+        "Reject"
+    ];
+
     public CategoryNode SelectedMediaFormat
     {
         get => _selectedMediaFormat;

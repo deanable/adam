@@ -47,8 +47,12 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     private List<Guid> _activeCategoryIds = [];
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
+    private int _activeRatingFilter;
+    private int _activeLabelFilter;
+    private int _activeFlagFilter;
     public ICommand SelectAllCommand { get; }
     public ICommand ClearSearchCommand { get; }
+    public ICommand ClearSelectionCommand { get; }
 
     public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger, IFtsService? ftsService = null)
     {
@@ -58,6 +62,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
 
         SelectAllCommand = new RelayCommand(_ => SelectAll());
         ClearSearchCommand = new RelayCommand(_ => ClearSearch());
+        ClearSelectionCommand = new RelayCommand(_ => ClearSelection());
 
         // T12.1: Wire shared in-memory thumbnail cache
         AssetListItem.SharedThumbnailCache = _thumbnailCache;
@@ -336,6 +341,16 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     /// </summary>
     public ObservableCollection<AssetListItem> SelectedAssets => _selectedAssets;
 
+    /// <summary>
+    /// T14.5: Number of currently selected assets. Used by the selection bar UI.
+    /// </summary>
+    public int SelectedCount => _selectedAssets.Count;
+
+    /// <summary>
+    /// T14.5: True when any assets are selected. Used to show/hide the selection bar.
+    /// </summary>
+    public bool HasSelection => _selectedAssets.Count > 0;
+
     public AssetListItem? SelectedAsset
     {
         get => _selectedAsset;
@@ -401,6 +416,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
             _selectedAssets.Add(item);
 
         OnPropertyChanged(nameof(SelectedAssets));
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
 
         // Primary selection (first item)
         SelectedAsset = items.Count > 0 ? items[0] : null;
@@ -424,6 +441,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         // Select all assets
         var items = Assets.ToList();
         UpdateSelection(items.Cast<object?>().ToList());
+    }
+
+    /// <summary>
+    /// Clears all selection (T14.5 selection bar).
+    /// </summary>
+    private void ClearSelection()
+    {
+        UpdateSelection([]);
     }
 
     public async Task LoadAssetsAsync(CancellationToken ct = default)
@@ -724,10 +749,32 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         if (_filterDateTo.HasValue)
             query = query.Where(a => a.MetadataProfile != null && a.MetadataProfile.DateTaken < _filterDateTo.Value);
 
+        // T14.5: Advanced filters — rating, label, flag
+        if (_activeRatingFilter > 0)
+        {
+            // Rating filter: 1 = Unrated (rating 0), 2..6 = 1..5 stars
+            var targetRating = _activeRatingFilter - 1;
+            query = query.Where(a => a.Rating == targetRating);
+        }
+
+        if (_activeLabelFilter > 0)
+        {
+            // Label filter: 1 = None, 2..6 = Red..Purple
+            var targetLabel = (AssetLabel)(_activeLabelFilter - 1);
+            query = query.Where(a => a.Label == targetLabel);
+        }
+
+        if (_activeFlagFilter > 0)
+        {
+            // Flag filter: 1 = Unflagged, 2 = Pick, 3 = Reject
+            var targetFlag = (AssetFlag)(_activeFlagFilter - 1);
+            query = query.Where(a => a.Flag == targetFlag);
+        }
+
         return query;
     }
 
-    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null, DateTime? dateFrom = null, DateTime? dateTo = null)
+    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null, DateTime? dateFrom = null, DateTime? dateTo = null, int ratingFilter = 0, int labelFilter = 0, int flagFilter = 0)
     {
         _activeCategory = mediaFormat;
         _activeFolderPath = folderPath;
@@ -735,6 +782,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         _activeCategoryIds = categoryIds ?? [];
         _filterDateFrom = dateFrom;
         _filterDateTo = dateTo;
+        _activeRatingFilter = ratingFilter;
+        _activeLabelFilter = labelFilter;
+        _activeFlagFilter = flagFilter;
         _ = LoadAssetsAsync();
     }
 

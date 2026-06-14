@@ -244,21 +244,32 @@ public partial class AssetGalleryView : UserControl
 
     /// <summary>
     /// Builds the gallery item context menu with commands from MainWindowViewModel.
+    /// Features rate sub-menu with exact values (T14.5).
+    /// Label and flag are simple cycle items (no parameterized commands available yet).
     /// All commands are wired directly as ICommand references — no XAML bindings.
     /// </summary>
     private static MenuFlyout BuildContextMenu(MainWindowViewModel vm)
     {
         var flyout = new MenuFlyout();
 
-        flyout.Items.Add(new MenuItem { Header = "Rate (cycle)", Command = vm.RateAssetCommand });
-        flyout.Items.Add(new MenuItem { Header = "Set Color Label", Command = vm.SetLabelCommand });
-        flyout.Items.Add(new MenuItem { Header = "Set Flag", Command = vm.SetFlagCommand });
+        // T14.5: Rate sub-menu with exact values via CommandParameter
+        var rateSub = new MenuItem { Header = "Rate" };
+        rateSub.Items.Add(new MenuItem { Header = "Unrate (0)", Command = vm.SetRatingCommand, CommandParameter = "0" });
+        rateSub.Items.Add(new MenuItem { Header = "\u2605 1", Command = vm.SetRatingCommand, CommandParameter = "1" });
+        rateSub.Items.Add(new MenuItem { Header = "\u2605\u2605 2", Command = vm.SetRatingCommand, CommandParameter = "2" });
+        rateSub.Items.Add(new MenuItem { Header = "\u2605\u2605\u2605 3", Command = vm.SetRatingCommand, CommandParameter = "3" });
+        rateSub.Items.Add(new MenuItem { Header = "\u2605\u2605\u2605\u2605 4", Command = vm.SetRatingCommand, CommandParameter = "4" });
+        rateSub.Items.Add(new MenuItem { Header = "\u2605\u2605\u2605\u2605\u2605 5", Command = vm.SetRatingCommand, CommandParameter = "5" });
+        flyout.Items.Add(rateSub);
+
+        flyout.Items.Add(new MenuItem { Header = "Cycle Label", Command = vm.SetLabelCommand });
+        flyout.Items.Add(new MenuItem { Header = "Cycle Flag", Command = vm.SetFlagCommand });
         flyout.Items.Add(new Separator());
         flyout.Items.Add(new MenuItem { Header = "AI Tag", Command = vm.AiTagSelectedCommand });
-        flyout.Items.Add(new MenuItem { Header = "Export…", Command = vm.ExportCommand });
+        flyout.Items.Add(new MenuItem { Header = "Export...", Command = vm.ExportCommand });
         flyout.Items.Add(new Separator());
-        flyout.Items.Add(new MenuItem { Header = "Rotate 90° CW", Command = vm.RotateClockwiseCommand });
-        flyout.Items.Add(new MenuItem { Header = "Rotate 90° CCW", Command = vm.RotateCounterClockwiseCommand });
+        flyout.Items.Add(new MenuItem { Header = "Rotate 90\u00B0 CW", Command = vm.RotateClockwiseCommand });
+        flyout.Items.Add(new MenuItem { Header = "Rotate 90\u00B0 CCW", Command = vm.RotateCounterClockwiseCommand });
         flyout.Items.Add(new MenuItem { Header = "Flip Horizontal", Command = vm.FlipHorizontalCommand });
         flyout.Items.Add(new MenuItem { Header = "Flip Vertical", Command = vm.FlipVerticalCommand });
         flyout.Items.Add(new Separator());
@@ -266,7 +277,7 @@ public partial class AssetGalleryView : UserControl
         flyout.Items.Add(new MenuItem { Header = "Copy File Path", Command = vm.CopyFilePathCommand });
         flyout.Items.Add(new MenuItem { Header = "Copy File", Command = vm.CopyFileCommand });
         flyout.Items.Add(new Separator());
-        flyout.Items.Add(new MenuItem { Header = "Delete…", Command = vm.DeleteSelectedCommand });
+        flyout.Items.Add(new MenuItem { Header = "Delete...", Command = vm.DeleteSelectedCommand });
 
         return flyout;
     }
