@@ -3,15 +3,15 @@
         xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
         x:Class="Adam.CatalogBrowser.Views.ExportDialog"
         x:DataType="vm:ExportDialogViewModel"
-        Title="Export Images"
-        Width="420"
-        Height="420"
+        Title="Export Assets"
+        Width="460"
+        Height="520"
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
   <Border Padding="20" Background="White">
     <StackPanel Spacing="12">
-      <TextBlock Text="Export Images"
+      <TextBlock Text="Export Assets"
                  FontSize="18"
                  FontWeight="Bold"
                  Foreground="#333" />
@@ -49,9 +49,10 @@
                   BorderBrush="#D0D0D0"
                   CornerRadius="4"
                   Padding="6,4"
-                  Width="120">
+                  Width="160">
           <ComboBoxItem Content="JPEG" />
           <ComboBoxItem Content="TIFF" />
+          <ComboBoxItem Content="CSV (Metadata)" />
         </ComboBox>
       </StackPanel>
 
@@ -89,8 +90,8 @@
         </ComboBox>
       </StackPanel>
 
-      <!-- Max dimension -->
-      <StackPanel Spacing="4">
+      <!-- Max dimension (image formats only) -->
+      <StackPanel Spacing="4" IsVisible="{Binding !IsCsvSelected}">
         <TextBlock Text="Max Dimension (px):" FontSize="12" Foreground="#666" />
         <TextBox Text="{Binding MaxDimensionText}"
                  FontSize="12"
@@ -100,6 +101,27 @@
                  Padding="6,4"
                  PlaceholderText="Leave empty for original size" />
       </StackPanel>
+
+      <!-- CSV options (visible when CSV selected) -->
+      <StackPanel Spacing="8" IsVisible="{Binding IsCsvSelected}">
+        <TextBlock Text="Fields to Export:" FontSize="12" Foreground="#666" FontWeight="SemiBold" />
+        <CheckBox IsChecked="{Binding CsvExportTitle}" Content="Title" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportDescription}" Content="Description" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportKeywords}" Content="Keywords" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportCategories}" Content="Categories" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportRating}" Content="Rating" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportLabel}" Content="Label" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportFlag}" Content="Flag" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportCopyright}" Content="Copyright" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportGps}" Content="GPS" FontSize="11" />
+        <CheckBox IsChecked="{Binding CsvExportCamera}" Content="Camera Make/Model" FontSize="11" />
+      </StackPanel>
+
+      <!-- Asset count info -->
+      <TextBlock Text="{Binding AssetCountText}"
+                 FontSize="11"
+                 Foreground="#888"
+                 FontStyle="Italic" />
 
       <!-- Progress -->
       <StackPanel Spacing="4" IsVisible="{Binding IsExporting}">

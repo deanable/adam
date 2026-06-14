@@ -132,6 +132,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog, _ => CanAudit);
         ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager(), _ => CanAdminister);
         ExportCommand = new RelayCommand(_ => ShowExportDialog(), _ => CanEditMetadata);
+        ImportMetadataCommand = new RelayCommand(async _ => await ShowImportDialogAsync(), _ => CanEditMetadata);
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw), _ => CanEditMetadata);
         RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw), _ => CanEditMetadata);
@@ -425,6 +426,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowAuditLogCommand { get; }
     public ICommand ShowServiceManagerCommand { get; }
     public ICommand ExportCommand { get; }
+    public ICommand ImportMetadataCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
     public ICommand FlipHorizontalCommand { get; }
@@ -491,8 +493,26 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         var selected = AssetGallery.SelectedAssets.ToList();
         if (selected.Count == 0) return;
-        var dialog = new Views.ExportDialog();
-        if (dialog.DataContext is ExportDialogViewModel vm) vm.SelectedAssets = selected;
+        var vm = new ExportDialogViewModel(_modeManager) { SelectedAssets = selected };
+        var dialog = new Views.ExportDialog(vm);
+        if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+            await dialog.ShowDialog(desktop.MainWindow);
+    }
+
+    private async Task ShowImportDialogAsync()
+    {
+        var importVm = new ImportViewModel(_modeManager);
+        importVm.ImportCompleted += () =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+            });
+            ToastService.Show("CSV import completed — gallery refreshed", Services.ToastLevel.Success);
+        };
+
+        var dialog = new Views.ImportDialog(importVm);
         if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
             await dialog.ShowDialog(desktop.MainWindow);
     }
@@ -1323,6 +1343,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (ShowAuditLogCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ShowServiceManagerCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ExportCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ImportMetadataCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RotateClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RotateCounterClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (FlipHorizontalCommand as RelayCommand)?.RaiseCanExecuteChanged();
