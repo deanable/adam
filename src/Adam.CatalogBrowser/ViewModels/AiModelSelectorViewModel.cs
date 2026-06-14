@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Adam.CatalogBrowser.Services;
 using Adam.Shared.Services;
 using LiquidVision.Core;
 using LiquidVision.Core.Configuration;
@@ -17,6 +18,7 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
 {
     private readonly AiTaggingService? _aiTaggingService;
     private readonly LiquidVisionOptions _options;
+    private readonly IUiDispatcher _dispatcher;
     private AiModelDefinition? _selectedModel;
     private ExecutionProviderKind _selectedExecutionProvider;
     private int _gpuDeviceId;
@@ -35,10 +37,12 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
 
     public AiModelSelectorViewModel(
         AiTaggingService? aiTaggingService,
-        LiquidVisionOptions options)
+        LiquidVisionOptions options,
+        IUiDispatcher? dispatcher = null)
     {
         _aiTaggingService = aiTaggingService;
         _options = options;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
 
         // Populate model options from the built-in list
         foreach (var model in AiModelDefinition.All)
@@ -57,31 +61,34 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         {
             aiTaggingService.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(AiTaggingService.DownloadProgress))
+                _dispatcher.Post(() =>
                 {
-                    ModelDownloadProgress = aiTaggingService.DownloadProgress;
-                    if (aiTaggingService.DownloadProgress > 0 && aiTaggingService.DownloadProgress < 1.0)
+                    if (e.PropertyName == nameof(AiTaggingService.DownloadProgress))
                     {
-                        IsModelDownloading = true;
-                        ModelStatus = $"Downloading model... {aiTaggingService.DownloadProgress * 100:F0}%";
+                        ModelDownloadProgress = aiTaggingService.DownloadProgress;
+                        if (aiTaggingService.DownloadProgress > 0 && aiTaggingService.DownloadProgress < 1.0)
+                        {
+                            IsModelDownloading = true;
+                            ModelStatus = $"Downloading model... {aiTaggingService.DownloadProgress * 100:F0}%";
+                        }
+                        else if (aiTaggingService.DownloadProgress >= 1.0)
+                        {
+                            IsModelDownloading = false;
+                            ModelDownloadProgress = 0;
+                            ModelStatus = "Model ready";
+                        }
                     }
-                    else if (aiTaggingService.DownloadProgress >= 1.0)
+                    else if (e.PropertyName == nameof(AiTaggingService.IsInitialized))
                     {
-                        IsModelDownloading = false;
-                        ModelDownloadProgress = 0;
-                        ModelStatus = "Model ready";
+                        if (aiTaggingService.IsInitialized)
+                        {
+                            IsModelDownloading = false;
+                            ModelDownloadProgress = 0;
+                            ModelStatus = "Model ready";
+                            OnPropertyChanged(nameof(IsModelReady));
+                        }
                     }
-                }
-                else if (e.PropertyName == nameof(AiTaggingService.IsInitialized))
-                {
-                    if (aiTaggingService.IsInitialized)
-                    {
-                        IsModelDownloading = false;
-                        ModelDownloadProgress = 0;
-                        ModelStatus = "Model ready";
-                        OnPropertyChanged(nameof(IsModelReady));
-                    }
-                }
+                });
             };
         }
 
@@ -244,16 +251,26 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         // Trigger download+initialize if the AI tagging service is available
         if (_aiTaggingService != null)
         {
+            ModelStatus = "Initializing model...";
             try
             {
-                ModelStatus = "Initializing model...";
                 await _aiTaggingService.EnsureInitializedAsync(null, CancellationToken.None);
-                ModelStatus = "Model ready";
-                RestartRequired = false;
+                _dispatcher.Post(() =>
+                {
+                    ModelStatus = "Model ready";
+                    RestartRequired = false;
+                    OnPropertyChanged(nameof(IsModelReady));
+                    (DownloadOrApplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                });
             }
             catch (Exception ex)
             {
-                ModelStatus = $"Error: {ex.Message}";
+                _dispatcher.Post(() =>
+                {
+                    ModelStatus = $"Error: {ex.Message}";
+                    OnPropertyChanged(nameof(IsModelReady));
+                    (DownloadOrApplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                });
             }
         }
         else
@@ -261,10 +278,9 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
             // AI tagging service is not available yet — mark restart required
             ModelStatus = "Model saved. Restart to apply.";
             RestartRequired = true;
+            OnPropertyChanged(nameof(IsModelReady));
+            (DownloadOrApplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
-
-        OnPropertyChanged(nameof(IsModelReady));
-        (DownloadOrApplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

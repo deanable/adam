@@ -77,6 +77,7 @@ public partial class App : Application
             var modeManager = new ModeManager(basePath, broker, auth);
             services.AddSingleton(modeManager);
 
+            services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
             services.AddSingleton<ChecksumService>();
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();

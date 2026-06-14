@@ -22,7 +22,11 @@ public static class ServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.AddSingleton(options);
-        services.AddHttpClient(HttpClientName, client => client.Timeout = options.DownloadTimeout);
+        services.AddHttpClient(HttpClientName, client =>
+        {
+            client.Timeout = options.DownloadTimeout;
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("LiquidVision/1.0");
+        });
 
         services.AddSingleton<ILiquidVisionAnalyzer>(sp =>
         {

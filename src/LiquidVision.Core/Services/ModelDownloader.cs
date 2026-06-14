@@ -26,6 +26,7 @@ public sealed class ModelDownloader : IDisposable
     {
         _options = options ?? new LiquidVisionOptions();
         _httpClient = new HttpClient { Timeout = _options.DownloadTimeout };
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LiquidVision/1.0");
         _ownsClient = true;
     }
 

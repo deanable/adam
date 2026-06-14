@@ -66,7 +66,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AssetGallery = assetGallery;
         Ingestion = ingestion;
         ActivityFeed = activityFeed;
-        AiModelSelector = new AiModelSelectorViewModel(aiTaggingService, liquidVisionOptions ?? new LiquidVisionOptions());
+        AiModelSelector = new AiModelSelectorViewModel(aiTaggingService, liquidVisionOptions ?? new LiquidVisionOptions(), _dispatcher);
         MetadataEditor = metadataEditor;
         AuditLog = auditLog;
         PropertyInspector = propertyInspector;

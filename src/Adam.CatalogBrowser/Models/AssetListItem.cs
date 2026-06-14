@@ -283,11 +283,11 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
     /// </summary>
     public static (string label, IBrush? brush) MapLabelToDisplay(AssetLabel label) => label switch
     {
-        AssetLabel.Red => ("Red", new SolidColorBrush(Colors.Red)),
-        AssetLabel.Green => ("Green", new SolidColorBrush(Colors.Green)),
-        AssetLabel.Blue => ("Blue", new SolidColorBrush(Colors.Blue)),
-        AssetLabel.Yellow => ("Yellow", new SolidColorBrush(Color.FromArgb(255, 218, 165, 32))),
-        AssetLabel.Purple => ("Purple", new SolidColorBrush(Colors.Purple)),
+        AssetLabel.Red => ("Red", Brushes.Red),
+        AssetLabel.Green => ("Green", Brushes.Green),
+        AssetLabel.Blue => ("Blue", Brushes.Blue),
+        AssetLabel.Yellow => ("Yellow", Brushes.Goldenrod),
+        AssetLabel.Purple => ("Purple", Brushes.Purple),
         _ => (string.Empty, null)
     };
 }
