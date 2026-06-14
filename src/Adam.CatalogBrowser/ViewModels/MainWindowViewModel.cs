@@ -133,6 +133,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager(), _ => CanAdminister);
         ExportCommand = new RelayCommand(_ => ShowExportDialog(), _ => CanEditMetadata);
         ImportMetadataCommand = new RelayCommand(async _ => await ShowImportDialogAsync(), _ => CanEditMetadata);
+        SavePresetCommand = new RelayCommand(async _ => await ShowPresetDialogAsync(saveMode: true), _ => CanEditMetadata);
+        LoadPresetCommand = new RelayCommand(async _ => await ShowPresetDialogAsync(saveMode: false), _ => CanEditMetadata);
 
         RotateClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Cw), _ => CanEditMetadata);
         RotateCounterClockwiseCommand = new RelayCommand(async _ => await RotateAsync(ImageAdjustmentService.Rotate90Ccw), _ => CanEditMetadata);
@@ -427,6 +429,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowServiceManagerCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand ImportMetadataCommand { get; }
+    public ICommand SavePresetCommand { get; }
+    public ICommand LoadPresetCommand { get; }
     public ICommand RotateClockwiseCommand { get; }
     public ICommand RotateCounterClockwiseCommand { get; }
     public ICommand FlipHorizontalCommand { get; }
@@ -499,6 +503,85 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await dialog.ShowDialog(desktop.MainWindow);
     }
 
+    private async Task ApplyPresetToSelectedAssetsAsync(MetadataPreset preset)
+    {
+        var selected = AssetGallery.SelectedAssets.ToList();
+        if (selected.Count == 0) return;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var ids = selected.Select(a => a.Id).ToList();
+            var assets = await db.DigitalAssets
+                .Include(a => a.Keywords)
+                .Include(a => a.Categories)
+                .Include(a => a.MetadataProfile)
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
+
+            foreach (var asset in assets)
+            {
+                if (preset.Title != null) asset.Title = preset.Title;
+                if (preset.Description != null) asset.Description = preset.Description;
+                if (preset.Copyright != null) asset.Copyright = preset.Copyright;
+                if (preset.Rating.HasValue) asset.Rating = Math.Clamp(preset.Rating.Value, 0, 5);
+                if (preset.Label != null && Enum.TryParse<AssetLabel>(preset.Label, ignoreCase: true, out var label)) asset.Label = label;
+                if (preset.Flag != null && Enum.TryParse<AssetFlag>(preset.Flag, ignoreCase: true, out var flag)) asset.Flag = flag;
+                if (preset.GpsLatitude.HasValue) asset.GpsLatitude = preset.GpsLatitude;
+                if (preset.GpsLongitude.HasValue) asset.GpsLongitude = preset.GpsLongitude;
+
+                // Keywords
+                if (!string.IsNullOrWhiteSpace(preset.Keywords))
+                {
+                    asset.Keywords.Clear();
+                    var names = preset.Keywords.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (names.Length > 0)
+                        await new KeywordService(db).AssociateKeywordsAsync(asset, names).ConfigureAwait(false);
+                }
+
+                // Categories
+                if (!string.IsNullOrWhiteSpace(preset.Categories))
+                {
+                    asset.Categories.Clear();
+                    var names = preset.Categories.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (names.Length > 0)
+                        await new CategoryService(db).AssociateCategoriesAsync(asset, names).ConfigureAwait(false);
+                }
+
+                // Camera metadata
+                if (preset.CameraMake != null || preset.CameraModel != null || preset.DateTaken.HasValue)
+                {
+                    asset.MetadataProfile ??= new MetadataProfile { Id = Guid.NewGuid(), DigitalAssetId = asset.Id };
+                    if (preset.CameraMake != null) asset.MetadataProfile.CameraMake = preset.CameraMake;
+                    if (preset.CameraModel != null) asset.MetadataProfile.CameraModel = preset.CameraModel;
+                    if (preset.DateTaken.HasValue) asset.MetadataProfile.DateTaken = preset.DateTaken;
+                }
+            }
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            ToastService.Show($"Preset applied to {assets.Count} asset(s)", Services.ToastLevel.Success);
+
+            // Refresh gallery and sidebar
+            _ = Task.Run(async () =>
+            {
+                await Sidebar.LoadAsync();
+                await AssetGallery.LoadAssetsAsync();
+            });
+
+            // Refresh the property inspector if a single asset is selected
+            if (selected.Count == 1)
+            {
+                await PropertyInspector.LoadSelectedAssetMetadataAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply preset");
+            ToastService.Show("Failed to apply preset", Services.ToastLevel.Error);
+        }
+    }
+
     private async Task ShowImportDialogAsync()
     {
         var importVm = new ImportViewModel(_modeManager);
@@ -513,6 +596,46 @@ public class MainWindowViewModel : INotifyPropertyChanged
         };
 
         var dialog = new Views.ImportDialog(importVm);
+        if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+            await dialog.ShowDialog(desktop.MainWindow);
+    }
+
+    private async Task ShowPresetDialogAsync(bool saveMode)
+    {
+        var presetManager = new PresetManager();
+        var vm = new PresetDialogViewModel(presetManager);
+
+        if (saveMode && PropertyInspector.SelectedAsset != null)
+        {
+            // Load the selected asset's current metadata to capture as a preset
+            try
+            {
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                var asset = await db.DigitalAssets
+                    .Include(a => a.Keywords)
+                    .Include(a => a.Categories)
+                    .Include(a => a.MetadataProfile)
+                    .FirstOrDefaultAsync(a => a.Id == PropertyInspector.SelectedAsset.Id)
+                    .ConfigureAwait(false);
+
+                if (asset != null)
+                {
+                    vm.SourceAsset = asset;
+                    vm.StatusText = $"Ready to save preset from '{asset.Title}' — enter a name and click Save";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load asset for preset capture");
+            }
+        }
+
+        vm.OnApplyPreset = async preset =>
+        {
+            await ApplyPresetToSelectedAssetsAsync(preset);
+        };
+
+        var dialog = new Views.PresetDialog(vm);
         if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
             await dialog.ShowDialog(desktop.MainWindow);
     }
@@ -1344,6 +1467,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (ShowServiceManagerCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ExportCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ImportMetadataCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SavePresetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (LoadPresetCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RotateClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RotateCounterClockwiseCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (FlipHorizontalCommand as RelayCommand)?.RaiseCanExecuteChanged();

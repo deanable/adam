@@ -1,0 +1,167 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        x:Class="Adam.CatalogBrowser.Views.PresetDialog"
+        x:DataType="vm:PresetDialogViewModel"
+        Title="Metadata Presets"
+        Width="480"
+        Height="520"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <Border Padding="20" Background="White">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+
+      <!-- Header -->
+      <TextBlock Grid.Row="0"
+                 Text="Metadata Presets"
+                 FontSize="18"
+                 FontWeight="Bold"
+                 Foreground="#333"
+                 Margin="0,0,0,8" />
+
+      <!-- Save current as preset -->
+      <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,12">
+        <TextBlock Text="Save current asset as preset:"
+                   FontSize="12"
+                   Foreground="#666" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox Grid.Column="0"
+                   Text="{Binding NewPresetName}"
+                   PlaceholderText="Preset name..."
+                   FontSize="12"
+                   BorderThickness="1"
+                   BorderBrush="#D0D0D0"
+                   CornerRadius="4"
+                   Padding="6,4" />
+          <Button Grid.Column="1"
+                  Content="Save"
+                  Command="{Binding SavePresetCommand}"
+                  IsEnabled="{Binding CanSavePreset}"
+                  Margin="8,0,0,0"
+                  Padding="14,4"
+                  FontSize="12"
+                  Background="#1976D2"
+                  Foreground="White"
+                  BorderThickness="0"
+                  CornerRadius="4">
+            <Button.Styles>
+              <Style Selector="Button:disabled">
+                <Setter Property="Background" Value="#E0E0E0" />
+                <Setter Property="Foreground" Value="#999" />
+              </Style>
+            </Button.Styles>
+          </Button>
+        </Grid>
+      </StackPanel>
+
+      <!-- Preset list -->
+      <StackPanel Grid.Row="2" Spacing="4">
+        <TextBlock Text="Saved presets:"
+                   FontSize="12"
+                   Foreground="#666" />
+        <Border BorderThickness="1"
+                BorderBrush="#D0D0D0"
+                CornerRadius="4"
+                MinHeight="160">
+          <ScrollViewer>
+            <ListBox ItemsSource="{Binding Presets}"
+                     SelectedItem="{Binding SelectedPreset}"
+                     Background="White"
+                     BorderThickness="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Border Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#F0F0F0">
+                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Row="0" Grid.Column="0"
+                                 Text="{Binding Name}"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Foreground="#333" />
+                      <TextBlock Grid.Row="0" Grid.Column="1"
+                                 Text="{Binding SavedAtFormatted}"
+                                 FontSize="10"
+                                 Foreground="#999"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                                 Text="{Binding FieldSummary}"
+                                 FontSize="11"
+                                 Foreground="#777"
+                                 Margin="0,2,0,0" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+
+      <!-- Status text -->
+      <TextBlock Grid.Row="3"
+                 Text="{Binding StatusText}"
+                 FontSize="11"
+                 Foreground="#666"
+                 FontStyle="Italic"
+                 Margin="0,8,0,0"
+                 TextWrapping="Wrap" />
+
+      <!-- Loading indicator -->
+      <ProgressBar Grid.Row="4"
+                   IsVisible="{Binding IsLoading}"
+                   IsIndeterminate="True"
+                   Height="4"
+                   Margin="0,4"
+                   CornerRadius="2" />
+
+      <!-- Buttons -->
+      <StackPanel Grid.Row="5"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8"
+                  Margin="0,12,0,0">
+        <Button Content="Delete"
+                Command="{Binding DeletePresetCommand}"
+                IsEnabled="{Binding CanDeletePreset}"
+                Padding="14,6"
+                FontSize="12"
+                Background="#F44336"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#E0E0E0" />
+              <Setter Property="Foreground" Value="#999" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Apply Preset"
+                Command="{Binding ApplyPresetCommand}"
+                IsEnabled="{Binding CanApplyPreset}"
+                Padding="14,6"
+                FontSize="12"
+                Background="#1976D2"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="4">
+          <Button.Styles>
+            <Style Selector="Button:disabled">
+              <Setter Property="Background" Value="#E0E0E0" />
+              <Setter Property="Foreground" Value="#999" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Content="Close"
+                Command="{Binding CancelCommand}"
+                IsCancel="True"
+                Padding="14,6"
+                FontSize="12"
+                Background="#F0F0F0"
+                BorderBrush="#D0D0D0"
+                CornerRadius="4" />
+      </StackPanel>
+
+    </Grid>
+  </Border>
+</Window>
