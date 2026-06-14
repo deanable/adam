@@ -25,7 +25,8 @@
 # ─────────────────────────────────────────────────────────────────
 
 set -uo pipefail
-n# Verify dotnet CLI is available
+
+# Verify dotnet CLI is available
 command -v dotnet &>/dev/null || { echo "ERROR: dotnet CLI not found"; exit 2; }
 
 # ── Defaults ──────────────────────────────────────────────────
@@ -122,7 +123,7 @@ echo ""
 
 if ! $SKIP_BUILD; then
   echo "==> Building solution..."
-  if dotnet build "$PROJECT_ROOT/src/Adam.slnx" -c "$CONFIGURATION" --no-restore 2>&1; then
+  if dotnet build "$PROJECT_ROOT/adam.slnx" -c "$CONFIGURATION" --no-restore 2>&1; then
     echo "  Build succeeded."
   else
     echo "  BUILD FAILED. Aborting."

@@ -57,11 +57,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.Type).IsRequired();
             e.Property(x => x.IsDeleted).HasDefaultValue(false);
             e.Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
-            // Filtered unique index. EF migrations emit provider-specific SQL at
-            // migration time; the filter expression is SQLite-phrased here because
-            // the generated migrations target SQLite. PostgreSQL/SQL Server
-            // migrations are generated separately when those providers are adopted.
-            e.HasIndex(x => x.ChecksumSha256).IsUnique().HasFilter("NOT IsDeleted");
+            // Composite unique index on (ChecksumSha256, IsDeleted) works across all
+            // providers (SQLite, PostgreSQL, SQL Server) without dialect-specific SQL.
+            // Each checksum can have at most one active row AND at most one deleted
+            // row, which is sufficient for duplicate detection and restore.
+            e.HasIndex(x => new { x.ChecksumSha256, x.IsDeleted }).IsUnique();
             e.HasIndex(x => x.Type);
             e.HasIndex(x => x.StoragePath);
             e.HasIndex(x => x.CreatedAt);

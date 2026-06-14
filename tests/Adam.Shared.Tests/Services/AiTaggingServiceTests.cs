@@ -193,7 +193,10 @@ public sealed class AiTaggingServiceTests : IDisposable
         // Assert — only image asset was analyzed
         await _fakeAnalyzer.Received(1).AnalyzeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
 
-        // Progress should be reported for both attempts
+        // Progress should be reported for both attempts.
+        // Give the thread pool a moment to execute Progress<T> callbacks
+        // (Progress<T> uses Task.Run when SynchronizationContext.Current is null).
+        await Task.Delay(100);
         progressItems.Should().HaveCount(2);
         progressItems[0].Should().Be((1, 2));
         progressItems[1].Should().Be((2, 2));

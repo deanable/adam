@@ -29,6 +29,10 @@ public sealed class ElevatedHelperTests
     [Fact]
     public async Task RunAsync_WhenRequestHasUnknownOperation_ReturnsError()
     {
+        // Skip on non-Windows — ElevatedHelper uses Windows Principal APIs
+        if (!OperatingSystem.IsWindows())
+            return;
+
         // Arrange
         var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var request = new { Operation = "reboot", BrokerPath = "test.exe", Port = 9100 };
@@ -50,6 +54,10 @@ public sealed class ElevatedHelperTests
     [Fact]
     public async Task RunAsync_WhenInstallMissingBrokerPath_ReturnsError()
     {
+        // Skip on non-Windows — ElevatedHelper uses Windows Principal APIs
+        if (!OperatingSystem.IsWindows())
+            return;
+
         // Arrange
         var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var request = new { Operation = "install", BrokerPath = "", Port = 9100 };
