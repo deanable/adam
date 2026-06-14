@@ -57,6 +57,11 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Reset config to known defaults — avoids test pollution from saved settings
+        // (e.g., ServicePort differs from the default 9100 on machines with a prior config).
+        App.Config.ServiceHost = "localhost";
+        App.Config.ServicePort = 9100;
+
         await _modeManager.InitializeAsync();
 
         _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
@@ -581,9 +586,9 @@ public class MainWindowViewModelTests : IAsyncLifetime
         await ctx.InitializeAsync();
 
         // Simulate disconnect but keep auth session logged in
-        var connectedField = typeof(MainWindowViewModel).GetField("_isConnectedToService",
+        var connectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        connectedField.SetValue(ctx.Vm, false);
+        connectedField.SetValue(ctx.Vm.Connection, false);
 
         ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
@@ -965,46 +970,74 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
 
     public async Task InitializeAsync()
     {
-        await _modeManager.InitializeAsync();
+        try
+        {
+            await _modeManager.InitializeAsync();
 
-        // Set Token and CurrentUser via reflection to make IsLoggedIn = true
-        var tokenField = typeof(AuthSession).GetField("<Token>k__BackingField",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        tokenField.SetValue(_auth, "test-jwt-token");
+            // Set Token and CurrentUser via reflection to make IsLoggedIn = true
+            var tokenField = typeof(AuthSession).GetField("<Token>k__BackingField",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            tokenField.SetValue(_auth, "test-jwt-token");
 
-        var currentUserField = typeof(AuthSession).GetField("<CurrentUser>k__BackingField",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        currentUserField.SetValue(_auth, new Adam.Shared.Contracts.UserProfile { Username = "testuser" });
+            var currentUserField = typeof(AuthSession).GetField("_currentUser",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            currentUserField.SetValue(_auth, new Adam.Shared.Contracts.UserProfile { Username = "testuser" });
 
-        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
-        var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
+            var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
+            var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
-        var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService(), new SyncUiDispatcher());
-        var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
-        var statusBar = new StatusBarViewModel(bulkQueue);
+            var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
+            var piLogger = new NullLogger<PropertyInspectorViewModel>();
+            var piModeMgr = _modeManager;
+            var piWriteback = new MetadataWritebackService();
+            var piDispatcher = new SyncUiDispatcher();
+            var propertyInspector = new PropertyInspectorViewModel(piLogger, piModeMgr, piWriteback, piDispatcher);
+            var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
+            var statusBar = new StatusBarViewModel(bulkQueue);
 
-        Vm = new MainWindowViewModel(
-            new NullLogger<MainWindowViewModel>(),
-            _modeManager,
-            new MetadataWritebackService(),
-            sidebar,
-            gallery,
-            new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
-            new MetadataEditorViewModel(_modeManager),
-            new AuditLogViewModel(_modeManager),
-            bulkQueue,
-            propertyInspector,
-            connection,
-            statusBar,
-            new DeleteService(_modeManager), new ToastService(),
-            startUp: false, startSessionTimer: false,
-            dispatcher: new SyncUiDispatcher());
+            Vm = new MainWindowViewModel(
+                new NullLogger<MainWindowViewModel>(),
+                _modeManager,
+                new MetadataWritebackService(),
+                sidebar,
+                gallery,
+                new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
+                new MetadataEditorViewModel(_modeManager),
+                new AuditLogViewModel(_modeManager),
+                bulkQueue,
+                propertyInspector,
+                connection,
+                statusBar,
+                new DeleteService(_modeManager), new ToastService(),
+                startUp: false, startSessionTimer: false,
+                dispatcher: new SyncUiDispatcher());
 
-        // Set connected state via reflection to simulate a connected service
-        var isConnectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        isConnectedField.SetValue(Vm.Connection, true);
+            // Set connected state via reflection to simulate a connected service
+            if (Vm == null)
+                throw new InvalidOperationException("MainWindowViewModel constructor returned null — check for exceptions during construction.");
+            if (Vm.Connection == null)
+                throw new InvalidOperationException("MainWindowViewModel.Connection is null after construction.");
+            var isConnectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (isConnectedField == null)
+                throw new InvalidOperationException("Field '_isConnectedToService' not found on ConnectionViewModel.");
+            isConnectedField.SetValue(Vm.Connection, true);
+        }
+        catch (Exception ex)
+        {
+            // Capture full detail including inner exceptions for CI debugging
+            var messages = new List<string>();
+            var current = ex;
+            while (current != null)
+            {
+                messages.Add($"{current.GetType().FullName}: {current.Message}");
+                if (!string.IsNullOrEmpty(current.StackTrace))
+                    messages.Add(current.StackTrace.Split('\n')[0]);
+                current = current.InnerException;
+            }
+            throw new InvalidOperationException(
+                $"LoggedInVmContext.InitializeAsync failed. Exception chain:\n{string.Join("\n", messages)}", ex);
+        }
     }
 
     public async ValueTask DisposeAsync()
