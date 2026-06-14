@@ -19,6 +19,7 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
     private readonly MetadataExtractorService _metadataExtractor = new();
+    private readonly OfficeDocumentExtractor _officeExtractor = new();
     private readonly ILogger<IngestionViewModel> _logger;
     private readonly AiTaggingService? _aiTaggingService;
     private int _progressValue;
@@ -200,6 +201,11 @@ public class IngestionViewModel : INotifyPropertyChanged
                     if (assetType == AssetType.Image)
                     {
                         textMetadata = _metadataExtractor.ExtractTextMetadata(filePath);
+                    }
+                    else if (assetType == AssetType.Document)
+                    {
+                        // Check for XMP sidecar or extract from Office document properties
+                        textMetadata = _officeExtractor.Extract(filePath);
                     }
 
                     _logger.LogInformation("[{IngestId}] Computing SHA256: {FilePath}", ingestId, filePath);

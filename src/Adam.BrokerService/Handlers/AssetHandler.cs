@@ -310,7 +310,7 @@ public sealed class AssetHandler
         try
         {
             var filePath = asset.StoragePath;
-            if (_writeback.IsRawFile(filePath))
+            if (_writeback.IsRawFile(filePath) || _writeback.IsOfficeDocument(filePath))
                 _ = _writeback.WriteSidecarXmpAsync(filePath, asset, ct);
             else if (_writeback.SupportsEmbeddedMetadata(filePath))
                 _ = _writeback.WriteMetadataAsync(filePath, asset, ct);
@@ -398,7 +398,7 @@ public sealed class AssetHandler
         try
         {
             var filePath = asset.StoragePath;
-            if (_writeback.IsRawFile(filePath))
+            if (_writeback.IsRawFile(filePath) || _writeback.IsOfficeDocument(filePath))
                 _ = _writeback.WriteSidecarXmpAsync(filePath, asset, ct);
             else if (_writeback.SupportsEmbeddedMetadata(filePath))
                 _ = _writeback.WriteMetadataAsync(filePath, asset, ct);

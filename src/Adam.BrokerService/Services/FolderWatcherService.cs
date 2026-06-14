@@ -14,6 +14,7 @@ public class FolderWatcherService : IDisposable
     private readonly FileIndexer _fileIndexer;
     private readonly ChecksumService _checksumService;
     private readonly MetadataExtractorService _metadataExtractor = new();
+    private readonly OfficeDocumentExtractor _officeExtractor = new();
     private FileSystemWatcher? _watcher;
     private readonly HashSet<string> _pendingEvents = new(StringComparer.OrdinalIgnoreCase);
     private readonly Timer? _debounceTimer;
@@ -123,9 +124,18 @@ public class FolderWatcherService : IDisposable
                 db.DigitalAssets.Add(asset);
 
                 var assetType = _fileIndexer.GetAssetType(path);
+                ExtractedTextMetadata? textMetadata = null;
                 if (assetType == AssetType.Image)
                 {
-                    var textMetadata = _metadataExtractor.ExtractTextMetadata(path);
+                    textMetadata = _metadataExtractor.ExtractTextMetadata(path);
+                }
+                else if (assetType == AssetType.Document)
+                {
+                    textMetadata = _officeExtractor.Extract(path);
+                }
+
+                if (textMetadata != null)
+                {
                     if (textMetadata.Keywords.Count > 0)
                     {
                         var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();

@@ -52,6 +52,18 @@ public class MetadataWritebackService
     }
 
     /// <summary>
+    /// Returns true for Office documents that should use XMP sidecar files
+    /// for metadata writeback (since embedded metadata is not supported).
+    /// </summary>
+    public bool IsOfficeDocument(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext is ".docx" or ".xlsx" or ".pptx";
+    }
+
+
+
+    /// <summary>
     /// Write metadata from a DigitalAsset (including new Phase 4 fields: Rating, Label, Flag, GPS, Copyright).
     /// </summary>
     /// <summary>

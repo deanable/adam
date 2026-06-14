@@ -427,7 +427,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                 try
                 {
                     var filePath = asset.StoragePath;
-                    if (_writeback.IsRawFile(filePath))
+                    if (_writeback.IsRawFile(filePath) || _writeback.IsOfficeDocument(filePath))
                         await _writeback.WriteSidecarXmpAsync(filePath, asset).ConfigureAwait(false);
                     else if (_writeback.SupportsEmbeddedMetadata(filePath))
                         await _writeback.WriteMetadataAsync(filePath, asset).ConfigureAwait(false);
@@ -992,11 +992,11 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             // Write metadata back to source file (best-effort; failures don't fail the save)
             try
             {
-                var filePath = asset.StoragePath;
-                if (_writeback.IsRawFile(filePath))
-                    await _writeback.WriteSidecarXmpAsync(filePath, asset).ConfigureAwait(false);
-                else if (_writeback.SupportsEmbeddedMetadata(filePath))
-                    await _writeback.WriteMetadataAsync(filePath, asset).ConfigureAwait(false);
+                var writePath = asset.StoragePath;
+                if (_writeback.IsRawFile(writePath) || _writeback.IsOfficeDocument(writePath))
+                    await _writeback.WriteSidecarXmpAsync(writePath, asset).ConfigureAwait(false);
+                else if (_writeback.SupportsEmbeddedMetadata(writePath))
+                    await _writeback.WriteMetadataAsync(writePath, asset).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

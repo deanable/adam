@@ -2,7 +2,7 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 🔧 Phase 13 — Production Hardening (In Progress)
+**Current Phase:** 🔧 Phase 14 — Feature Growth (In Progress)
 **Current Milestone:** 🎯 v2.x — Production Hardening & Feature Growth
 
 ## Project Reference
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Current focus:** 🔧 Phase 13 — Fix technical debt (solution file, CI, null handlers, protobuf docs, logging, watcher, EF Core). Then Phase 14 — v2 features (batch editing, CSV, activity feed, loupe/compare, AI refinement).
+**Current focus:** 🔧 Phase 14 — v2 feature delivery (batch editing, CSV import/export, activity feed, compare/loupe, AI tag refinement).
 
 ## Phase Progress
 
@@ -28,8 +28,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 10 | ✅ | 1/1 | 100% | Archived |
 | 11 | ✅ | 1/1 | 100% | Archived |
 | 12 | ✅ | 1/1 | 100% | Archived |
-| **13** | 🔧 In Progress | 1/1 | 42% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ | Wave 4: EF Core migration guide ✅ | Wave 5: Handler validation tests (29) ✅, AI model upgrade plan ✅ |
-| **14** | 📋 Planned | 1/1 | 0% | Feature Growth — batch editing, CSV import/export, activity feed, compare/loupe, AI refinement |
+| **13** | ✅ Complete | 1/1 | 100% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ | Wave 4: EF Core migration guide ✅ | Wave 5: Handler validation tests (29) ✅, AI model layout refactor ✅ |
+| **14** | 🔧 In Progress | 1/1 | 0% | Feature Growth — batch editing, CSV import/export, activity feed, compare/loupe, AI refinement |
 
 ## Milestone Archives
 
@@ -65,8 +65,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 ## Next Actions
 
-1. **Execute Phase 13** — production hardening (solution file, CI, handlers, docs, logging, watcher, EF Core)
-2. **Then Phase 14** — v2 feature growth (batch editing, CSV, activity feed, loupe/compare, AI refinement)
+1. **Execute Phase 14 Wave 1** — batch metadata editing (T14.1), CSV/XMP import/export (T14.2)
+2. **Then Phase 14 Wave 2** — activity feed / notification panel (T14.3)
+3. **Then Phase 14 Wave 3** — compare/loupe views (T14.4), AI tag refinement (T14.5)
 
 ---
 *State updated: 2026-06-13 — v2.0 archived. All 12 phases complete. Ready for v2.x planning.*
