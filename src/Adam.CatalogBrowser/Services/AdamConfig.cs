@@ -49,6 +49,16 @@ public sealed class AdamConfig
     /// </summary>
     public string AiPrecision { get; set; } = "Q4F16";
 
+    /// <summary>
+    /// ONNX Runtime execution provider (e.g. "Cpu", "Cuda", "DirectML").
+    /// </summary>
+    public string AiExecutionProvider { get; set; } = "Cpu";
+
+    /// <summary>
+    /// GPU device ID when using a GPU execution provider (default 0).
+    /// </summary>
+    public int AiGpuDeviceId { get; set; } = 0;
+
     // ── Recent hosts ──
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.Shared.Services;
@@ -17,10 +18,20 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
     private readonly AiTaggingService? _aiTaggingService;
     private readonly LiquidVisionOptions _options;
     private AiModelDefinition? _selectedModel;
+    private ExecutionProviderKind _selectedExecutionProvider;
+    private int _gpuDeviceId;
     private bool _isModelDownloading;
     private double _modelDownloadProgress;
     private string _modelStatus = string.Empty;
     private bool _restartRequired;
+
+    /// <summary>Available execution provider options for the dropdown.</summary>
+    public ObservableCollection<ExecutionProviderOption> ProviderOptions { get; } =
+    [
+        new() { Kind = ExecutionProviderKind.Cpu, DisplayName = "CPU" },
+        new() { Kind = ExecutionProviderKind.Cuda, DisplayName = "CUDA (NVIDIA)" },
+        new() { Kind = ExecutionProviderKind.DirectML, DisplayName = "DirectML (Windows)" }
+    ];
 
     public AiModelSelectorViewModel(
         AiTaggingService? aiTaggingService,
@@ -36,6 +47,10 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         // Select the currently configured model
         var currentMatch = AiModelDefinition.FindOrDefault(_options.ModelId, _options.Precision);
         _selectedModel = currentMatch;
+
+        // Select the currently configured execution provider
+        _selectedExecutionProvider = options.ExecutionProvider;
+        _gpuDeviceId = options.GpuDeviceId;
 
         // Wire model download progress from AiTaggingService
         if (aiTaggingService != null)
@@ -116,7 +131,13 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
     public bool IsModelDownloading
     {
         get => _isModelDownloading;
-        set { _isModelDownloading = value; OnPropertyChanged(); }
+        set
+        {
+            if (_isModelDownloading == value) return;
+            _isModelDownloading = value;
+            OnPropertyChanged();
+            (DownloadOrApplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
     }
 
     /// <summary>Download progress (0.0 to 1.0).</summary>
@@ -140,7 +161,54 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         set { _restartRequired = value; OnPropertyChanged(); }
     }
 
-    /// <summary>Downloads or initializes the selected model.</summary>
+    /// <summary>Currently selected execution provider option (for XAML binding).</summary>
+    public ExecutionProviderOption? SelectedProviderOption
+    {
+        get => ProviderOptions.FirstOrDefault(p => p.Kind == _selectedExecutionProvider);
+        set
+        {
+            if (value == null || value.Kind == _selectedExecutionProvider) return;
+            _selectedExecutionProvider = value.Kind;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsGpuProvider));
+
+            // Mark restart needed
+            RestartRequired = true;
+
+            // Persist immediately
+            var config = App.Config;
+            config.AiExecutionProvider = value.Kind.ToString();
+            config.Save();
+
+            // Update runtime options
+            _options.ExecutionProvider = value.Kind;
+        }
+    }
+
+    /// <summary>True when the selected provider is a GPU provider (shows device ID field).</summary>
+    public bool IsGpuProvider =>
+        _selectedExecutionProvider is ExecutionProviderKind.Cuda or ExecutionProviderKind.DirectML;
+
+    /// <summary>GPU device ID (0 = first GPU).</summary>
+    public int GpuDeviceId
+    {
+        get => _gpuDeviceId;
+        set
+        {
+            if (_gpuDeviceId == value) return;
+            _gpuDeviceId = value;
+            OnPropertyChanged();
+
+            // Persist immediately
+            var config = App.Config;
+            config.AiGpuDeviceId = value;
+            config.Save();
+
+            // Update runtime options
+            _options.GpuDeviceId = value;
+        }
+    }
+
     public ICommand DownloadOrApplyCommand { get; }
 
     /// <summary>
@@ -161,11 +229,15 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         var config = App.Config;
         config.AiModelId = SelectedModel.ModelId;
         config.AiPrecision = SelectedModel.Precision.ToString();
+        config.AiExecutionProvider = _selectedExecutionProvider.ToString();
+        config.AiGpuDeviceId = _gpuDeviceId;
         config.Save();
 
         // Update the runtime options
         _options.ModelId = SelectedModel.ModelId;
         _options.Precision = SelectedModel.Precision;
+        _options.ExecutionProvider = _selectedExecutionProvider;
+        _options.GpuDeviceId = _gpuDeviceId;
 
         // Trigger download+initialize if the AI tagging service is available
         if (_aiTaggingService != null)
@@ -196,4 +268,16 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
+
+/// <summary>
+/// Describes an execution provider option for the dropdown selector.
+/// </summary>
+public sealed class ExecutionProviderOption
+{
+    /// <summary>The execution provider kind.</summary>
+    public ExecutionProviderKind Kind { get; set; }
+
+    /// <summary>User-friendly display name for the dropdown.</summary>
+    public string DisplayName { get; set; } = string.Empty;
 }

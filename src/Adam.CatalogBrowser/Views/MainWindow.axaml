@@ -366,6 +366,8 @@
             <!-- AI Model selector -->
             <Expander Header="AI Model" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="6">
+                <!-- Model variant dropdown -->
+                <TextBlock Text="Model:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
                 <ComboBox ItemsSource="{Binding AiModelSelector.AvailableModels}"
                           SelectedItem="{Binding AiModelSelector.SelectedModel}"
                           FontSize="11"
@@ -384,6 +386,29 @@
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
+
+                <!-- Execution provider dropdown -->
+                <TextBlock Text="Execution Provider:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                <ComboBox ItemsSource="{Binding AiModelSelector.ProviderOptions}"
+                          SelectedItem="{Binding AiModelSelector.SelectedProviderOption}"
+                          FontSize="11"
+                          BorderThickness="1"
+                          BorderBrush="{DynamicResource InputBorderBrush}"
+                          CornerRadius="4"
+                          Padding="4,2"
+                          DisplayMemberBinding="{Binding DisplayName}" />
+
+                <!-- GPU device ID (visible only when GPU provider selected) -->
+                <StackPanel Spacing="2" IsVisible="{Binding AiModelSelector.IsGpuProvider}">
+                  <TextBlock Text="GPU Device ID:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                  <NumericUpDown Value="{Binding AiModelSelector.GpuDeviceId}"
+                                 Minimum="0" Maximum="15" Increment="1"
+                                 FontSize="11"
+                                 BorderThickness="1"
+                                 BorderBrush="{DynamicResource InputBorderBrush}"
+                                 CornerRadius="4"
+                                 Padding="4,2" />
+                </StackPanel>
 
                 <Button Content="Download &amp; Apply"
                         Command="{Binding AiModelSelector.DownloadOrApplyCommand}"

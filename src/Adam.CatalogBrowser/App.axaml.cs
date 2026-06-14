@@ -100,7 +100,11 @@ public partial class App : Application
                     ? precision
                     : ModelPrecision.Q4F16;
 
-                o.ExecutionProvider = ExecutionProviderKind.Cpu;
+                o.ExecutionProvider = Enum.TryParse<ExecutionProviderKind>(config.AiExecutionProvider, ignoreCase: true, out var ep)
+                    ? ep
+                    : ExecutionProviderKind.Cpu;
+
+                o.GpuDeviceId = config.AiGpuDeviceId;
             });
             services.AddSingleton<AiTaggingService>();
 
