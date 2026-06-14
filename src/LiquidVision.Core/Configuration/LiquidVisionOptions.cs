@@ -18,8 +18,22 @@ public enum ModelPrecision
     Q4,
     /// <summary>4-bit weights with fp16 activations (<c>_q4f16</c>). Recommended balance for production.</summary>
     Q4F16,
+    /// <summary>8-bit quantized weights (<c>_q8</c>).</summary>
+    Q8,
     /// <summary>8-bit dynamic quantization (<c>_quantized</c>).</summary>
     Quantized
+}
+
+/// <summary>
+/// Identifies the ONNX model architecture variant. Different model repos use
+/// different graph file naming conventions for the same logical components.
+/// </summary>
+public enum ModelArchitecture
+{
+    /// <summary>LFM2-VL architecture (onnx-community/LFM2-VL-450M-ONNX). Graph names: vision_encoder, decoder_model_merged.</summary>
+    Lfm2Vl,
+    /// <summary>LFM2.5-VL architecture (LiquidAI/LFM2.5-VL-1.6B-ONNX). Graph names: embed_images, decoder.</summary>
+    Lfm25Vl
 }
 
 /// <summary>ONNX Runtime execution provider to use for inference.</summary>
@@ -40,16 +54,27 @@ public enum ExecutionProviderKind
 public sealed class LiquidVisionOptions
 {
     /// <summary>Hugging Face repository id of the ONNX model.</summary>
-    public string ModelId { get; set; } = "onnx-community/LFM2-VL-450M-ONNX";
+    public string ModelId { get; set; } = "LiquidAI/LFM2.5-VL-1.6B-ONNX";
 
     /// <summary>Repository revision (branch, tag, or commit).</summary>
     public string ModelRevision { get; set; } = "main";
 
     /// <summary>Logical version stamp written into the verification marker and results.</summary>
-    public string ModelVersion { get; set; } = "1.0";
+    public string ModelVersion { get; set; } = "1.5";
 
     /// <summary>Weight precision / quantization variant to download and run.</summary>
-    public ModelPrecision Precision { get; set; } = ModelPrecision.Fp32;
+    public ModelPrecision Precision { get; set; } = ModelPrecision.Q4;
+
+    /// <summary>
+    /// Detects the <see cref="ModelArchitecture"/> from <see cref="ModelId"/>.
+    /// Used internally by <see cref="Services.Lfm2VlModelLayout"/> to resolve
+    /// graph file names and precision suffix fallbacks.
+    /// </summary>
+    public ModelArchitecture Architecture => ModelId switch
+    {
+        not null when ModelId.Contains("LFM2.5", StringComparison.OrdinalIgnoreCase) => ModelArchitecture.Lfm25Vl,
+        _ => ModelArchitecture.Lfm2Vl
+    };
 
     /// <summary>Execution provider for ONNX Runtime.</summary>
     public ExecutionProviderKind ExecutionProvider { get; set; } = ExecutionProviderKind.Cpu;

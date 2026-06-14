@@ -11,9 +11,10 @@ namespace LiquidVision.Core.Services;
 public sealed record RemoteModelFile(string RemotePath, string LocalPath, bool Optional);
 
 /// <summary>
-/// Resolves the on-disk and remote layout of an LFM2-VL ONNX model for a given
-/// <see cref="LiquidVisionOptions"/>. Shared by the downloader, verification marker, and loader so
-/// they all agree on file names and locations.
+/// Resolves the on-disk and remote layout of an LFM2-VL / LFM2.5-VL ONNX model for a
+/// given <see cref="LiquidVisionOptions"/>. Shared by the downloader, verification marker, and
+/// loader so they all agree on file names and locations. Supports architecture-specific naming
+/// conventions (graph names, precision suffix fallbacks) detected from the model ID.
 /// </summary>
 public sealed class Lfm2VlModelLayout
 {
@@ -32,9 +33,41 @@ public sealed class Lfm2VlModelLayout
     /// <summary>Base URL (with trailing slash) for downloading repository files.</summary>
     public string BaseUrl => $"https://huggingface.co/{_options.ModelId}/resolve/{_options.ModelRevision}/";
 
+    /// <summary>The detected model architecture (LFM2-VL vs LFM2.5-VL).</summary>
+    public ModelArchitecture Architecture => _options.Architecture;
+
+    // ─────────────────────────────────────────────────────────────
+    //  Architecture-aware graph names
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolves the ONNX graph file name for a logical component.
+    /// Different model variants use different file names:
+    ///   LFM2-VL:    vision_encoder
+    ///   LFM2.5-VL:  embed_images
+    /// </summary>
+    private static string VisionEncoderGraphName(ModelArchitecture arch) => arch switch
+    {
+        ModelArchitecture.Lfm25Vl => "embed_images",
+        _ => "vision_encoder"
+    };
+
+    /// <summary>
+    /// Resolves the ONNX graph file name for a logical component.
+    /// Different model variants use different file names:
+    ///   LFM2-VL:    decoder_model_merged
+    ///   LFM2.5-VL:  decoder
+    /// </summary>
+    private static string DecoderGraphName(ModelArchitecture arch) => arch switch
+    {
+        ModelArchitecture.Lfm25Vl => "decoder",
+        _ => "decoder_model_merged"
+    };
+
     public string EmbedTokensPath => LocalOnnx("embed_tokens");
-    public string VisionEncoderPath => LocalOnnx("vision_encoder");
-    public string DecoderPath => LocalOnnx("decoder_model_merged");
+    public string VisionEncoderPath => LocalOnnx(VisionEncoderGraphName(Architecture));
+    public string DecoderPath => LocalOnnx(DecoderGraphName(Architecture));
+
     public string TokenizerJsonPath => Path.Combine(ModelDirectory, "tokenizer.json");
     public string TokenizerConfigPath => Path.Combine(ModelDirectory, "tokenizer_config.json");
     public string ConfigPath => Path.Combine(ModelDirectory, "config.json");
@@ -48,16 +81,35 @@ public sealed class Lfm2VlModelLayout
     public string ResolvedPreprocessorConfigPath =>
         File.Exists(PreprocessorConfigPath) ? PreprocessorConfigPath : ProcessorConfigPath;
 
-    /// <summary>Maps the configured precision to the repository file-name suffix.</summary>
-    public string PrecisionSuffix => _options.Precision switch
+    // ─────────────────────────────────────────────────────────────
+    //  Architecture-aware precision suffix
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Maps the configured precision to the repository file-name suffix.
+    /// Architecture-aware: LFM2.5-VL doesn't ship a <c>_q4f16</c> variant,
+    /// so <see cref="ModelPrecision.Q4F16"/> falls back to <c>_q4</c>.
+    /// </summary>
+    public string PrecisionSuffix
     {
-        ModelPrecision.Fp32 => "",
-        ModelPrecision.Fp16 => "_fp16",
-        ModelPrecision.Q4 => "_q4",
-        ModelPrecision.Q4F16 => "_q4f16",
-        ModelPrecision.Quantized => "_quantized",
-        _ => ""
-    };
+        get
+        {
+            // LFM2.5-VL doesn't ship _q4f16; fall back to _q4 (best available quantized variant).
+            if (Architecture == ModelArchitecture.Lfm25Vl && _options.Precision == ModelPrecision.Q4F16)
+                return "_q4";
+
+            return _options.Precision switch
+            {
+                ModelPrecision.Fp32 => "",
+                ModelPrecision.Fp16 => "_fp16",
+                ModelPrecision.Q4 => "_q4",
+                ModelPrecision.Q4F16 => "_q4f16",
+                ModelPrecision.Q8 => "_q8",
+                ModelPrecision.Quantized => "_quantized",
+                _ => ""
+            };
+        }
+    }
 
     /// <summary>All files that must be present locally, with their remote sources.</summary>
     public IReadOnlyList<RemoteModelFile> RemoteFiles
@@ -65,10 +117,12 @@ public sealed class Lfm2VlModelLayout
         get
         {
             var files = new List<RemoteModelFile>();
+            var suffix = PrecisionSuffix;
+            var arch = Architecture;
 
-            foreach (var graph in new[] { "embed_tokens", "vision_encoder", "decoder_model_merged" })
+            foreach (var graph in new[] { "embed_tokens", VisionEncoderGraphName(arch), DecoderGraphName(arch) })
             {
-                var onnx = $"onnx/{graph}{PrecisionSuffix}.onnx";
+                var onnx = $"onnx/{graph}{suffix}.onnx";
                 files.Add(new RemoteModelFile(onnx, Path.Combine(ModelDirectory, ToLocal(onnx)), Optional: false));
                 // External data sits beside the .onnx so ORT auto-loads it. Large graphs (e.g. the decoder) are
                 // sharded across .onnx_data, .onnx_data_1, .onnx_data_2 — all optional (a precision may inline them
