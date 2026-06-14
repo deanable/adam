@@ -569,10 +569,201 @@
                     IsMultiAsset="True" />
                 </StackPanel>
 
+                <!-- T14.1: Batch editing section (visible when multiple assets selected) -->
+                <Separator Margin="0,4" IsVisible="{Binding PropertyInspector.HasMultiSelection}" />
+                <TextBlock Text="{Binding PropertyInspector.BatchSelectionCountText}"
+                           Classes="Subheading" FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryBrush}"
+                           HorizontalAlignment="Center"
+                           IsVisible="{Binding PropertyInspector.HasMultiSelection}" />
+
+                <!-- Description (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Description:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsDescriptionMixed}" />
+                  </Grid>
+                  <TextBox Text="{Binding PropertyInspector.SelectedAssetDescription}"
+                           AcceptsReturn="True"
+                           MinHeight="40"
+                           MaxHeight="60"
+                           FontSize="11"
+                           BorderThickness="1"
+                           BorderBrush="{DynamicResource InputBorderBrush}"
+                           CornerRadius="4"
+                           Padding="4,2" />
+                </StackPanel>
+
+                <!-- Date taken (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Date taken:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsDateTakenMixed}" />
+                  </Grid>
+                  <DatePicker SelectedDate="{Binding PropertyInspector.SelectedAssetDateTaken}"
+                              FontSize="11"
+                              BorderThickness="1"
+                              BorderBrush="{DynamicResource InputBorderBrush}"
+                              CornerRadius="4" />
+                </StackPanel>
+
+                <!-- Categories (batch mode: editable) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <TextBlock Text="Categories:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                  <controls:TagEditorControl
+                    Tags="{Binding PropertyInspector.SelectedAssetCategories}"
+                    AutoCompleteSource="{Binding PropertyInspector.CategoryAutoCompleteSource}"
+                    PlaceholderText="Add category..." />
+                </StackPanel>
+
+                <!-- Keywords (batch mode: editable) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <TextBlock Text="Keywords:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                  <controls:TagEditorControl
+                    Tags="{Binding PropertyInspector.SelectedAssetTags}"
+                    AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}" />
+                </StackPanel>
+
+                <!-- Rating (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Rating:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsRatingMixed}" />
+                  </Grid>
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetRating}"
+                            FontSize="11"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            CornerRadius="4">
+                    <ComboBoxItem Content="None" />
+                    <ComboBoxItem Content="★ 1" />
+                    <ComboBoxItem Content="★★ 2" />
+                    <ComboBoxItem Content="★★★ 3" />
+                    <ComboBoxItem Content="★★★★ 4" />
+                    <ComboBoxItem Content="★★★★★ 5" />
+                  </ComboBox>
+                </StackPanel>
+
+                <!-- Color Label (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Label:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsLabelMixed}" />
+                  </Grid>
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetLabel}"
+                            FontSize="11"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            CornerRadius="4">
+                    <ComboBoxItem Content="None" />
+                    <ComboBoxItem Content="Red" Foreground="Red" />
+                    <ComboBoxItem Content="Green" Foreground="Green" />
+                    <ComboBoxItem Content="Blue" Foreground="Blue" />
+                    <ComboBoxItem Content="Yellow" Foreground="Goldenrod" />
+                    <ComboBoxItem Content="Purple" Foreground="Purple" />
+                  </ComboBox>
+                </StackPanel>
+
+                <!-- Flag (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Flag:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsFlagMixed}" />
+                  </Grid>
+                  <ComboBox SelectedIndex="{Binding PropertyInspector.SelectedAssetFlag}"
+                            FontSize="11"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            CornerRadius="4">
+                    <ComboBoxItem Content="Unflagged" />
+                    <ComboBoxItem Content="Pick" Foreground="Green" />
+                    <ComboBoxItem Content="Reject" Foreground="Red" />
+                  </ComboBox>
+                </StackPanel>
+
+                <!-- Copyright (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Copyright:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsCopyrightMixed}" />
+                  </Grid>
+                  <TextBox Text="{Binding PropertyInspector.SelectedAssetCopyright}"
+                           FontSize="11"
+                           BorderThickness="1"
+                           BorderBrush="{DynamicResource InputBorderBrush}"
+                           CornerRadius="4"
+                           Padding="4,2" />
+                </StackPanel>
+
+                <!-- GPS (batch mode) -->
+                <StackPanel IsVisible="{Binding PropertyInspector.HasMultiSelection}" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="GPS:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Grid.Column="1" Text="(mixed)" Classes="Caption"
+                               Foreground="{DynamicResource WarningBrush}"
+                               IsVisible="{Binding PropertyInspector.IsGpsMixed}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,4,*">
+                    <TextBox Grid.Column="0" Text="{Binding PropertyInspector.SelectedAssetGpsLatitude}"
+                             PlaceholderText="Latitude"
+                             FontSize="11"
+                             BorderThickness="1"
+                             BorderBrush="{DynamicResource InputBorderBrush}"
+                             CornerRadius="4"
+                             Padding="4,2" />
+                    <TextBox Grid.Column="2" Text="{Binding PropertyInspector.SelectedAssetGpsLongitude}"
+                             PlaceholderText="Longitude"
+                             FontSize="11"
+                             BorderThickness="1"
+                             BorderBrush="{DynamicResource InputBorderBrush}"
+                             CornerRadius="4"
+                             Padding="4,2" />
+                  </Grid>
+                </StackPanel>
+
+                <!-- Apply batch changes button -->
+                <Button Content="{Binding PropertyInspector.ApplyBatchButtonText}"
+                        Command="{Binding PropertyInspector.ApplyBatchEditCommand}"
+                        IsVisible="{Binding PropertyInspector.HasMultiSelection}"
+                        HorizontalAlignment="Right"
+                        Margin="0,4,0,0"
+                        Padding="12,4"
+                        FontSize="11"
+                        Background="{DynamicResource PrimaryBrush}"
+                        Foreground="White"
+                        BorderThickness="0"
+                        CornerRadius="4"
+                        Cursor="Hand">
+                  <Button.Styles>
+                    <Style Selector="Button:disabled">
+                      <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
+                      <Setter Property="Foreground" Value="{DynamicResource TextPlaceholderBrush}" />
+                    </Style>
+                    <Style Selector="Button:pointerover">
+                      <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                    </Style>
+                    <Style Selector="Button:pressed">
+                      <Setter Property="Background" Value="{DynamicResource PrimaryPressedBrush}" />
+                    </Style>
+                  </Button.Styles>
+                </Button>
+
                 <TextBlock Text="Select an asset to edit its metadata"
                            Classes="Body" Foreground="{DynamicResource TextPlaceholderBrush}"
                            HorizontalAlignment="Center"
-                           IsVisible="{Binding PropertyInspector.HasSingleSelection, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+                           IsVisible="{Binding PropertyInspector.HasSelectedAsset, Converter={x:Static views:InverseBoolConverter.Instance}}" />
 
               </StackPanel>
             </Expander>

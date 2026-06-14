@@ -54,6 +54,17 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     private bool _gpsDirty;
     private bool _canEdit = true;
 
+    // Batch mode mixed-value indicators
+    private bool _isDescriptionMixed;
+    private bool _isRatingMixed;
+    private bool _isLabelMixed;
+    private bool _isFlagMixed;
+    private bool _isCopyrightMixed;
+    private bool _isGpsMixed;
+    private bool _isDateTakenMixed;
+    private bool _isBatchMode;
+    private bool _isApplyInProgress;
+
     private CancellationTokenSource? _metadataCts;
 
     public PropertyInspectorViewModel(ILogger<PropertyInspectorViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, IUiDispatcher? dispatcher = null)
@@ -65,11 +76,18 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
-            _ => _selectedAsset != null && CanEdit && (_tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty));
+            _ => _selectedAsset != null && CanEdit && AnyDirty);
+
+        ApplyBatchEditCommand = new RelayCommand(
+            async _ => await ApplyBatchEditAsync(),
+            _ => CanEdit && AnyDirty);
 
         SelectedAssetTags = _selectedAssetTags;
         SelectedAssetCategories = _selectedAssetCategories;
     }
+
+    private bool AnyDirty => _tagsDirty || _descriptionDirty || _categoriesDirty || _dateTakenDirty
+        || _ratingDirty || _labelDirty || _flagDirty || _copyrightDirty || _gpsDirty;
 
     /// <summary>
     /// Whether the current user has permission to edit metadata.
@@ -83,6 +101,102 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     }
 
     public RelayCommand SaveTagsCommand { get; }
+
+    // ──────────────────────────────────────────────
+    //  T14.1: Batch editing
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Command to apply batch metadata changes to all selected assets.
+    /// </summary>
+    public RelayCommand ApplyBatchEditCommand { get; }
+
+    /// <summary>
+    /// True when multiple assets are selected (batch mode).
+    /// </summary>
+    public bool IsBatchMode
+    {
+        get => _isBatchMode;
+        set
+        {
+            if (_isBatchMode == value) return;
+            _isBatchMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsSingleMode));
+        }
+    }
+
+    /// <summary>
+    /// True in single-asset editing mode (not batch).
+    /// </summary>
+    public bool IsSingleMode => !IsBatchMode && HasSelectedAsset;
+
+    /// <summary>
+    /// True while a batch apply operation is in progress.
+    /// </summary>
+    public bool IsApplyInProgress
+    {
+        get => _isApplyInProgress;
+        set { _isApplyInProgress = value; OnPropertyChanged(); }
+    }
+
+    // Mixed-value indicators (T14.1 — detect when selected assets have different values)
+
+    public bool IsDescriptionMixed
+    {
+        get => _isDescriptionMixed;
+        set { _isDescriptionMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsRatingMixed
+    {
+        get => _isRatingMixed;
+        set { _isRatingMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsLabelMixed
+    {
+        get => _isLabelMixed;
+        set { _isLabelMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsFlagMixed
+    {
+        get => _isFlagMixed;
+        set { _isFlagMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsCopyrightMixed
+    {
+        get => _isCopyrightMixed;
+        set { _isCopyrightMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsGpsMixed
+    {
+        get => _isGpsMixed;
+        set { _isGpsMixed = value; OnPropertyChanged(); }
+    }
+
+    public bool IsDateTakenMixed
+    {
+        get => _isDateTakenMixed;
+        set { _isDateTakenMixed = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Selection count text shown in the batch UI header.
+    /// </summary>
+    public string BatchSelectionCountText => _selectedAssets.Count > 0
+        ? $"Editing {_selectedAssets.Count} assets"
+        : string.Empty;
+
+    /// <summary>
+    /// Apply button text showing the affected asset count.
+    /// </summary>
+    public string ApplyBatchButtonText => _selectedAssets.Count > 0
+        ? $"Apply to {_selectedAssets.Count} assets"
+        : "Apply";
 
     public AssetListItem? SelectedAsset
     {
@@ -117,8 +231,218 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
         _selectedAssets.AddRange(assets);
         OnPropertyChanged(nameof(HasMultiSelection));
         OnPropertyChanged(nameof(HasSingleSelection));
+        OnPropertyChanged(nameof(BatchSelectionCountText));
+        OnPropertyChanged(nameof(ApplyBatchButtonText));
+
+        IsBatchMode = _selectedAssets.Count > 1;
+
+        if (HasMultiSelection)
+            _ = DetectBatchMixedValuesAsync();
+        else
+            ClearBatchMixedValues();
+
         _ = ComputeAggregatedTagsAsync();
         _ = ComputeAggregatedCategoriesAsync();
+    }
+
+    /// <summary>
+    /// Resets all mixed-value indicators to false.
+    /// </summary>
+    private void ClearBatchMixedValues()
+    {
+        IsDescriptionMixed = false;
+        IsRatingMixed = false;
+        IsLabelMixed = false;
+        IsFlagMixed = false;
+        IsCopyrightMixed = false;
+        IsGpsMixed = false;
+        IsDateTakenMixed = false;
+    }
+
+    /// <summary>
+    /// Queries the database for all selected assets and detects which fields
+    /// have differing values (mixed). Sets the primary asset's values as defaults
+    /// for the batch edit fields, then clears dirty flags so the user starts fresh.
+    /// </summary>
+    private async Task DetectBatchMixedValuesAsync()
+    {
+        if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
+        {
+            ClearBatchMixedValues();
+            return;
+        }
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var ids = _selectedAssets.Select(a => a.Id).ToList();
+            var assets = await db.DigitalAssets
+                .Include(a => a.MetadataProfile)
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
+
+            if (assets.Count == 0) return;
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                // Detect mixed values by comparing all assets
+                IsDescriptionMixed = assets.Select(a => a.Description ?? "").Distinct().Count() > 1;
+                IsRatingMixed = assets.Select(a => a.Rating).Distinct().Count() > 1;
+                IsLabelMixed = assets.Select(a => (int)a.Label).Distinct().Count() > 1;
+                IsFlagMixed = assets.Select(a => (int)a.Flag).Distinct().Count() > 1;
+                IsCopyrightMixed = assets.Select(a => a.Copyright ?? "").Distinct().Count() > 1;
+                IsDateTakenMixed = assets
+                    .Select(a => a.MetadataProfile?.DateTaken?.Ticks ?? 0L)
+                    .Distinct().Count() > 1;
+
+                var gpsMixed = assets
+                    .Select(a => (a.GpsLatitude ?? 0.0, a.GpsLongitude ?? 0.0))
+                    .Distinct().Count() > 1;
+                IsGpsMixed = gpsMixed;
+
+                // Populate edit fields with the primary asset's values (preserves existing behavior)
+                var primary = assets.FirstOrDefault(a => a.Id == _selectedAsset?.Id) ?? assets[0];
+
+                // Set values without marking dirty
+                _selectedAssetDescription = primary.Description;
+                _descriptionDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetDescription));
+
+                _selectedAssetRating = primary.Rating;
+                _ratingDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetRating));
+
+                _selectedAssetLabel = (int)primary.Label;
+                _labelDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetLabel));
+
+                _selectedAssetFlag = (int)primary.Flag;
+                _flagDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetFlag));
+
+                _selectedAssetCopyright = primary.Copyright;
+                _copyrightDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetCopyright));
+
+                _selectedAssetGpsLatitude = primary.GpsLatitude?.ToString();
+                _selectedAssetGpsLongitude = primary.GpsLongitude?.ToString();
+                _gpsDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetGpsLatitude));
+                OnPropertyChanged(nameof(SelectedAssetGpsLongitude));
+
+                _selectedAssetDateTaken = primary.MetadataProfile?.DateTaken.HasValue == true
+                    ? new DateTimeOffset(primary.MetadataProfile.DateTaken.Value)
+                    : null;
+                _dateTakenDirty = false;
+                OnPropertyChanged(nameof(SelectedAssetDateTaken));
+
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to detect batch mixed values");
+        }
+    }
+
+    /// <summary>
+    /// Applies the current batch edits to ALL selected assets (T14.1).
+    /// Only applies fields that have been modified (dirty flags).
+    /// </summary>
+    private async Task ApplyBatchEditAsync()
+    {
+        if (!AnyDirty || _selectedAssets.Count == 0 || !_modeManager.IsStandalone)
+            return;
+
+        IsApplyInProgress = true;
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var ids = _selectedAssets.Select(a => a.Id).ToList();
+            var assets = await db.DigitalAssets
+                .Include(a => a.Keywords)
+                .Include(a => a.Categories)
+                .Include(a => a.MetadataProfile)
+                .Where(a => ids.Contains(a.Id))
+                .ToListAsync().ConfigureAwait(false);
+
+            foreach (var asset in assets)
+            {
+                if (_descriptionDirty) asset.Description = SelectedAssetDescription;
+                if (_tagsDirty)
+                {
+                    asset.Keywords.Clear();
+                    var tagNames = _selectedAssetTags.ToArray();
+                    if (tagNames.Length > 0) await new KeywordService(db).AssociateKeywordsAsync(asset, tagNames).ConfigureAwait(false);
+                }
+                if (_categoriesDirty)
+                {
+                    asset.Categories.Clear();
+                    var categoryNames = _selectedAssetCategories.ToArray();
+                    if (categoryNames.Length > 0) await new CategoryService(db).AssociateCategoriesAsync(asset, categoryNames).ConfigureAwait(false);
+                }
+                if (_dateTakenDirty)
+                {
+                    if (asset.MetadataProfile == null) asset.MetadataProfile = new MetadataProfile { Id = Guid.NewGuid(), DigitalAssetId = asset.Id };
+                    asset.MetadataProfile.DateTaken = SelectedAssetDateTaken?.DateTime;
+                }
+                if (_ratingDirty) asset.Rating = SelectedAssetRating;
+                if (_labelDirty) asset.Label = (AssetLabel)SelectedAssetLabel;
+                if (_flagDirty) asset.Flag = (AssetFlag)SelectedAssetFlag;
+                if (_copyrightDirty) asset.Copyright = SelectedAssetCopyright;
+                if (_gpsDirty)
+                {
+                    asset.GpsLatitude = double.TryParse(SelectedAssetGpsLatitude, out var lat) ? lat : null;
+                    asset.GpsLongitude = double.TryParse(SelectedAssetGpsLongitude, out var lon) ? lon : null;
+                }
+            }
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                _tagsDirty = false;
+                _descriptionDirty = false;
+                _categoriesDirty = false;
+                _dateTakenDirty = false;
+                _ratingDirty = false;
+                _labelDirty = false;
+                _flagDirty = false;
+                _copyrightDirty = false;
+                _gpsDirty = false;
+                SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
+            });
+
+            // Re-detect mixed values after apply to refresh indicators
+            _ = DetectBatchMixedValuesAsync();
+
+            _logger.LogInformation("Batch-applied metadata to {Count} asset(s)", assets.Count);
+
+            // Write metadata back to source files (best-effort)
+            foreach (var asset in assets)
+            {
+                try
+                {
+                    var filePath = asset.StoragePath;
+                    if (_writeback.IsRawFile(filePath))
+                        await _writeback.WriteSidecarXmpAsync(filePath, asset).ConfigureAwait(false);
+                    else if (_writeback.SupportsEmbeddedMetadata(filePath))
+                        await _writeback.WriteMetadataAsync(filePath, asset).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
+                }
+            }
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Failed to batch-apply metadata"); }
+        finally
+        {
+            IsApplyInProgress = false;
+        }
     }
 
     public bool HasSelectedAsset => _selectedAsset != null;
@@ -166,12 +490,14 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     {
         _tagsDirty = true;
         SaveTagsCommand.RaiseCanExecuteChanged();
+        ApplyBatchEditCommand.RaiseCanExecuteChanged();
     }
 
     private void OnCategoriesDirty(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         _categoriesDirty = true;
         SaveTagsCommand.RaiseCanExecuteChanged();
+        ApplyBatchEditCommand.RaiseCanExecuteChanged();
     }
 
     public string? SelectedAssetDescription
@@ -183,7 +509,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetDescription = value;
                 _descriptionDirty = true;
+                IsDescriptionMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -198,7 +526,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetDateTaken = value;
                 _dateTakenDirty = true;
+                IsDateTakenMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -213,7 +543,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetRating = value;
                 _ratingDirty = true;
+                IsRatingMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -228,7 +560,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetLabel = value;
                 _labelDirty = true;
+                IsLabelMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -243,7 +577,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetFlag = value;
                 _flagDirty = true;
+                IsFlagMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -258,7 +594,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetCopyright = value;
                 _copyrightDirty = true;
+                IsCopyrightMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -273,7 +611,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetGpsLatitude = value;
                 _gpsDirty = true;
+                IsGpsMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -288,7 +628,9 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             {
                 _selectedAssetGpsLongitude = value;
                 _gpsDirty = true;
+                IsGpsMixed = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged();
             }
         }
@@ -407,6 +749,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                             _gpsDirty = false;
 
                             SaveTagsCommand.RaiseCanExecuteChanged();
+                            ApplyBatchEditCommand.RaiseCanExecuteChanged();
                         });
 
                         try
@@ -585,7 +928,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
     public async Task AutoSaveTagsAsync()
     {
-        if ((!_tagsDirty && !_categoriesDirty && !_descriptionDirty && !_dateTakenDirty && !_ratingDirty && !_labelDirty && !_flagDirty && !_copyrightDirty && !_gpsDirty) || _selectedAsset == null || !_modeManager.IsStandalone)
+        if (!AnyDirty || _selectedAsset == null || !_modeManager.IsStandalone)
             return;
 
         try
@@ -641,6 +984,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                 _copyrightDirty = false;
                 _gpsDirty = false;
                 SaveTagsCommand.RaiseCanExecuteChanged();
+                ApplyBatchEditCommand.RaiseCanExecuteChanged();
             });
 
             _logger.LogInformation("Auto-saved tags/metadata for asset {AssetId}", asset.Id);

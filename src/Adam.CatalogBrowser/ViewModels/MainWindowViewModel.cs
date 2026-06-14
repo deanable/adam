@@ -182,6 +182,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (SetFlagPickCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetFlagRejectCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RenameAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (PropertyInspector.ApplyBatchEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
         };
         assetGallery.SelectionChanged += _ =>
         {
@@ -197,6 +198,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (SetFlagPickCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetFlagRejectCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RenameAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (PropertyInspector.ApplyBatchEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
         };
 
         sidebar.FilterChanged += () =>
