@@ -99,7 +99,7 @@ public class PhaseDTests
             var path1 = _sut.GetThumbnailPath(@"C:\photo.jpg", @"C:\thumbnails");
             var path2 = _sut.GetThumbnailPath(@"C:\photo.jpg", @"C:\thumbnails");
             path1.Should().Be(path2);
-            path1.Should().StartWith(@"C:\thumbnails\");
+            path1.Should().StartWith(Path.Combine(@"C:\thumbnails", ""));
             path1.Should().EndWith(".jpg");
         }
 
