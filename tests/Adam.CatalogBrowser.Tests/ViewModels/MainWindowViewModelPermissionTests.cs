@@ -38,7 +38,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
         var propertyInspector = new PropertyInspectorViewModel(
-            new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService());
+            new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
 

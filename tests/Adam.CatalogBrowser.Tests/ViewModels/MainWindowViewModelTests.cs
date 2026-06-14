@@ -57,6 +57,11 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Reset config to known defaults — avoids test pollution from saved settings
+        // (e.g., ServicePort differs from the default 9100 on machines with a prior config).
+        App.Config.ServiceHost = "localhost";
+        App.Config.ServicePort = 9100;
+
         await _modeManager.InitializeAsync();
 
         _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
@@ -65,7 +70,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
 
@@ -581,9 +586,9 @@ public class MainWindowViewModelTests : IAsyncLifetime
         await ctx.InitializeAsync();
 
         // Simulate disconnect but keep auth session logged in
-        var connectedField = typeof(MainWindowViewModel).GetField("_isConnectedToService",
+        var connectedField = typeof(ConnectionViewModel).GetField("_isConnectedToService",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        connectedField.SetValue(ctx.Vm, false);
+        connectedField.SetValue(ctx.Vm.Connection, false);
 
         ctx.Vm.Connection.LogoutCommand.CanExecute(null).Should().BeFalse();
     }
@@ -972,7 +977,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         tokenField.SetValue(_auth, "test-jwt-token");
 
-        var currentUserField = typeof(AuthSession).GetField("<CurrentUser>k__BackingField",
+        var currentUserField = typeof(AuthSession).GetField("_currentUser",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         currentUserField.SetValue(_auth, new Adam.Shared.Contracts.UserProfile { Username = "testuser" });
 
@@ -980,7 +985,11 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService());
+        var piLogger = new NullLogger<PropertyInspectorViewModel>();
+        var piModeMgr = _modeManager;
+        var piWriteback = new MetadataWritebackService();
+        var piDispatcher = new SyncUiDispatcher();
+        var propertyInspector = new PropertyInspectorViewModel(piLogger, piModeMgr, piWriteback, piDispatcher);
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
 

@@ -39,20 +39,60 @@ public class GenericIconExtractor : IThumbnailExtractor
         using var image = new Image<Rgba32>(maxSize, maxSize, rgb);
 
         // Draw extension text centered
-        var font = SystemFonts.CreateFont("Arial", maxSize / 4f, FontStyle.Bold);
-        var textOptions = new RichTextOptions(font)
+        // Fall back gracefully if Arial is not available on the system (e.g., CI runners)
+        var font = ResolveFont(maxSize);
+        if (font != null)
         {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Origin = new System.Numerics.Vector2(maxSize / 2f, maxSize / 2f)
-        };
+            var textOptions = new RichTextOptions(font)
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Origin = new System.Numerics.Vector2(maxSize / 2f, maxSize / 2f)
+            };
 
-        image.Mutate(ctx => ctx.DrawText(textOptions, ext, Color.White));
+            image.Mutate(ctx => ctx.DrawText(textOptions, ext, Color.White));
+        }
 
         var encoder = new JpegEncoder { Quality = 85 };
         image.Save(destPath, encoder);
 
         return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Resolves a font for rendering the extension text, falling back
+    /// gracefully when Arial is not installed (e.g., on CI runners).
+    /// Returns null if no font is available.
+    /// </summary>
+    private static Font? ResolveFont(int maxSize)
+    {
+        var preferredFamilies = new[] { "Arial", "Segoe UI", "Tahoma", "Verdana", "Liberation Sans", "DejaVu Sans" };
+
+        foreach (var family in preferredFamilies)
+        {
+            try
+            {
+                return SystemFonts.Get(family).CreateFont(maxSize / 4f, FontStyle.Bold);
+            }
+            catch (FontFamilyNotFoundException)
+            {
+                continue;
+            }
+        }
+
+        // Last resort: use the first available font family
+        try
+        {
+            var first = SystemFonts.Families.FirstOrDefault();
+            if (first.Name != null)
+                return first.CreateFont(maxSize / 4f, FontStyle.Bold);
+        }
+        catch
+        {
+            // No fonts available at all
+        }
+
+        return null;
     }
 
     private static Rgba32 HsvToRgb(float h, float s, float v)

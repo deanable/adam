@@ -52,7 +52,7 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(_bulkQueue);
 
