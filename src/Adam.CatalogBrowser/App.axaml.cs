@@ -117,6 +117,7 @@ public partial class App : Application
             services.AddTransient<PropertyInspectorViewModel>();
             services.AddTransient<ConnectionViewModel>();
             services.AddTransient<StatusBarViewModel>();
+            services.AddTransient<ActivityFeedViewModel>();
             services.AddTransient<TrashViewModel>();
 
             var provider = services.BuildServiceProvider();

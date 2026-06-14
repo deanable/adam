@@ -55,13 +55,14 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(_bulkQueue);
+        var activityFeed = new ActivityFeedViewModel(_modeManager, dispatcher: new SyncUiDispatcher());
 
         _vm = new MainWindowViewModel(
             _vmLogger, _modeManager, new Adam.Shared.Services.MetadataWritebackService(), sidebar, gallery,
             ingestion, metadataEditor,
             auditLog, _bulkQueue,
             propertyInspector, connection, statusBar,
-            new DeleteService(_modeManager), new ToastService(),
+            new DeleteService(_modeManager), new ToastService(), activityFeed,
             dispatcher: new SyncUiDispatcher());
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false

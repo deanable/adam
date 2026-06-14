@@ -48,6 +48,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         StatusBarViewModel statusBar,
         DeleteService deleteService,
         ToastService toastService,
+        ActivityFeedViewModel activityFeed,
         AiTaggingService? aiTaggingService = null,
         LiquidVisionOptions? liquidVisionOptions = null,
         bool startUp = true,
@@ -64,6 +65,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
+        ActivityFeed = activityFeed;
         AiModelSelector = new AiModelSelectorViewModel(aiTaggingService, liquidVisionOptions ?? new LiquidVisionOptions());
         MetadataEditor = metadataEditor;
         AuditLog = auditLog;
@@ -134,6 +136,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog, _ => CanAudit);
         ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager(), _ => CanAdminister);
+
+        ShowActivityFeedCommand = new RelayCommand(async _ =>
+        {
+            CurrentView = activityFeed;
+            await activityFeed.LoadRecentActivityAsync();
+        });
         ExportCommand = new RelayCommand(_ => ShowExportDialog(), _ => CanEditMetadata);
         ImportMetadataCommand = new RelayCommand(async _ => await ShowImportDialogAsync(), _ => CanEditMetadata);
         SavePresetCommand = new RelayCommand(async _ => await ShowPresetDialogAsync(saveMode: true), _ => CanEditMetadata);
@@ -385,6 +393,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                     await AssetGallery.LoadAssetsAsync();
                     var galleryMs = swData.ElapsedMilliseconds;
                     await PropertyInspector.LoadTagAutoCompleteSourceAsync();
+                    await activityFeed.LoadRecentActivityAsync(50);
                     swData.Stop();
 
                     totalSw.Stop();
@@ -426,6 +435,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public IngestionViewModel Ingestion { get; }
     public MetadataEditorViewModel MetadataEditor { get; }
     public AuditLogViewModel AuditLog { get; }
+    public ActivityFeedViewModel ActivityFeed { get; }
     public PropertyInspectorViewModel PropertyInspector { get; }
     public ConnectionViewModel Connection { get; }
     public StatusBarViewModel StatusBar { get; }
@@ -435,6 +445,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ShowIngestionCommand { get; }
     public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
+    public ICommand ShowActivityFeedCommand { get; }
     public ICommand ShowServiceManagerCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand ImportMetadataCommand { get; }

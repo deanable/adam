@@ -41,6 +41,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
+        var activityFeed = new ActivityFeedViewModel(_modeManager, dispatcher: new SyncUiDispatcher());
 
         return new MainWindowViewModel(
             new NullLogger<MainWindowViewModel>(),
@@ -55,7 +56,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             propertyInspector,
             connection,
             statusBar,
-            new DeleteService(_modeManager), new ToastService(),
+            new DeleteService(_modeManager), new ToastService(), activityFeed,
             startUp: false,
             dispatcher: new SyncUiDispatcher());
     }

@@ -23,6 +23,9 @@
     <DataTemplate DataType="{x:Type vm:TrashViewModel}">
       <views:TrashView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ActivityFeedViewModel}">
+      <views:ActivityFeedView />
+    </DataTemplate>
 
   </Window.DataTemplates>
 
@@ -88,6 +91,8 @@
                   Classes="NavButton" IsEnabled="{Binding CanEditMetadata}" ToolTip.Tip="{Binding MetadataPermissionTooltip}" FontSize="12" />
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
                   Classes="NavButton" IsEnabled="{Binding CanAudit}" ToolTip.Tip="{Binding AuditPermissionTooltip}" FontSize="12" />
+          <Button Content="Activity" Command="{Binding ShowActivityFeedCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  FontSize="12" />
           <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center"
                      IsVisible="{Binding CanAdminister}" />
           <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"

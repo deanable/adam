@@ -1,0 +1,190 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+             xmlns:models="clr-namespace:Adam.CatalogBrowser.Models"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.ActivityFeedView"
+             x:CompileBindings="False">
+
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="{x:Type models:ActivityEntry}">
+      <Border Padding="8,6" Margin="0,0,0,1"
+              Background="{DynamicResource SurfaceCardBrush}"
+              CornerRadius="4"
+              BorderThickness="0,0,0,0"
+              BorderBrush="{DynamicResource BorderBrush}">
+        <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8">
+          <!-- Change icon -->
+          <Border Width="24" Height="24" CornerRadius="12"
+                  Background="{Binding ChangeIconColor}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+            <TextBlock Text="{Binding ChangeIcon}"
+                       FontSize="11"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+          </Border>
+
+          <!-- Summary + metadata -->
+          <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+            <!-- Unread dot indicator -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+              <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding IsRead, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding Summary}"
+                         Classes="Body"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontWeight="{Binding IsRead, Converter={x:Static views:BoolToFontWeightConverter.Instance}}"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip.Tip="{Binding Summary}" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+              <TextBlock Text="{Binding UserName}"
+                         Classes="Caption"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding RelativeTime}"
+                         Classes="Caption"
+                         Foreground="{DynamicResource TextTertiaryBrush}"
+                         HorizontalAlignment="Right" />
+            </Grid>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
+
+    <!-- Header bar -->
+    <Border Padding="8,6" Background="{DynamicResource SurfaceSubtleBrush}">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+        <TextBlock Text="{Binding HeaderText}"
+                   Classes="Subheading"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+                Content="Mark read"
+                Command="{Binding MarkAllAsReadCommand}"
+                FontSize="10"
+                Padding="6,2"
+                BorderThickness="0"
+                Background="{DynamicResource PrimaryBrush}"
+                Foreground="White"
+                CornerRadius="3"
+                Cursor="Hand"
+                IsVisible="{Binding HasUnread}">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+            </Style>
+          </Button.Styles>
+        </Button>
+        <Button Grid.Column="2"
+                Content="Clear"
+                Command="{Binding ClearAllCommand}"
+                FontSize="10"
+                Padding="6,2"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource BorderBrush}"
+                Background="Transparent"
+                Foreground="{DynamicResource TextSecondaryBrush}"
+                CornerRadius="3"
+                Cursor="Hand"
+                IsVisible="{Binding HasEntries}">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+            </Style>
+          </Button.Styles>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Filter bar -->
+    <Border Padding="8,4" Background="{DynamicResource SurfaceLightBrush}"
+            IsVisible="{Binding HasActiveFilter}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+        <TextBlock Classes="Caption"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   VerticalAlignment="Center">
+          <Run Text="Filtered by: " />
+          <Run Text="{Binding FilterEntityType}" FontWeight="SemiBold" />
+        </TextBlock>
+        <Button Grid.Column="1"
+                Content="Clear"
+                Command="{Binding ClearFilterCommand}"
+                FontSize="9"
+                Padding="4,1"
+                BorderThickness="0"
+                Background="Transparent"
+                Foreground="{DynamicResource PrimaryBrush}"
+                Cursor="Hand" />
+      </Grid>
+    </Border>
+
+    <!-- Activity list -->
+    <ListBox Grid.Row="2"
+             ItemsSource="{Binding Entries}"
+             Background="Transparent"
+             BorderThickness="0"
+             ScrollViewer.VerticalScrollBarVisibility="Auto">
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+          <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource SurfaceLightBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected:focus /template/ ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource SurfaceLightBrush}" />
+        </Style>
+      </ListBox.Styles>
+    </ListBox>
+
+    <!-- Empty state -->
+    <TextBlock Grid.Row="2"
+               Text="No recent activity"
+               Classes="Body"
+               Foreground="{DynamicResource TextPlaceholderBrush}"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsVisible="{Binding HasEntries, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+
+    <!-- Refresh bar -->
+    <Border Grid.Row="3" Padding="8,4" Background="{DynamicResource SurfaceSubtleBrush}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+        <ProgressBar IsVisible="{Binding IsLoading}"
+                     IsIndeterminate="True"
+                     Height="4"
+                     Foreground="{DynamicResource PrimaryBrush}"
+                     Background="{DynamicResource BorderBrush}" />
+        <Button Grid.Column="1"
+                Content="Refresh"
+                Command="{Binding RefreshCommand}"
+                FontSize="10"
+                Padding="8,2"
+                BorderThickness="0"
+                Background="{DynamicResource PrimaryBrush}"
+                Foreground="White"
+                CornerRadius="3"
+                Cursor="Hand"
+                HorizontalAlignment="Right">
+          <Button.Styles>
+            <Style Selector="Button:pointerover">
+              <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+            </Style>
+          </Button.Styles>
+        </Button>
+      </Grid>
+    </Border>
+
+  </Grid>
+</UserControl>

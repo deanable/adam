@@ -73,6 +73,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
+        var activityFeed = new ActivityFeedViewModel(_modeManager, dispatcher: new SyncUiDispatcher());
 
         // Construct the ViewModel with startUp: false to avoid the background
         // startup pipeline, and startSessionTimer: false to skip creating the
@@ -82,7 +83,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             ingestion, metadataEditor,
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
-            new DeleteService(_modeManager), new ToastService(),
+            new DeleteService(_modeManager), new ToastService(), activityFeed,
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
@@ -992,6 +993,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
         var propertyInspector = new PropertyInspectorViewModel(piLogger, piModeMgr, piWriteback, piDispatcher);
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
+        var activityFeed = new ActivityFeedViewModel(_modeManager, dispatcher: new SyncUiDispatcher());
 
         Vm = new MainWindowViewModel(
             new NullLogger<MainWindowViewModel>(),
@@ -1006,7 +1008,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             propertyInspector,
             connection,
             statusBar,
-            new DeleteService(_modeManager), new ToastService(),
+            new DeleteService(_modeManager), new ToastService(), activityFeed,
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
