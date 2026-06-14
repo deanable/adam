@@ -7,8 +7,7 @@ using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Avalonia.Threading;
-
+using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.Controls;
 
 namespace Adam.CatalogBrowser.ViewModels;
@@ -24,6 +23,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     private readonly ILogger<PropertyInspectorViewModel> _logger;
     private readonly ModeManager _modeManager;
     private readonly MetadataWritebackService _writeback;
+    private readonly IUiDispatcher _dispatcher;
     private AssetListItem? _selectedAsset;
     private readonly List<AssetListItem> _selectedAssets = [];
     private bool _isPropertyInspectorLoading;
@@ -56,11 +56,12 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
     private CancellationTokenSource? _metadataCts;
 
-    public PropertyInspectorViewModel(ILogger<PropertyInspectorViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback)
+    public PropertyInspectorViewModel(ILogger<PropertyInspectorViewModel> logger, ModeManager modeManager, MetadataWritebackService writeback, IUiDispatcher? dispatcher = null)
     {
         _logger = logger;
         _modeManager = modeManager;
         _writeback = writeback;
+        _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
 
         SaveTagsCommand = new RelayCommand(
             async _ => await AutoSaveTagsAsync(),
@@ -98,7 +99,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
         // Save any pending tag edits before switching assets
         await AutoSaveTagsAsync();
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await _dispatcher.InvokeAsync(() =>
         {
             _selectedAsset = newAsset;
             OnPropertyChanged(nameof(SelectedAsset));
@@ -329,14 +330,14 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
         var currentSelectedAsset = _selectedAsset;
 
-        await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = true);
+        await _dispatcher.InvokeAsync(() => IsPropertyInspectorLoading = true);
         ct.ThrowIfCancellationRequested();
 
         try
         {
             if (currentSelectedAsset == null)
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                await _dispatcher.InvokeAsync(() =>
                 {
                     SelectedAssetMetadata = [];
                 });
@@ -377,7 +378,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
                         var tagNames = asset.Keywords.Select(k => k.Name).ToList();
                         var categoryNames = asset.Categories.Select(c => c.Name).ToList();
-                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        await _dispatcher.InvokeAsync(() =>
                         {
                             SelectedAssetTags = new ObservableCollection<string>(tagNames);
                             _tagsDirty = false;
@@ -416,7 +417,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                                 .OrderBy(n => n)
                                 .ToListAsync(ct).ConfigureAwait(false);
                             ct.ThrowIfCancellationRequested();
-                            await Dispatcher.UIThread.InvokeAsync(() => CategoryAutoCompleteSource = catNames);
+                            await _dispatcher.InvokeAsync(() => CategoryAutoCompleteSource = catNames);
                         }
                         catch (OperationCanceledException) { throw; }
                         catch (Exception ex) { _logger.LogWarning(ex, "Failed to load category autocomplete source"); }
@@ -454,7 +455,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             }
 
             ct.ThrowIfCancellationRequested();
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _dispatcher.InvokeAsync(() =>
             {
                 ct.ThrowIfCancellationRequested();
                 SelectedAssetMetadata = new ObservableCollection<MetadataEntry>(entries);
@@ -466,7 +467,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             if (Interlocked.CompareExchange(ref _metadataCts, null, thisCts) == thisCts)
             {
                 thisCts.Dispose();
-                await Dispatcher.UIThread.InvokeAsync(() => IsPropertyInspectorLoading = false);
+                await _dispatcher.InvokeAsync(() => IsPropertyInspectorLoading = false);
             }
         }
     }
@@ -500,7 +501,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                     .Distinct()
                     .OrderBy(n => n)
                     .ToListAsync().ConfigureAwait(false);
-                await Dispatcher.UIThread.InvokeAsync(() => TagAutoCompleteSource = names);
+                await _dispatcher.InvokeAsync(() => TagAutoCompleteSource = names);
             }
         }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to load tag autocomplete source"); }
@@ -510,7 +511,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     {
         if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
         {
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = null);
+            await _dispatcher.InvokeAsync(() => AggregatedTags = null);
             return;
         }
 
@@ -539,7 +540,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             foreach (var (name, level) in aggregated)
                 tags.Add(new TagOccurrence { Name = name, Level = level });
 
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedTags = tags);
+            await _dispatcher.InvokeAsync(() => AggregatedTags = tags);
         }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to compute aggregated tags"); }
     }
@@ -548,7 +549,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
     {
         if (_selectedAssets.Count <= 1 || !_modeManager.IsStandalone)
         {
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = null);
+            await _dispatcher.InvokeAsync(() => AggregatedCategories = null);
             return;
         }
 
@@ -577,7 +578,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
             foreach (var (name, level) in aggregated)
                 cats.Add(new TagOccurrence { Name = name, Level = level });
 
-            await Dispatcher.UIThread.InvokeAsync(() => AggregatedCategories = cats);
+            await _dispatcher.InvokeAsync(() => AggregatedCategories = cats);
         }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to compute aggregated categories"); }
     }
@@ -628,7 +629,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
             await db.SaveChangesAsync().ConfigureAwait(false);
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _dispatcher.InvokeAsync(() =>
             {
                 _tagsDirty = false;
                 _descriptionDirty = false;

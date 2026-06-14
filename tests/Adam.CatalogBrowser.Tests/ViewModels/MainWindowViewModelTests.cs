@@ -65,7 +65,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
 
@@ -980,7 +980,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
-        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService());
+        var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new MetadataWritebackService(), new SyncUiDispatcher());
         var connection = new ConnectionViewModel(new NullLogger<ConnectionViewModel>(), _modeManager);
         var statusBar = new StatusBarViewModel(bulkQueue);
 
