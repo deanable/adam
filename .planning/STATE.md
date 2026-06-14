@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 10 | ✅ | 1/1 | 100% | Archived |
 | 11 | ✅ | 1/1 | 100% | Archived |
 | 12 | ✅ | 1/1 | 100% | Archived |
-| **13** | 🔧 In Progress | 1/1 | 10% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ |
+| **13** | 🔧 In Progress | 1/1 | 20% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ |
 | **14** | 📋 Planned | 1/1 | 0% | Feature Growth — batch editing, CSV import/export, activity feed, compare/loupe, AI refinement |
 
 ## Milestone Archives

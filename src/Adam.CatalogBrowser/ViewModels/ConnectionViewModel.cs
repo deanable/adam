@@ -165,7 +165,7 @@ public class ConnectionViewModel : INotifyPropertyChanged
 
         if (_modeManager.BrokerClient == null || _modeManager.AuthSession == null)
         {
-            ConnectionDebugLogger.Error("ConnectToServiceAsync: BrokerClient or AuthSession is null");
+            _logger.LogError("BrokerClient or AuthSession is null");
             return;
         }
 
@@ -181,8 +181,7 @@ public class ConnectionViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            ConnectionDebugLogger.Error(ex, $"ConnectToServiceAsync Stage 1: FAILED after {sw.Elapsed.TotalMilliseconds:F0}ms");
-            _logger.LogError(ex, "Stage 1 (connect) failed for {Host}:{Port}", ServiceHost, ServicePort);
+            _logger.LogError(ex, "Stage 1 (connect) failed for {Host}:{Port} after {ElapsedMs:F0}ms", ServiceHost, ServicePort, sw.Elapsed.TotalMilliseconds);
             ServiceConnectionStatus = $"Could not reach server at {ServiceHost}:{ServicePort} — {ex.Message}";
             return;
         }
@@ -204,7 +203,7 @@ public class ConnectionViewModel : INotifyPropertyChanged
             }
             else
             {
-                ConnectionDebugLogger.Warn("ConnectToServiceAsync Stage 2: RequestLogin event is null, cannot authenticate");
+                _logger.LogWarning("RequestLogin event is null, cannot authenticate");
             }
 
             if (authenticated)
@@ -217,15 +216,14 @@ public class ConnectionViewModel : INotifyPropertyChanged
             }
             else
             {
-                ConnectionDebugLogger.Warn("ConnectToServiceAsync: connected but not authenticated, disconnecting");
+                _logger.LogWarning("Connected but not authenticated, disconnecting");
                 await _modeManager.BrokerClient.DisconnectAsync();
                 ServiceConnectionStatus = "Sign-in cancelled — click Connect to try again";
             }
         }
         catch (Exception ex)
         {
-            ConnectionDebugLogger.Error(ex, $"ConnectToServiceAsync Stage 2: authentication failed after {sw.Elapsed.TotalMilliseconds:F0}ms");
-            _logger.LogError(ex, "Stage 2 (authenticate) failed");
+            _logger.LogError(ex, "Stage 2 (authenticate) failed after {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
             await _modeManager.BrokerClient.DisconnectAsync();
             ServiceConnectionStatus = $"Connected, but sign-in failed: {ex.Message}";
         }
