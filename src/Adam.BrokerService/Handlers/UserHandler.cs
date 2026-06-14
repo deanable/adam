@@ -102,7 +102,16 @@ public sealed class UserHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var createReq = ProtoHelper.Deserialize<CreateUserRequest>(request.Payload.ToByteArray());
+        CreateUserRequest createReq;
+        try
+        {
+            createReq = ProtoHelper.Deserialize<CreateUserRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -163,7 +172,16 @@ public sealed class UserHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var updateReq = ProtoHelper.Deserialize<UpdateUserRequest>(request.Payload.ToByteArray());
+        UpdateUserRequest updateReq;
+        try
+        {
+            updateReq = ProtoHelper.Deserialize<UpdateUserRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
         var userId = Guid.Parse(updateReq.UserId);
 
         using var scope = _serviceProvider.CreateScope();
@@ -233,7 +251,16 @@ public sealed class UserHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
+        DeleteUserRequest deleteReq;
+        try
+        {
+            deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
         var userId = Guid.Parse(deleteReq.UserId);
         var callerId = _authHandler.GetUserId(request);
 

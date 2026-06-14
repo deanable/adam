@@ -63,7 +63,16 @@ public sealed class AuthHandler
     {
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var loginReq = ProtoHelper.Deserialize<LoginRequest>(request.Payload.ToByteArray());
+        LoginRequest loginReq;
+        try
+        {
+            loginReq = ProtoHelper.Deserialize<LoginRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
         var clientIp = request.ClientIp ?? "unknown";
 
         // Brute-force protection

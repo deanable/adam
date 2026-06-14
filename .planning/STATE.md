@@ -2,7 +2,7 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 📋 Phase 13 — Production Hardening (Planned)
+**Current Phase:** 🔧 Phase 13 — Production Hardening (In Progress)
 **Current Milestone:** 🎯 v2.x — Production Hardening & Feature Growth
 
 ## Project Reference
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | 10 | ✅ | 1/1 | 100% | Archived |
 | 11 | ✅ | 1/1 | 100% | Archived |
 | 12 | ✅ | 1/1 | 100% | Archived |
-| **13** | 📋 Planned | 1/1 | 0% | Production Hardening — solution file, CI fix, null-handler validation, protobuf docs, logging, watcher batching, EF Core prep |
+| **13** | 🔧 In Progress | 1/1 | 20% | Wave 1: solution file ✅, CI fix (test.sh + workflow) ✅ | Wave 2: handler deserialization guards ✅, wire protocol docs ✅ | Wave 3: logging standardization ✅, FolderWatcher debounce ✅ |
 | **14** | 📋 Planned | 1/1 | 0% | Feature Growth — batch editing, CSV import/export, activity feed, compare/loupe, AI refinement |
 
 ## Milestone Archives
@@ -45,7 +45,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 | Metric | Value |
 |--------|-------|
 | **Total phases** | 14 planned (12 complete, 2 planned) |
-| **Total tests** | 661 passing (0 failed, 2 skipped Docker) |
+| **Total tests** | 859 passing (0 failed, 2 skipped Docker) |
 | **Projects** | Adam.CatalogBrowser, Adam.ServiceManager, Adam.BrokerService, Adam.Shared |
 | **Phase 13 plan** | `.planning/plans/phase-13/13-PLAN.md` |
 | **Phase 14 plan** | `.planning/plans/phase-14/14-PLAN.md` |

@@ -33,7 +33,16 @@ public sealed class CollectionHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<CreateCollectionRequest>(request.Payload.ToByteArray());
+        CreateCollectionRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<CreateCollectionRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -106,7 +115,16 @@ public sealed class CollectionHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<UpdateCollectionRequest>(request.Payload.ToByteArray());
+        UpdateCollectionRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<UpdateCollectionRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -141,7 +159,16 @@ public sealed class CollectionHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<DeleteCollectionRequest>(request.Payload.ToByteArray());
+        DeleteCollectionRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<DeleteCollectionRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

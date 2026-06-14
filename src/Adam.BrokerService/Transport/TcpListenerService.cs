@@ -7,7 +7,6 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Adam.Shared.Contracts;
-using Adam.Shared.Services;
 using Adam.Shared.Transport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -46,7 +45,6 @@ public sealed class TcpListenerService
 
     public async Task StartAsync(int port, CancellationToken ct = default)
     {
-        ConnectionDebugLogger.Info($"[SERVER] TcpListenerService.StartAsync(port={port}) called");
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("[TIMING] TcpListenerService.StartAsync(port={Port}) called", port);
 
@@ -60,8 +58,7 @@ public sealed class TcpListenerService
         _logger.LogInformation("Broker service listening on port {Port} (TLS: {Tls}, backlog=50)", port, TlsEnabled);
 
         _ = IdleMonitorLoopAsync(_cts.Token);
-        _logger.LogInformation("[TIMING] Idle monitor loop started. Total startup: {ElapsedMs:F0}ms — entering accept loop", sw.Elapsed.TotalMilliseconds);
-        ConnectionDebugLogger.Info($"[SERVER] Entering accept loop (total startup: {sw.Elapsed.TotalMilliseconds:F0}ms)");
+        _logger.LogInformation("Entering accept loop (total startup: {ElapsedMs:F0}ms)", sw.Elapsed.TotalMilliseconds);
 
         try
         {
@@ -76,8 +73,7 @@ public sealed class TcpListenerService
                 if (_connections.Count >= MaxConnections)
                 {
                     Interlocked.Increment(ref _rejectedCount);
-                    _logger.LogWarning("Connection rejected: max connections ({Max}) reached", MaxConnections);
-                    ConnectionDebugLogger.Warn($"[SERVER] Connection rejected: max connections ({MaxConnections}) reached");
+                    _logger.LogWarning("Connection rejected: max connections ({MaxConnections}) reached", MaxConnections);
                 client.Close();
                     continue;
                 }
@@ -102,7 +98,6 @@ public sealed class TcpListenerService
 
     public async Task StopAsync()
     {
-        ConnectionDebugLogger.Info($"[SERVER] TcpListenerService.StopAsync() called with {_connections.Count} active connections");
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("[TIMING] TcpListenerService.StopAsync() called with {Count} active connections", _connections.Count);
 
@@ -110,7 +105,6 @@ public sealed class TcpListenerService
         _listener?.Stop();
         _logger.LogInformation("[TIMING] TcpListener stopped in {ElapsedMs:F0}ms", sw.Elapsed.TotalMilliseconds);
         _logger.LogInformation("Broker service stopping: waiting for {Count} connection task(s) to drain", _connectionTasks.Count);
-        ConnectionDebugLogger.Info($"[SERVER] Draining {_connectionTasks.Count} connection(s) with 30s timeout...");
 
         var drainTasks = _connectionTasks.Values.ToArray();
         if (drainTasks.Length > 0)
@@ -125,9 +119,8 @@ public sealed class TcpListenerService
             }
             catch (OperationCanceledException)
             {
-                _logger.LogWarning("[TIMING] Drain timeout expired after {ElapsedMs:F0}ms; {Count} connection(s) did not finish gracefully",
+                _logger.LogWarning("Drain timeout expired after {ElapsedMs:F0}ms; {Count} connection(s) did not finish gracefully",
                     sw.Elapsed.TotalMilliseconds, _connectionTasks.Count);
-                ConnectionDebugLogger.Warn($"[SERVER] Drain timeout expired after {sw.Elapsed.TotalMilliseconds:F0}ms; {_connectionTasks.Count} connections did not finish");
             }
         }
 
@@ -253,7 +246,6 @@ public sealed class TcpListenerService
                 {
                     _logger.LogInformation("Connection {ConnectionId}: null envelope received (client disconnected), handled {Count} messages in {ElapsedMs:F0}ms",
                         state.Id, messageCount, connectionSw.Elapsed.TotalMilliseconds);
-                    ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: client disconnected, handled {messageCount} messages");
                     break;
                 }
 
@@ -277,27 +269,23 @@ public sealed class TcpListenerService
         }
         catch (AuthenticationException ex)
         {
-            _logger.LogWarning("Connection {ConnectionId} TLS authentication failed after {ElapsedMs:F0}ms: {Message}",
-                state.Id, connectionSw.Elapsed.TotalMilliseconds, ex.Message);
-            ConnectionDebugLogger.Error(ex, $"[SERVER] Connection {state.Id}: TLS authentication failed after {connectionSw.Elapsed.TotalMilliseconds:F0}ms");
+            _logger.LogWarning(ex, "Connection {ConnectionId} TLS authentication failed after {ElapsedMs:F0}ms",
+                state.Id, connectionSw.Elapsed.TotalMilliseconds);
         }
         catch (IOException ex)
         {
-            _logger.LogWarning("Connection {ConnectionId} lost after {ElapsedMs:F0}ms: {Message}",
-                state.Id, connectionSw.Elapsed.TotalMilliseconds, ex.Message);
-            ConnectionDebugLogger.Warn($"[SERVER] Connection {state.Id}: connection lost after {connectionSw.Elapsed.TotalMilliseconds:F0}ms: {ex.Message}");
+            _logger.LogWarning(ex, "Connection {ConnectionId} lost after {ElapsedMs:F0}ms",
+                state.Id, connectionSw.Elapsed.TotalMilliseconds);
         }
         catch (ObjectDisposedException ex)
         {
-            _logger.LogWarning("Connection {ConnectionId} disposed after {ElapsedMs:F0}ms: {Message}",
-                state.Id, connectionSw.Elapsed.TotalMilliseconds, ex.Message);
-            ConnectionDebugLogger.Warn($"[SERVER] Connection {state.Id}: disposed after {connectionSw.Elapsed.TotalMilliseconds:F0}ms: {ex.Message}");
+            _logger.LogWarning(ex, "Connection {ConnectionId} disposed after {ElapsedMs:F0}ms",
+                state.Id, connectionSw.Elapsed.TotalMilliseconds);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling connection {ConnectionId} after {ElapsedMs:F0}ms and {Count} messages",
                 state.Id, connectionSw.Elapsed.TotalMilliseconds, messageCount);
-            ConnectionDebugLogger.Error(ex, $"[SERVER] Connection {state.Id}: unhandled error after {connectionSw.Elapsed.TotalMilliseconds:F0}ms and {messageCount} messages");
         }
         finally
         {
@@ -305,9 +293,8 @@ public sealed class TcpListenerService
             try { stream.Dispose(); } catch { /* ignore */ }
             try { state.Client.Close(); } catch { /* ignore */ }
             _connections.TryRemove(state.Id, out _);
-            _logger.LogInformation("Connection {ConnectionId}: disconnected (elapsed={ElapsedMs:F0}ms, active: {Count})",
-                state.Id, connectionSw.Elapsed.TotalMilliseconds, _connections.Count);
-            ConnectionDebugLogger.Info($"[SERVER] Connection {state.Id}: disconnected (elapsed={connectionSw.Elapsed.TotalMilliseconds:F1}ms, active={_connections.Count}, messages={messageCount})");
+            _logger.LogInformation("Connection {ConnectionId}: disconnected (elapsed={ElapsedMs:F0}ms, active: {Count}, messages: {MessageCount})",
+                state.Id, connectionSw.Elapsed.TotalMilliseconds, _connections.Count, messageCount);
         }
     }
 
@@ -331,15 +318,14 @@ public sealed class TcpListenerService
                 var idle = now - kvp.Value.LastActivity;
                 if (idle > IdleTimeout)
                 {
-                    _logger.LogInformation("Connection {ConnectionId} idle for {Idle}s; disconnecting",
+                    _logger.LogInformation("Connection {ConnectionId} idle for {IdleSeconds:F0}s; disconnecting",
                         kvp.Key, idle.TotalSeconds);
-                    ConnectionDebugLogger.Info($"[SERVER] Connection {kvp.Key} idle for {idle.TotalSeconds:F0}s; disconnecting");
                     try { kvp.Value.Client.Close(); } catch { /* ignore */ }
                     idleCount++;
                 }
             }
             if (idleCount > 0)
-                ConnectionDebugLogger.Info($"[SERVER] IdleMonitor: disconnected {idleCount} idle connection(s) (active: {_connections.Count})");
+                _logger.LogInformation("IdleMonitor: disconnected {IdleCount} idle connection(s) (active: {ActiveCount})", idleCount, _connections.Count);
         }
     }
 

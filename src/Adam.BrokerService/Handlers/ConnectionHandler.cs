@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
-using Adam.Shared.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
@@ -47,7 +46,7 @@ public sealed class ConnectionHandler : IConnectionHandler
     {
         if (request == null)
         {
-            ConnectionDebugLogger.Warn("[DISPATCH] Received null request envelope");
+            _logger.LogWarning("Received null request envelope");
             return CreateErrorResponse(new Envelope(), ErrorCode.BadRequest, "Null request envelope");
         }
 
@@ -184,7 +183,7 @@ public sealed class ConnectionHandler : IConnectionHandler
                     response = await _watchedFolderHandler.DeleteAsync(request, ct);
                     break;
                 default:
-                    ConnectionDebugLogger.Warn($"[DISPATCH] Unknown message type: {request.MessageType} from conn={request.ConnectionId}");
+                    _logger.LogWarning("Unknown message type: {MessageType} from conn={ConnectionId}", request.MessageType, request.ConnectionId);
                     return CreateErrorResponse(request, ErrorCode.UnknownMessageType, $"Unknown message type: {request.MessageType}");
             }
 
@@ -192,8 +191,8 @@ public sealed class ConnectionHandler : IConnectionHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling {MessageType}", request.MessageType);
-            ConnectionDebugLogger.Error(ex, $"[DISPATCH] Error handling {request.MessageType} from conn={request.ConnectionId} after {sw.Elapsed.TotalMilliseconds:F0}ms");
+            _logger.LogError(ex, "Error handling {MessageType} from conn={ConnectionId} after {ElapsedMs:F0}ms",
+                request.MessageType, request.ConnectionId, sw.Elapsed.TotalMilliseconds);
             return CreateErrorResponse(request, ErrorCode.InternalError, "Internal server error");
         }
     }

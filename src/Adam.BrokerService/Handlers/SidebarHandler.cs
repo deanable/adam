@@ -242,7 +242,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<CreateKeywordRequest>(request.Payload.ToByteArray());
+        CreateKeywordRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<CreateKeywordRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -280,7 +289,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<UpdateKeywordRequest>(request.Payload.ToByteArray());
+        UpdateKeywordRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<UpdateKeywordRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -312,7 +330,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<DeleteKeywordRequest>(request.Payload.ToByteArray());
+        DeleteKeywordRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<DeleteKeywordRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -363,7 +390,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<CreateCategoryRequest>(request.Payload.ToByteArray());
+        CreateCategoryRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<CreateCategoryRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -401,7 +437,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<UpdateCategoryRequest>(request.Payload.ToByteArray());
+        UpdateCategoryRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<UpdateCategoryRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -433,7 +478,16 @@ public sealed class SidebarHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<DeleteCategoryRequest>(request.Payload.ToByteArray());
+        DeleteCategoryRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<DeleteCategoryRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
