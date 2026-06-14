@@ -8,6 +8,72 @@ using Microsoft.Extensions.Logging;
 namespace Adam.Shared.Services;
 
 /// <summary>
+/// Represents a keyword with an estimated confidence score and accept/reject state.
+/// Implements <see cref="INotifyPropertyChanged"/> so the review dialog's checkbox
+/// bindings can notify the ViewModel to recalculate counts.
+/// </summary>
+public sealed class KeywordScore : INotifyPropertyChanged
+{
+    private bool _isAccepted = true;
+
+    public string Name { get; set; } = string.Empty;
+    public double Confidence { get; set; }
+
+    public bool IsAccepted
+    {
+        get => _isAccepted;
+        set
+        {
+            if (_isAccepted == value) return;
+            _isAccepted = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAccepted)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>
+/// Represents a category with an estimated confidence score and accept/reject state.
+/// Implements <see cref="INotifyPropertyChanged"/> so the review dialog's checkbox
+/// bindings can notify the ViewModel to recalculate counts.
+/// </summary>
+public sealed class CategoryScore : INotifyPropertyChanged
+{
+    private bool _isAccepted = true;
+
+    public string Name { get; set; } = string.Empty;
+    public double Confidence { get; set; }
+
+    public bool IsAccepted
+    {
+        get => _isAccepted;
+        set
+        {
+            if (_isAccepted == value) return;
+            _isAccepted = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAccepted)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>
+/// Structured AI tagging result with per-item confidence scores.
+/// Confidence is estimated from keyword/category rank order
+/// (the model outputs most relevant tags first).
+/// </summary>
+public sealed class AiTagResult
+{
+    public string? Description { get; set; }
+    public List<KeywordScore> Keywords { get; set; } = [];
+    public List<CategoryScore> Categories { get; set; } = [];
+    public double ProcessingTimeMs { get; set; }
+    public string ModelVersion { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Orchestrates AI-powered image tagging via <see cref="ILiquidVisionAnalyzer"/>.
 /// Provides lazy model initialization, image-only guard, and automatic merging
 /// of AI-generated keywords, categories, and descriptions into the catalog.
@@ -184,6 +250,70 @@ public sealed class AiTaggingService : INotifyPropertyChanged
             throw new InvalidOperationException($"Asset {assetId} storage path not found");
 
         return await _analyzer.AnalyzeAsync(asset.StoragePath, ct);
+    }
+
+    /// <summary>
+    /// Analyzes a single image asset and returns an <see cref="AiTagResult"/> with
+    /// rank-based confidence scores estimated from keyword/category order.
+    /// The model outputs the most relevant tags first, so rank position
+    /// serves as a confidence heuristic:
+    /// Top 25% → confidence 0.9+, next 50% → 0.6-0.9, bottom 25% → 0.3-0.6.
+    /// </summary>
+    public AiTagResult AnalyzeImageTagResult(ImageTagResult raw)
+    {
+        var result = new AiTagResult
+        {
+            Description = raw.Description,
+            ProcessingTimeMs = raw.ProcessingTimeMs,
+            ModelVersion = raw.ModelVersion
+        };
+
+        // Estimate confidence from rank order (first = highest confidence)
+        var totalKw = raw.Keywords.Count;
+        for (int i = 0; i < totalKw; i++)
+        {
+            var rank = (double)i / Math.Max(totalKw - 1, 1); // 0.0 = first, 1.0 = last
+            var confidence = rank switch
+            {
+                <= 0.25 => 0.95 - rank * 0.1,  // top quarter: 0.925-0.95
+                <= 0.75 => 0.85 - (rank - 0.25) * 0.6, // middle half: 0.55-0.85
+                _ => 0.50 - (rank - 0.75) * 0.8  // bottom quarter: 0.3-0.5
+            };
+            result.Keywords.Add(new KeywordScore
+            {
+                Name = raw.Keywords[i],
+                Confidence = Math.Round(Math.Max(0.1, confidence), 2)
+            });
+        }
+
+        var totalCat = raw.Categories.Count;
+        for (int i = 0; i < totalCat; i++)
+        {
+            var rank = (double)i / Math.Max(totalCat - 1, 1);
+            var confidence = rank switch
+            {
+                <= 0.25 => 0.95 - rank * 0.1,
+                <= 0.75 => 0.85 - (rank - 0.25) * 0.6,
+                _ => 0.50 - (rank - 0.75) * 0.8
+            };
+            result.Categories.Add(new CategoryScore
+            {
+                Name = raw.Categories[i],
+                Confidence = Math.Round(Math.Max(0.1, confidence), 2)
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Analyzes a single image asset and returns an <see cref="AiTagResult"/>
+    /// with per-item confidence scores, WITHOUT writing to the database.
+    /// </summary>
+    public async Task<AiTagResult> AnalyzeAssetWithScoresAsync(Guid assetId, CancellationToken ct = default)
+    {
+        var raw = await AnalyzeAssetAsync(assetId, ct);
+        return AnalyzeImageTagResult(raw);
     }
 
     /// <summary>

@@ -182,6 +182,13 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     /// </summary>
     public event Action? SaveCompleted;
 
+    /// <summary>
+    /// Optional callback set by the host (MainWindow) to show the AI tag review dialog.
+    /// Accepts the scored <see cref="AiTagResult"/> and returns accepted keywords/categories
+    /// (or null if cancelled). If not set, tags are auto-applied (legacy behavior).
+    /// </summary>
+    public Func<AiTagResult, Task<AiTagResult?>>? ShowAiReviewDialogAsync;
+
     private void OnTagsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         _isDirty = true;
@@ -314,7 +321,8 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Trigger B: Analyzes the loaded image with AI and unions results into the editable tags.
+    /// Trigger B: Analyzes the loaded image with AI and either shows a review dialog
+    /// (if <see cref="ShowAiReviewDialogAsync"/> is set) or auto-applies the results.
     /// Categories are applied directly to the database (D-12a: categories not surfaced in editor UI).
     /// </summary>
     private async Task AutoTagAsync()
@@ -325,31 +333,75 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         StatusText = "AI tagging…";
         try
         {
-            var result = await _aiTaggingService.AnalyzeAssetAsync(_asset.Id);
+            var scoredResult = await _aiTaggingService.AnalyzeAssetWithScoresAsync(_asset.Id);
 
-            // Union keywords into the editable Tags collection (rides existing dirty/Save flow)
-            foreach (var kw in result.Keywords)
+            // If a review dialog callback is registered, let the user review before applying
+            if (ShowAiReviewDialogAsync != null)
             {
-                if (!Tags.Contains(kw, StringComparer.OrdinalIgnoreCase))
-                    Tags.Add(kw);
+                var accepted = await ShowAiReviewDialogAsync(scoredResult);
+                if (accepted == null)
+                {
+                    StatusText = "AI tagging cancelled.";
+                    return;
+                }
+
+                // Apply only accepted keywords to the editable Tags collection
+                foreach (var kw in accepted.Keywords)
+                {
+                    if (!Tags.Contains(kw.Name, StringComparer.OrdinalIgnoreCase))
+                        Tags.Add(kw.Name);
+                }
+
+                // Fill description only when empty (D-06)
+                if (string.IsNullOrWhiteSpace(Description) && !string.IsNullOrWhiteSpace(accepted.Description))
+                    Description = accepted.Description;
+
+                // Apply accepted categories directly to the DB
+                if (accepted.Categories.Count > 0)
+                {
+                    await using var db = await _modeManager.CreateDbContextAsync();
+                    var asset = await db.DigitalAssets
+                        .Include(a => a.Categories)
+                        .FirstOrDefaultAsync(a => a.Id == _asset.Id);
+                    if (asset != null)
+                    {
+                        await new CategoryService(db).AssociateCategoriesAsync(
+                            asset, accepted.Categories.Select(c => c.Name).ToList());
+                        await db.SaveChangesAsync();
+                    }
+                }
+
+                StatusText = $"AI tags applied ({accepted.Keywords.Count} keywords, {accepted.Categories.Count} categories)";
             }
-
-            // Fill description only when empty (D-06)
-            if (string.IsNullOrWhiteSpace(Description) && !string.IsNullOrWhiteSpace(result.Description))
-                Description = result.Description;
-
-            // Apply categories directly to the DB (D-12a: no category UI in editor)
-            await using var db = await _modeManager.CreateDbContextAsync();
-            var asset = await db.DigitalAssets
-                .Include(a => a.Categories)
-                .FirstOrDefaultAsync(a => a.Id == _asset.Id);
-            if (asset != null && result.Categories.Count > 0)
+            else
             {
-                await new CategoryService(db).AssociateCategoriesAsync(asset, result.Categories);
-                await db.SaveChangesAsync();
-            }
+                // Legacy auto-apply mode (no review dialog available)
+                var raw = await _aiTaggingService.AnalyzeAssetAsync(_asset.Id);
 
-            StatusText = $"AI tags applied ({result.Keywords.Count} keywords, {result.Categories.Count} categories)";
+                foreach (var kw in raw.Keywords)
+                {
+                    if (!Tags.Contains(kw, StringComparer.OrdinalIgnoreCase))
+                        Tags.Add(kw);
+                }
+
+                if (string.IsNullOrWhiteSpace(Description) && !string.IsNullOrWhiteSpace(raw.Description))
+                    Description = raw.Description;
+
+                if (raw.Categories.Count > 0)
+                {
+                    await using var db = await _modeManager.CreateDbContextAsync();
+                    var asset = await db.DigitalAssets
+                        .Include(a => a.Categories)
+                        .FirstOrDefaultAsync(a => a.Id == _asset.Id);
+                    if (asset != null)
+                    {
+                        await new CategoryService(db).AssociateCategoriesAsync(asset, raw.Categories);
+                        await db.SaveChangesAsync();
+                    }
+                }
+
+                StatusText = $"AI tags applied ({raw.Keywords.Count} keywords, {raw.Categories.Count} categories)";
+            }
         }
         catch (Exception ex)
         {

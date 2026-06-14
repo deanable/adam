@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.ViewModels;
+using Adam.Shared.Services;
 
 namespace Adam.CatalogBrowser.Views;
 
@@ -68,6 +69,30 @@ public partial class MainWindow : Window
         if (VM is { } vm)
         {
             vm.RequestFocusSearch += () => KeywordsTreeView?.FocusSearch();
+
+            // T14.6: Wire AI tag review dialog callback
+            vm.MetadataEditor.ShowAiReviewDialogAsync = async scoredResult =>
+            {
+                var reviewVm = new AiTagReviewViewModel(scoredResult);
+                var dialog = new AiTagReviewDialog(reviewVm);
+                var dialogResult = await dialog.ShowDialog<bool>(this);
+
+                if (dialogResult)
+                {
+                    // Build a filtered AiTagResult with only accepted items
+                    var accepted = new AiTagResult
+                    {
+                        Description = scoredResult.Description,
+                        Keywords = scoredResult.Keywords.Where(k => k.IsAccepted).ToList(),
+                        Categories = scoredResult.Categories.Where(c => c.IsAccepted).ToList(),
+                        ProcessingTimeMs = scoredResult.ProcessingTimeMs,
+                        ModelVersion = scoredResult.ModelVersion
+                    };
+                    return accepted;
+                }
+
+                return null;
+            };
         }
     }
 
@@ -343,6 +368,83 @@ public class BoolToStatusColorConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is bool b && b ? Brushes.LimeGreen : Brushes.Gray;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts a double (confidence 0.0-1.0) to a bar width in pixels (0-80).
+/// </summary>
+public class ConfidenceToBarWidthConverter : IValueConverter
+{
+    public static readonly ConfidenceToBarWidthConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is double d)
+            return Math.Clamp(d * 80, 20, 80);
+        return 20.0;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts a double (confidence 0.0-1.0) to a brush color:
+/// ≥ 0.8 → Green, ≥ 0.5 → Yellow/Amber, < 0.5 → Red.
+/// </summary>
+public class ConfidenceToColorConverter : IValueConverter
+{
+    public static readonly ConfidenceToColorConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is double d)
+        {
+            return d >= 0.8
+                ? new SolidColorBrush(Color.FromRgb(46, 125, 50))   // Green
+                : d >= 0.5
+                    ? new SolidColorBrush(Color.FromRgb(245, 127, 23)) // Amber
+                    : new SolidColorBrush(Color.FromRgb(198, 40, 40)); // Red
+        }
+        return new SolidColorBrush(Color.FromRgb(128, 128, 128));
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts an int to bool (any positive int → true, 0 → false).
+/// Used for IsVisible bindings on empty-state labels.
+/// </summary>
+public class IntToBoolConverter : IValueConverter
+{
+    public static readonly IntToBoolConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is int i && i > 0;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts an int to inverted bool (0 → true, any positive → false).
+/// Used for IsVisible bindings on empty-state labels.
+/// </summary>
+public class IntToInverseBoolConverter : IValueConverter
+{
+    public static readonly IntToInverseBoolConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is int i && i == 0;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

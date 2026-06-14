@@ -1,0 +1,166 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+        xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+        mc:Ignorable="d"
+        x:Class="Adam.CatalogBrowser.Views.AiTagReviewDialog"
+        Title="Review AI Tags"
+        Width="480"
+        Height="560"
+        WindowStartupLocation="CenterOwner"
+        x:CompileBindings="False">
+  <Window.Styles>
+    <Style Selector="Button.AccentButton">
+      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.AccentButton:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+    </Style>
+    <Style Selector="Button.AccentButton:pressed">
+      <Setter Property="Background" Value="{DynamicResource PrimaryPressedBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,12">
+      <TextBlock Text="Review AI Tag Suggestions" Classes="Title" FontWeight="Bold"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
+      <TextBlock Text="{Binding AcceptanceSummary}" Classes="Body"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+    </StackPanel>
+
+    <!-- Scrollable keyword/category list -->
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Spacing="8">
+
+        <!-- Keywords section -->
+        <TextBlock Text="Keywords" FontWeight="SemiBold" FontSize="12"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   IsVisible="{Binding KeywordScores.Count, Converter={x:Static views:IntToBoolConverter.Instance}}" />
+        <ItemsControl ItemsSource="{Binding KeywordScores}"
+                      IsVisible="{Binding KeywordScores.Count, Converter={x:Static views:IntToBoolConverter.Instance}}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border CornerRadius="4" Padding="8,6" Margin="0,1"
+                      Background="{DynamicResource SurfaceLightBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <!-- Checkbox -->
+                  <CheckBox Grid.Column="0" IsChecked="{Binding IsAccepted}"
+                            VerticalAlignment="Center" Margin="0,0,8,0" />
+
+                  <!-- Keyword name -->
+                  <TextBlock Grid.Column="1" Text="{Binding Name}"
+                             VerticalAlignment="Center" FontSize="12" />
+
+                  <!-- Confidence indicator -->
+                  <Border Grid.Column="2"
+                          Background="{Binding Confidence, Converter={x:Static views:ConfidenceToColorConverter.Instance}}"
+                          CornerRadius="3"
+                          Width="{Binding Confidence, Converter={x:Static views:ConfidenceToBarWidthConverter.Instance}}"
+                          Height="14"
+                          MinWidth="20"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Confidence, StringFormat='{}{0:P0}'}"
+                               FontSize="9"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Categories section -->
+        <TextBlock Text="Categories" FontWeight="SemiBold" FontSize="12"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   IsVisible="{Binding CategoryScores.Count, Converter={x:Static views:IntToBoolConverter.Instance}}"
+                   Margin="0,8,0,0" />
+        <ItemsControl ItemsSource="{Binding CategoryScores}"
+                      IsVisible="{Binding CategoryScores.Count, Converter={x:Static views:IntToBoolConverter.Instance}}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border CornerRadius="4" Padding="8,6" Margin="0,1"
+                      Background="{DynamicResource SurfaceLightBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <CheckBox Grid.Column="0" IsChecked="{Binding IsAccepted}"
+                            VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}"
+                             VerticalAlignment="Center" FontSize="12" />
+                  <Border Grid.Column="2"
+                          Background="{Binding Confidence, Converter={x:Static views:ConfidenceToColorConverter.Instance}}"
+                          CornerRadius="3"
+                          Width="{Binding Confidence, Converter={x:Static views:ConfidenceToBarWidthConverter.Instance}}"
+                          Height="14"
+                          MinWidth="20"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Confidence, StringFormat='{}{0:P0}'}"
+                               FontSize="9"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Empty state -->
+        <TextBlock Text="No AI tag suggestions"
+                   Classes="Subheading"
+                   Foreground="{DynamicResource TextPlaceholderBrush}"
+                   HorizontalAlignment="Center"
+                   IsVisible="{Binding KeywordScores.Count, Converter={x:Static views:IntToInverseBoolConverter.Instance}}" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Confidence threshold slider -->
+    <Border Grid.Row="2" Background="{DynamicResource SurfaceSubtleBrush}"
+            CornerRadius="4" Padding="12,8" Margin="0,8">
+      <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                   Text="Confidence threshold: only auto-accept tags above this level"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,0,0,4" />
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="0%"
+                   FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
+                   VerticalAlignment="Center" />
+        <Slider Grid.Row="1" Grid.Column="1"
+                Minimum="0" Maximum="1.0" TickFrequency="0.05"
+                Value="{Binding ConfidenceThreshold}"
+                Margin="8,0" VerticalAlignment="Center" />
+        <TextBlock Grid.Row="1" Grid.Column="2" Text="100%"
+                   FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
+                   VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <!-- Buttons -->
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Cancel" Command="{Binding CancelCommand}"
+              Padding="16,8" FontSize="11"
+              Background="{DynamicResource SurfaceLightBrush}"
+              BorderBrush="{DynamicResource BorderBrush}"
+              BorderThickness="1"
+              CornerRadius="4"
+              Cursor="Hand" />
+      <Button Content="Apply Accepted" Command="{Binding ApplyCommand}"
+              Classes="AccentButton" />
+    </StackPanel>
+  </Grid>
+</Window>
