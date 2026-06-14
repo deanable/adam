@@ -35,7 +35,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<ListAssetsRequest>(request.Payload.ToByteArray());
+        ListAssetsRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<ListAssetsRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -145,7 +154,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<GetAssetRequest>(request.Payload.ToByteArray());
+        GetAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<GetAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -216,7 +234,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<UpdateAssetRequest>(request.Payload.ToByteArray());
+        UpdateAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<UpdateAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -325,7 +352,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<CreateAssetRequest>(request.Payload.ToByteArray());
+        CreateAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<CreateAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -397,7 +433,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<GetFileRequest>(request.Payload.ToByteArray());
+        GetFileRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<GetFileRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -471,7 +516,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<RestoreAssetRequest>(request.Payload.ToByteArray());
+        RestoreAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<RestoreAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -505,7 +559,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<ListDeletedAssetsRequest>(request.Payload.ToByteArray());
+        ListDeletedAssetsRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<ListDeletedAssetsRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -574,7 +637,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<DeleteAssetRequest>(request.Payload.ToByteArray());
+        DeleteAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<DeleteAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -605,7 +677,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<GetFileChunkRequest>(request.Payload.ToByteArray());
+        GetFileChunkRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<GetFileChunkRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -733,7 +814,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<PermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+        PermanentDeleteAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<PermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -766,7 +856,16 @@ public sealed class AssetHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<BulkPermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+        BulkPermanentDeleteAssetRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<BulkPermanentDeleteAssetRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         if (req.Ids.Count == 0)
             return ErrorResponse(request, ErrorCode.InvalidArgument, "No asset IDs provided");

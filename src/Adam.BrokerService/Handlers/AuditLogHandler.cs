@@ -27,7 +27,16 @@ public sealed class AuditLogHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var filterReq = ProtoHelper.Deserialize<ListAuditLogsRequest>(request.Payload.ToByteArray());
+        ListAuditLogsRequest filterReq;
+        try
+        {
+            filterReq = ProtoHelper.Deserialize<ListAuditLogsRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

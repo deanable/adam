@@ -27,7 +27,16 @@ public sealed class ChangeHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<GetChangesRequest>(request.Payload.ToByteArray());
+        GetChangesRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<GetChangesRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
         var since = DateTimeOffset.FromUnixTimeSeconds(req.SinceTimestamp);
 
         using var scope = _serviceProvider.CreateScope();

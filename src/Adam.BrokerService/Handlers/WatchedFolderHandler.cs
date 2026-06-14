@@ -60,7 +60,16 @@ public sealed class WatchedFolderHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<CreateWatchedFolderRequest>(request.Payload.ToByteArray());
+        CreateWatchedFolderRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<CreateWatchedFolderRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -102,7 +111,16 @@ public sealed class WatchedFolderHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<UpdateWatchedFolderRequest>(request.Payload.ToByteArray());
+        UpdateWatchedFolderRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<UpdateWatchedFolderRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -135,7 +153,16 @@ public sealed class WatchedFolderHandler
 
         if (request.Payload == null)
             return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        var req = ProtoHelper.Deserialize<DeleteWatchedFolderRequest>(request.Payload.ToByteArray());
+        DeleteWatchedFolderRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<DeleteWatchedFolderRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
