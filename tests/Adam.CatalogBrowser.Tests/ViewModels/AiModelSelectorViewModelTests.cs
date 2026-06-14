@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 using Adam.CatalogBrowser.ViewModels;
 using FluentAssertions;
@@ -8,8 +9,8 @@ namespace Adam.CatalogBrowser.Tests.ViewModels;
 
 /// <summary>
 /// Tests for <see cref="AiModelSelectorViewModel"/> — covers constructor state, model selection,
-/// command gating, property change notifications, model-definition correctness, and progress
-/// event wiring (Phase 14 AI Model Selector).
+/// command gating, property change notifications, model-definition correctness, progress
+/// event wiring, and execution provider selection (Phase 14).
 /// </summary>
 public sealed class AiModelSelectorViewModelTests
 {
@@ -615,6 +616,375 @@ public sealed class AiModelSelectorViewModelTests
         vm.SelectedModel = current; // same instance
 
         propertyChangedCount.Should().Be(0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — ProviderOptions
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_ProviderOptions_HasThreeProviders()
+    {
+        var vm = CreateVm();
+
+        vm.ProviderOptions.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void Constructor_ProviderOptions_FirstIsCpu()
+    {
+        var vm = CreateVm();
+
+        vm.ProviderOptions[0].Kind.Should().Be(ExecutionProviderKind.Cpu);
+        vm.ProviderOptions[0].DisplayName.Should().Be("CPU");
+    }
+
+    [Fact]
+    public void Constructor_ProviderOptions_SecondIsCuda()
+    {
+        var vm = CreateVm();
+
+        vm.ProviderOptions[1].Kind.Should().Be(ExecutionProviderKind.Cuda);
+        vm.ProviderOptions[1].DisplayName.Should().Be("CUDA (NVIDIA)");
+    }
+
+    [Fact]
+    public void Constructor_ProviderOptions_ThirdIsDirectML()
+    {
+        var vm = CreateVm();
+
+        vm.ProviderOptions[2].Kind.Should().Be(ExecutionProviderKind.DirectML);
+        vm.ProviderOptions[2].DisplayName.Should().Be("DirectML (Windows)");
+    }
+
+    [Fact]
+    public void Constructor_ProviderOptions_AllHaveNonEmptyDisplayNames()
+    {
+        var vm = CreateVm();
+
+        vm.ProviderOptions.Should().AllSatisfy(p => p.DisplayName.Should().NotBeNullOrWhiteSpace());
+    }
+
+    [Fact]
+    public void Constructor_ProviderOptions_AllHaveUniqueKinds()
+    {
+        var vm = CreateVm();
+
+        var kinds = vm.ProviderOptions.Select(p => p.Kind).ToList();
+        kinds.Should().OnlyHaveUniqueItems();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — SelectedProviderOption
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_SelectedProviderOption_DefaultsToCpu()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption.Should().NotBeNull();
+        vm.SelectedProviderOption!.Kind.Should().Be(ExecutionProviderKind.Cpu);
+    }
+
+    [Fact]
+    public void Constructor_SelectedProviderOption_ReadsFromOptions()
+    {
+        var options = new LiquidVisionOptions
+        {
+            ModelId = "onnx-community/LFM2-VL-450M-ONNX",
+            Precision = ModelPrecision.Q4,
+            ExecutionProvider = ExecutionProviderKind.Cuda
+        };
+        var vm = new AiModelSelectorViewModel(null, options);
+
+        vm.SelectedProviderOption.Should().NotBeNull();
+        vm.SelectedProviderOption!.Kind.Should().Be(ExecutionProviderKind.Cuda);
+        vm.SelectedProviderOption!.DisplayName.Should().Be("CUDA (NVIDIA)");
+    }
+
+    [Fact]
+    public void Constructor_SelectedProviderOption_ReadsDirectMLFromOptions()
+    {
+        var options = new LiquidVisionOptions
+        {
+            ModelId = "onnx-community/LFM2-VL-450M-ONNX",
+            Precision = ModelPrecision.Q4,
+            ExecutionProvider = ExecutionProviderKind.DirectML
+        };
+        var vm = new AiModelSelectorViewModel(null, options);
+
+        vm.SelectedProviderOption!.Kind.Should().Be(ExecutionProviderKind.DirectML);
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_UpdatesProvider()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+
+        vm.SelectedProviderOption!.Kind.Should().Be(ExecutionProviderKind.Cuda);
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_UpdatesRuntimeOptions()
+    {
+        var options = new LiquidVisionOptions
+        {
+            ModelId = "onnx-community/LFM2-VL-450M-ONNX",
+            Precision = ModelPrecision.Q4
+        };
+        var vm = new AiModelSelectorViewModel(null, options);
+
+        vm.SelectedProviderOption = vm.ProviderOptions[2]; // DirectML
+
+        options.ExecutionProvider.Should().Be(ExecutionProviderKind.DirectML);
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_SetsRestartRequired()
+    {
+        var vm = CreateVm();
+
+        vm.RestartRequired.Should().BeFalse("defaults match — no restart needed yet");
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+
+        vm.RestartRequired.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_RaisesPropertyChanged()
+    {
+        var vm = CreateVm();
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+
+        raised.Should().Contain(nameof(vm.SelectedProviderOption));
+        raised.Should().Contain(nameof(vm.IsGpuProvider));
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_NullValue_DoesNothing()
+    {
+        var vm = CreateVm();
+        var original = vm.SelectedProviderOption!.Kind;
+        var propertyChangedCount = 0;
+        vm.PropertyChanged += (_, _) => propertyChangedCount++;
+
+        vm.SelectedProviderOption = null;
+
+        vm.SelectedProviderOption!.Kind.Should().Be(original);
+        propertyChangedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void SelectedProviderOption_Setter_SameValue_DoesNotRaisePropertyChanged()
+    {
+        var vm = CreateVm();
+        var propertyChangedCount = 0;
+        vm.PropertyChanged += (_, _) => propertyChangedCount++;
+
+        vm.SelectedProviderOption = vm.ProviderOptions[0]; // CPU (already selected)
+
+        propertyChangedCount.Should().Be(0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — IsGpuProvider
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void IsGpuProvider_WhenCpu_ReturnsFalse()
+    {
+        var vm = CreateVm();
+
+        vm.IsGpuProvider.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsGpuProvider_WhenCuda_ReturnsTrue()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+
+        vm.IsGpuProvider.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsGpuProvider_WhenDirectML_ReturnsTrue()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption = vm.ProviderOptions[2]; // DirectML
+
+        vm.IsGpuProvider.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsGpuProvider_RaisesPropertyChanged_WhenSwitchingFromCpuToCuda()
+    {
+        var vm = CreateVm();
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+
+        raised.Should().Contain(nameof(vm.IsGpuProvider));
+    }
+
+    [Fact]
+    public void IsGpuProvider_RaisesPropertyChanged_WhenSwitchingFromCudaToCpu()
+    {
+        var vm = CreateVm();
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.SelectedProviderOption = vm.ProviderOptions[0]; // CPU
+
+        raised.Should().Contain(nameof(vm.IsGpuProvider));
+    }
+
+    [Fact]
+    public void IsGpuProvider_DoesNotRaisePropertyChanged_WhenSwitchingBetweenGpuProviders()
+    {
+        var vm = CreateVm();
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.SelectedProviderOption = vm.ProviderOptions[2]; // DirectML (also GPU)
+
+        // IsGpuProvider should NOT fire here since it stays true
+        raised.Should().NotContain(nameof(vm.IsGpuProvider));
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — GpuDeviceId
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_GpuDeviceId_DefaultsToZero()
+    {
+        var vm = CreateVm();
+
+        vm.GpuDeviceId.Should().Be(0);
+    }
+
+    [Fact]
+    public void Constructor_GpuDeviceId_ReadsFromOptions()
+    {
+        var options = new LiquidVisionOptions
+        {
+            ModelId = "onnx-community/LFM2-VL-450M-ONNX",
+            Precision = ModelPrecision.Q4,
+            GpuDeviceId = 2
+        };
+        var vm = new AiModelSelectorViewModel(null, options);
+
+        vm.GpuDeviceId.Should().Be(2);
+    }
+
+    [Fact]
+    public void GpuDeviceId_Setter_UpdatesValue()
+    {
+        var vm = CreateVm();
+
+        vm.GpuDeviceId = 3;
+
+        vm.GpuDeviceId.Should().Be(3);
+    }
+
+    [Fact]
+    public void GpuDeviceId_Setter_RaisesPropertyChanged()
+    {
+        var vm = CreateVm();
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.GpuDeviceId = 1;
+
+        raised.Should().Contain(nameof(vm.GpuDeviceId));
+    }
+
+    [Fact]
+    public void GpuDeviceId_Setter_SameValue_DoesNotRaisePropertyChanged()
+    {
+        var vm = CreateVm();
+        var propertyChangedCount = 0;
+        vm.PropertyChanged += (_, _) => propertyChangedCount++;
+
+        vm.GpuDeviceId = 0; // already 0
+
+        propertyChangedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void GpuDeviceId_Setter_UpdatesRuntimeOptions()
+    {
+        var options = new LiquidVisionOptions
+        {
+            ModelId = "onnx-community/LFM2-VL-450M-ONNX",
+            Precision = ModelPrecision.Q4
+        };
+        var vm = new AiModelSelectorViewModel(null, options);
+
+        vm.GpuDeviceId = 1;
+
+        options.GpuDeviceId.Should().Be(1);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — persistence with App.Config
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SelectedProviderOption_Setter_PersistsToConfig()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption = vm.ProviderOptions[2]; // DirectML
+
+        App.Config.AiExecutionProvider.Should().Be("DirectML");
+    }
+
+    [Fact]
+    public void GpuDeviceId_Setter_PersistsToConfig()
+    {
+        var vm = CreateVm();
+
+        vm.GpuDeviceId = 7;
+
+        App.Config.AiGpuDeviceId.Should().Be(7);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Execution Provider — DownloadOrApplyModelAsync saves all
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void DownloadOrApplyCommand_Execute_SavesAllProviderSettings()
+    {
+        var vm = CreateVm();
+
+        vm.SelectedProviderOption = vm.ProviderOptions[1]; // CUDA
+        vm.GpuDeviceId = 1;
+
+        // The command's async lambda runs synchronously when AiTaggingService is null
+        // (takes the else branch: "Model saved. Restart to apply.")
+        vm.DownloadOrApplyCommand.Execute(null);
+
+        vm.ModelStatus.Should().Be("Model saved. Restart to apply.");
+        vm.RestartRequired.Should().BeTrue();
+
+        // Verify all provider settings were persisted
+        App.Config.AiExecutionProvider.Should().Be("Cuda");
+        App.Config.AiGpuDeviceId.Should().Be(1);
     }
 
     // ─────────────────────────────────────────────────────────────────

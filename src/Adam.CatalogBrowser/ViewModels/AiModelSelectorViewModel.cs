@@ -168,9 +168,11 @@ public sealed class AiModelSelectorViewModel : INotifyPropertyChanged
         set
         {
             if (value == null || value.Kind == _selectedExecutionProvider) return;
+            var wasGpu = IsGpuProvider;
             _selectedExecutionProvider = value.Kind;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(IsGpuProvider));
+            if (wasGpu != IsGpuProvider)
+                OnPropertyChanged(nameof(IsGpuProvider));
 
             // Mark restart needed
             RestartRequired = true;
