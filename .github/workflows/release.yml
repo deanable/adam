@@ -52,7 +52,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Restore
-        run: dotnet restore Adam.slnx
+        run: dotnet restore adam.slnx
       - name: Publish CatalogBrowser
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService
@@ -102,7 +102,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Restore
-        run: dotnet restore Adam.slnx
+        run: dotnet restore adam.slnx
       - name: Publish CatalogBrowser
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService
@@ -156,7 +156,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Restore
-        run: dotnet restore Adam.slnx
+        run: dotnet restore adam.slnx
       - name: Publish CatalogBrowser
         run: dotnet publish src/Adam.CatalogBrowser/Adam.CatalogBrowser.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o publish/CatalogBrowser
       - name: Publish BrokerService

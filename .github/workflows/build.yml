@@ -43,10 +43,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libharfbuzz0b
 
       - name: Restore
-        run: dotnet restore Adam.slnx
+        run: dotnet restore adam.slnx
 
       - name: Build
-        run: dotnet build Adam.slnx -c Release --no-restore
+        run: dotnet build adam.slnx -c Release --no-restore
 
       - name: Test (sequential)
         shell: bash
