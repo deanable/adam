@@ -1,7 +1,10 @@
+using Adam.Shared.Configuration;
+using Adam.Shared.Extractors;
 using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Adam.Shared.Tests.Services;
 
@@ -29,8 +32,12 @@ public sealed class FolderScanServiceTests : IDisposable
         _modeManager = new ModeManager(_basePath);
         _modeManager.InitializeAsync().GetAwaiter().GetResult();
 
+        var pluginLoader = new PluginLoaderService(
+            Options.Create(new PluginConfig()),
+            NullLogger<PluginLoaderService>.Instance);
         _sut = new FolderScanService(
             _modeManager,
+            pluginLoader,
             NullLogger<FolderScanService>.Instance);
     }
 

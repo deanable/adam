@@ -1,12 +1,15 @@
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
+using Adam.Shared.Configuration;
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
@@ -66,7 +69,9 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
         _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
         _gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
-        var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
+        var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
+            Options.Create(new PluginConfig()),
+            new NullLogger<PluginLoaderService>()), _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
@@ -1002,7 +1007,9 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             new MetadataWritebackService(),
             sidebar,
             gallery,
-            new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
+            new IngestionViewModel(_modeManager, new PluginLoaderService(
+                Options.Create(new PluginConfig()),
+                new NullLogger<PluginLoaderService>()), new NullLogger<IngestionViewModel>()),
             new MetadataEditorViewModel(_modeManager),
             new AuditLogViewModel(_modeManager),
             bulkQueue,

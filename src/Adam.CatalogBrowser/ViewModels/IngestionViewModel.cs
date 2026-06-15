@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Adam.Shared.Validation;
@@ -18,8 +19,7 @@ public class IngestionViewModel : INotifyPropertyChanged
     private readonly AssetValidator _validator = new();
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
-    private readonly MetadataExtractorService _metadataExtractor = new();
-    private readonly OfficeDocumentExtractor _officeExtractor = new();
+    private readonly PluginLoaderService _pluginLoader;
     private readonly ILogger<IngestionViewModel> _logger;
     private readonly AiTaggingService? _aiTaggingService;
     private int _progressValue;
@@ -32,9 +32,10 @@ public class IngestionViewModel : INotifyPropertyChanged
 
     public event Action? IngestionCompleted;
 
-    public IngestionViewModel(ModeManager modeManager, ILogger<IngestionViewModel> logger, AiTaggingService? aiTaggingService = null)
+    public IngestionViewModel(ModeManager modeManager, PluginLoaderService pluginLoader, ILogger<IngestionViewModel> logger, AiTaggingService? aiTaggingService = null)
     {
         _modeManager = modeManager;
+        _pluginLoader = pluginLoader;
         _logger = logger;
         _aiTaggingService = aiTaggingService;
         StartIngestionCommand = new RelayCommand(async _ => await StartIngestionAsync(), _ => !IsIngesting && PendingFiles.Count > 0);
@@ -198,14 +199,11 @@ public class IngestionViewModel : INotifyPropertyChanged
                     var assetType = GetAssetType(fileInfo.Extension);
 
                     ExtractedTextMetadata? textMetadata = null;
-                    if (assetType == AssetType.Image)
+                    var mimeType = GetMimeType(fileInfo.Extension);
+                    var extractor = _pluginLoader.GetExtractor(filePath, mimeType);
+                    if (extractor != null)
                     {
-                        textMetadata = _metadataExtractor.ExtractTextMetadata(filePath);
-                    }
-                    else if (assetType == AssetType.Document)
-                    {
-                        // Check for XMP sidecar or extract from Office document properties
-                        textMetadata = _officeExtractor.Extract(filePath);
+                        textMetadata = await extractor.ExtractTextAsync(filePath, ct);
                     }
 
                     _logger.LogInformation("[{IngestId}] Computing SHA256: {FilePath}", ingestId, filePath);
@@ -224,12 +222,12 @@ public class IngestionViewModel : INotifyPropertyChanged
                     }
 
                     MetadataProfile? metadata = null;
-                    if (assetType == AssetType.Image)
+                    if (assetType == AssetType.Image && extractor != null)
                     {
                         try
                         {
                             _logger.LogInformation("[{IngestId}] Extracting metadata profile: {FilePath}", ingestId, filePath);
-                            metadata = _metadataExtractor.Extract(filePath);
+                            metadata = await extractor.ExtractAsync(filePath, ct);
                         }
                         catch (Exception ex)
                         {

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
+using Adam.Shared.Extractors;
 using Adam.Shared.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
@@ -37,7 +38,9 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         _modeManager = modeManager;
         _logger = logger;
-        _folderScanService = folderScanService ?? new FolderScanService(modeManager);
+        _folderScanService = folderScanService ?? new FolderScanService(modeManager, new PluginLoaderService(
+            Microsoft.Extensions.Options.Options.Create(new Adam.Shared.Configuration.PluginConfig()),
+            logger as ILogger<PluginLoaderService> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<PluginLoaderService>.Instance));
         _selectedMediaFormat = MediaFormats[0];
 
         // T8.18 / T10.3: Sidebar CRUD commands with permission gating

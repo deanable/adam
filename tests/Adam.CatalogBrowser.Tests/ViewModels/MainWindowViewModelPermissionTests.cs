@@ -2,10 +2,13 @@ using System.ComponentModel;
 using System.Reflection;
 using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
+using Adam.Shared.Configuration;
 using Adam.Shared.Contracts;
+using Adam.Shared.Extractors;
 using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
@@ -49,7 +52,9 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             new MetadataWritebackService(),
             sidebar,
             gallery,
-            new IngestionViewModel(_modeManager, new NullLogger<IngestionViewModel>()),
+            new IngestionViewModel(_modeManager, new PluginLoaderService(
+                Options.Create(new PluginConfig()),
+                new NullLogger<PluginLoaderService>()), new NullLogger<IngestionViewModel>()),
             new MetadataEditorViewModel(_modeManager),
             new AuditLogViewModel(_modeManager),
             bulkQueue,

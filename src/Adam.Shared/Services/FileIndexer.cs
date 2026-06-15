@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Microsoft.Extensions.Logging;
 
@@ -8,13 +9,13 @@ namespace Adam.Shared.Services;
 public class FileIndexer
 {
     private readonly IFileService _fileService;
-    private readonly MetadataExtractorService _metadataExtractor;
+    private readonly PluginLoaderService _pluginLoader;
     private readonly ILogger<FileIndexer> _logger;
 
-    public FileIndexer(IFileService fileService, MetadataExtractorService metadataExtractor, ILogger<FileIndexer> logger)
+    public FileIndexer(IFileService fileService, PluginLoaderService pluginLoader, ILogger<FileIndexer> logger)
     {
         _fileService = fileService;
-        _metadataExtractor = metadataExtractor;
+        _pluginLoader = pluginLoader;
         _logger = logger;
     }
 
@@ -30,9 +31,13 @@ public class FileIndexer
         var ext = Path.GetExtension(filePath);
         var assetType = GetAssetType(filePath);
 
-        var textMetadata = assetType == AssetType.Image
-            ? _metadataExtractor.ExtractTextMetadata(filePath)
-            : null;
+        var mimeType = GetMimeType(filePath);
+        var extractor = _pluginLoader.GetExtractor(filePath, mimeType);
+        ExtractedTextMetadata? textMetadata = null;
+        if (extractor != null && assetType == AssetType.Image)
+        {
+            textMetadata = await extractor.ExtractTextAsync(filePath, ct);
+        }
 
         var asset = new DigitalAsset
         {
@@ -53,15 +58,18 @@ public class FileIndexer
             ModifiedAt = DateTimeOffset.UtcNow
         };
 
-        if (asset.Type == AssetType.Image)
+        if (asset.Type == AssetType.Image && extractor != null)
         {
             try
             {
-                var metadata = _metadataExtractor.Extract(filePath);
-                metadata.DigitalAssetId = asset.Id;
-                if (textMetadata?.Rating.HasValue == true)
-                    metadata.Rating = textMetadata.Rating.Value;
-                asset.MetadataProfile = metadata;
+                var metadata = await extractor.ExtractAsync(filePath, ct);
+                if (metadata != null)
+                {
+                    metadata.DigitalAssetId = asset.Id;
+                    if (textMetadata?.Rating.HasValue == true)
+                        metadata.Rating = textMetadata.Rating.Value;
+                    asset.MetadataProfile = metadata;
+                }
             }
             catch (Exception ex)
             {

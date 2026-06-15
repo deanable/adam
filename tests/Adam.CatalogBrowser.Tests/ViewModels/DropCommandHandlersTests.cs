@@ -2,13 +2,16 @@ using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using System.Reflection;
+using Adam.Shared.Configuration;
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
@@ -49,7 +52,9 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         _bulkQueue = new BulkOperationQueue(_modeManager, _queueLogger);
         var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
         var gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
-        var ingestion = new IngestionViewModel(_modeManager, _ingestionLogger);
+        var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
+            Options.Create(new PluginConfig()),
+            new NullLogger<PluginLoaderService>()), _ingestionLogger);
         var metadataEditor = new MetadataEditorViewModel(_modeManager);
         var auditLog = new AuditLogViewModel(_modeManager);
         var propertyInspector = new PropertyInspectorViewModel(new NullLogger<PropertyInspectorViewModel>(), _modeManager, new Adam.Shared.Services.MetadataWritebackService(), new SyncUiDispatcher());

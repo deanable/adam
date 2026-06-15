@@ -1,4 +1,5 @@
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +14,7 @@ public class FolderWatcherService : IDisposable
     private readonly ILogger<FolderWatcherService> _logger;
     private readonly FileIndexer _fileIndexer;
     private readonly ChecksumService _checksumService;
-    private readonly MetadataExtractorService _metadataExtractor = new();
-    private readonly OfficeDocumentExtractor _officeExtractor = new();
+    private readonly PluginLoaderService _pluginLoader;
     private FileSystemWatcher? _watcher;
     private readonly HashSet<string> _pendingEvents = new(StringComparer.OrdinalIgnoreCase);
     private readonly Timer? _debounceTimer;
@@ -24,12 +24,14 @@ public class FolderWatcherService : IDisposable
         IServiceProvider serviceProvider,
         ILogger<FolderWatcherService> logger,
         FileIndexer fileIndexer,
-        ChecksumService checksumService)
+        ChecksumService checksumService,
+        PluginLoaderService pluginLoader)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _fileIndexer = fileIndexer;
         _checksumService = checksumService;
+        _pluginLoader = pluginLoader;
         _debounceTimer = new Timer(_ => ProcessPendingEvents(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -123,15 +125,12 @@ public class FolderWatcherService : IDisposable
 
                 db.DigitalAssets.Add(asset);
 
-                var assetType = _fileIndexer.GetAssetType(path);
+                var mimeType = _fileIndexer.GetMimeType(path);
+                var extractor = _pluginLoader.GetExtractor(path, mimeType);
                 ExtractedTextMetadata? textMetadata = null;
-                if (assetType == AssetType.Image)
+                if (extractor != null)
                 {
-                    textMetadata = _metadataExtractor.ExtractTextMetadata(path);
-                }
-                else if (assetType == AssetType.Document)
-                {
-                    textMetadata = _officeExtractor.Extract(path);
+                    textMetadata = await extractor.ExtractTextAsync(path, CancellationToken.None);
                 }
 
                 if (textMetadata != null)

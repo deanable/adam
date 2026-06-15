@@ -6,6 +6,7 @@ using Adam.CatalogBrowser.Views;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Configuration;
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Services;
 using LiquidVision.Core.Configuration;
 using LiquidVision.Core.DependencyInjection;
@@ -84,6 +85,14 @@ public partial class App : Application
             services.AddSingleton<ToastService>();
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
+            services.Configure<PluginConfig>(cfg =>
+            {
+                cfg.PluginDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Adam", "plugins");
+            });
+            services.AddSingleton<PluginLoaderService>();
+
             services.AddSingleton<FolderScanService>();
             services.AddSingleton<AccessLogCleanupService>();
             services.AddSingleton<CommentService>();
@@ -128,6 +137,7 @@ public partial class App : Application
             services.AddTransient<ActivityFeedViewModel>();
             services.AddTransient<TrashViewModel>();
             services.AddTransient<CommentPanelViewModel>();
+            services.AddTransient<PluginManagerViewModel>();
 
             var provider = services.BuildServiceProvider();
             ServiceProvider = provider;

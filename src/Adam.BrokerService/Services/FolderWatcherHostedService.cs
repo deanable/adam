@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Adam.Shared.Validation;
@@ -25,6 +26,7 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FolderWatcherHostedService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly PluginLoaderService _pluginLoader;
     private readonly List<FileSystemWatcher> _watchers = new();
 
     // ── Batch collection (replaces per-path debounce timers) ──
@@ -39,11 +41,12 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
 
     private System.Threading.Timer? _refreshTimer;
 
-    public FolderWatcherHostedService(IServiceProvider serviceProvider, ILogger<FolderWatcherHostedService> logger, IConfiguration configuration)
+    public FolderWatcherHostedService(IServiceProvider serviceProvider, ILogger<FolderWatcherHostedService> logger, IConfiguration configuration, PluginLoaderService pluginLoader)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _configuration = configuration;
+        _pluginLoader = pluginLoader;
     }
 
     public async Task StartAsync(CancellationToken ct)
@@ -235,7 +238,6 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
         var validator = new AssetValidator();
         var checksumService = new ChecksumService();
         var thumbnailService = new ThumbnailService();
-        var metadataExtractor = new MetadataExtractorService();
 
         try
         {
@@ -279,15 +281,27 @@ public sealed class FolderWatcherHostedService : IHostedService, IDisposable
                 ModifiedAt = DateTimeOffset.UtcNow
             };
 
-            // Extract metadata
+            // Extract metadata via plugin pipeline
             try
             {
-                var metadata = metadataExtractor.Extract(path);
-                if (metadata != null)
+                var mimeType = GetMimeType(path);
+                var extractor = _pluginLoader.GetExtractor(path, mimeType);
+                if (extractor != null)
                 {
-                    asset.MetadataProfile = metadata;
-                    if (!string.IsNullOrEmpty(metadata.Title))
-                        asset.Title = metadata.Title;
+                    var textMetadata = await extractor.ExtractTextAsync(path, CancellationToken.None);
+                    if (textMetadata != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(textMetadata.Title))
+                            asset.Title = textMetadata.Title;
+                        if (!string.IsNullOrWhiteSpace(textMetadata.Description))
+                            asset.Description = textMetadata.Description;
+                    }
+
+                    var metadata = await extractor.ExtractAsync(path, CancellationToken.None);
+                    if (metadata != null)
+                    {
+                        asset.MetadataProfile = metadata;
+                    }
                 }
             }
             catch (Exception ex)

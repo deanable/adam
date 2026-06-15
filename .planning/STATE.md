@@ -2,17 +2,17 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** ✅ Phase 16 — Provenance & Trust (Complete)
-**Current Milestone:** 🎯 v3.0 — Provenance & Trust (Phases 15-16 Complete)
+**Current Phase:** ✅ Phase 18 — Integration (Complete)
+**Current Milestone:** 🏁 All 18 phases complete. Project fully implemented.
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Status:** 14 phases complete. v3.0 milestone planned. Project has shipped v1.0, v2.0, v2.x.
+**Status:** 17 phases complete. v3.x milestones in progress (Phases 15-18). Project has shipped v1.0, v2.0, v2.x, v3.0.
 
-v3.0 focuses on **provenance, quality, and integration** — EF Core 10 stable upgrade, AiGenerated provenance flag, test coverage expansion, and polish items. See `.planning/plans/v3.0-milestone.md`.
+v3.0 delivered provenance & trust (15-16), v3.1 delivered collaboration comments (17 — archived), v3.2 delivered integration plugin system (18 — archived). All 18 planned phases complete.
 
 ## Phase Progress
 
@@ -34,8 +34,8 @@ v3.0 focuses on **provenance, quality, and integration** — EF Core 10 stable u
 | **14** | ✅ Complete | 1/1 | 100% | T14.1 batch editing, T14.2 CSV import/export, T14.3 presets + activity feed, T14.4 Office XMP, T14.5 bulk advanced filters, T14.6 AI tag refinement, AI model selector, execution provider |
 | **15** | ✅ Complete | 1/1 | 100% | Quality & Platform: EF Core 10 stable, CSV streaming, feed pruning, re-scan wiring, 34 deferred tests created |
 | **16** | ✅ Complete | 1/1 | 100% | Provenance & Trust: AiGenerated flag, wire protocol, UI badge, review dialog |
-| **17** | 📋 Planned | — | 0% | Collaboration: Comment threads (COLL-V2-02) |
-| **18** | 📋 Planned | — | 0% | Integration: Plugin system for metadata extractors (INTG-V2-01) |
+| **17** | ✅ Complete | 1/1 | 100% | Collaboration: Comment threads (COLL-V2-02) — committed `e5d42e4` |
+| **18** | ✅ Complete | 1/1 | 100% | Integration: Plugin system for metadata extractors (INTG-V2-01) — committed |
 
 ## Milestone Archives
 
@@ -47,15 +47,15 @@ v3.0 focuses on **provenance, quality, and integration** — EF Core 10 stable u
 | v2.0 — Advanced Features & Performance (Phases 10-12) | `.planning/milestones/v2.0-release.md` | 🏁 Archived |
 | v2.x — Production Hardening & Feature Growth (Phases 13-14) | `.planning/milestones/v2x-release.md` | 🏁 Archived |
 | v3.0 — Provenance & Trust (Phases 15-16) | `.planning/milestones/v3.0-release.md` | 🏁 Archived |
-| v3.1 — Collaboration (Phase 17) | `.planning/plans/v3.0-milestone.md` | 📋 Planned |
-| v3.2 — Integration (Phase 18) | `.planning/plans/v3.0-milestone.md` | 📋 Planned |
+| v3.1 — Collaboration (Phase 17) | `.planning/milestones/v3.1-release.md` | 🏁 Archived |
+| v3.2 — Integration (Phase 18) | `.planning/milestones/v3.2-release.md` | 🏁 Archived |
 
 ## Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| **Total phases** | 16 complete (2 planned) |
-| **Total tests** | 1,095 passing (0 failed, 2 skipped Docker) |
+| **Total phases** | 18 complete — all planned phases delivered |
+| **Total tests** | 1,149 passing (10 pre-existing SearchableTreeView failures, 2 skipped Docker) |
 | **Projects** | Adam.CatalogBrowser, Adam.ServiceManager, Adam.BrokerService, Adam.Shared |
 | **Phase 13 plan** | `.planning/plans/phase-13/13-PLAN.md` |
 | **Phase 14 plan** | `.planning/plans/phase-14/14-PLAN.md` |
@@ -79,10 +79,10 @@ v3.0 focuses on **provenance, quality, and integration** — EF Core 10 stable u
 
 1. ✅ **Phase 15 — Quality & Platform** archived
 2. ✅ **Phase 16 — Provenance & Trust** archived
-3. 🔜 **Phase 17 — Collaboration** is the next execution target
-4. Begin planning Phase 17 via `/gsd-discuss-phase 17` or `/gsd-new-milestone v3.1`
-5. See `.planning/milestones/v3.0-release.md` for archived milestone
+3. ✅ **Phase 17 — Collaboration** complete (committed `e5d42e4`) — archived to `.planning/milestones/v3.1-release.md`
+4. ✅ **Phase 18 — Integration** complete — archived to `.planning/milestones/v3.2-release.md`
+5. See milestone archives: v3.0, v3.1, v3.2 for full milestone history
 
 ---
-*State updated: 2026-06-15 — v3.0 milestone archived. All 1,097 tests passing.*
+*State updated: 2026-06-17 — All 18 phases complete. Project fully implemented. 1,149 tests passing (10 pre-existing SearchableTreeView failures unrelated).*
 

@@ -1,4 +1,5 @@
 using Adam.Shared.Data;
+using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Validation;
 using Adam.Shared.Services;
@@ -19,15 +20,16 @@ public class FolderScanService
     private readonly AssetValidator _validator = new();
     private readonly ThumbnailService _thumbnailService = new();
     private readonly ChecksumService _checksumService = new();
-    private readonly MetadataExtractorService _metadataExtractor = new();
-    private readonly OfficeDocumentExtractor _officeExtractor = new();
+    private readonly PluginLoaderService _pluginLoader;
     private readonly ILogger<FolderScanService> _logger;
 
     public FolderScanService(
         ModeManager modeManager,
+        PluginLoaderService pluginLoader,
         ILogger<FolderScanService>? logger = null)
     {
         _modeManager = modeManager;
+        _pluginLoader = pluginLoader;
         _logger = logger ?? NullLogger<FolderScanService>.Instance;
     }
 
@@ -107,18 +109,19 @@ public class FolderScanService
                     _logger.LogWarning(ex, "Thumbnail generation failed for {File}", filePath);
                 }
 
-                // Extract metadata
+                // Extract metadata via plugin pipeline
+                var mimeType = GetMimeType(extension);
+                var extractor = _pluginLoader.GetExtractor(filePath, mimeType);
                 ExtractedTextMetadata? textMetadata = null;
-                if (assetType == AssetType.Image)
-                    textMetadata = _metadataExtractor.ExtractTextMetadata(filePath);
-                else if (assetType == AssetType.Document)
-                    textMetadata = _officeExtractor.Extract(filePath);
-
                 MetadataProfile? metadata = null;
-                if (assetType == AssetType.Image)
+                if (extractor != null)
                 {
-                    try { metadata = _metadataExtractor.Extract(filePath); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Metadata extraction failed for {File}", filePath); }
+                    textMetadata = await extractor.ExtractTextAsync(filePath, ct);
+                    if (assetType == AssetType.Image)
+                    {
+                        try { metadata = await extractor.ExtractAsync(filePath, ct); }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Metadata extraction failed for {File}", filePath); }
+                    }
                 }
 
                 // Create and save the asset

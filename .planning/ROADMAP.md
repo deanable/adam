@@ -203,14 +203,14 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 
 ### v3.1 — Collaboration (Phase 17)
 
-**Status:** 📋 Planned
+**Status:** 🏁 Archived to `.planning/milestones/v3.1-release.md`
 **Goal:** Fulfill COLL-V2-02 with threaded comment threads on assets.
 
 ### v3.2 — Integration (Phase 18)
 
-**Status:** 📋 Planned
+**Status:** 🏁 Archived to `.planning/milestones/v3.2-release.md`
 **Goal:** Fulfill INTG-V2-01 with plugin system for third-party metadata extractors.
 
 ---
-*Roadmap updated: 2026-06-15 — v3.0 milestone archived. Next: v3.1 — Collaboration (Phase 17)*
+*Roadmap updated: 2026-06-17 — All 18 phases complete. All milestones (v1.0–v3.2) archived.*
 

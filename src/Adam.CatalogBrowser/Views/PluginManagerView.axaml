@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.PluginManagerView"
+             x:DataType="vm:PluginManagerViewModel"
+             Width="500" Height="400">
+  <DockPanel Margin="16">
+    <!-- Header -->
+    <TextBlock Text="Plugin Manager"
+               FontSize="18"
+               FontWeight="Bold"
+               DockPanel.Dock="Top"
+               Margin="0,0,0,12" />
+
+    <!-- Toolbar -->
+    <StackPanel Orientation="Horizontal"
+                Spacing="8"
+                DockPanel.Dock="Top"
+                Margin="0,0,0,12">
+      <Button Command="{Binding OpenPluginFolderCommand}"
+              Content="Open Plugin Folder"
+              ToolTip.Tip="Open the plugins directory in file manager" />
+      <Button Command="{Binding RefreshCommand}"
+              Content="&#x21bb; Refresh"
+              ToolTip.Tip="Reload plugins from the plugin directory" />
+      <Button Command="{Binding CloseCommand}"
+              Content="Close"
+              HorizontalAlignment="Right" />
+    </StackPanel>
+
+    <!-- Plugin list -->
+    <ScrollViewer DockPanel.Dock="Bottom">
+      <ItemsControl ItemsSource="{Binding Plugins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="8" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PluginItem">
+            <Border BorderBrush="{StaticResource SystemAccentColor}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="12">
+              <StackPanel Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Name}"
+                             FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Priority, StringFormat='(Priority {0})'}"
+                             Foreground="{StaticResource SystemAccentColor}"
+                             FontSize="12" />
+                  <Border Background="{Binding IsBuiltIn, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                          CornerRadius="4"
+                          Padding="4,1">
+                    <TextBlock Text="{Binding IsBuiltIn, StringFormat='{0:l}'}"
+                               FontSize="11"
+                               Foreground="White" />
+                  </Border>
+                </StackPanel>
+                <TextBlock Text="{Binding AssemblyName, StringFormat='Assembly: {0}'}"
+                           FontSize="12"
+                           Foreground="{StaticResource SystemAccentColor}" />
+                <TextBlock Text="{Binding Status}"
+                           FontSize="12" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

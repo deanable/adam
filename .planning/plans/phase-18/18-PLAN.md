@@ -1,15 +1,31 @@
 ---
 goal: Add a plugin system for third-party metadata extractors (INTG-V2-01) with sample plugin
-version: 1.0
+version: 1.1
 date_created: 2026-06-14
-last_updated: 2026-06-14
-status: 'Planned'
+last_updated: 2026-06-17
+status: 'Complete'
 tags: [phase-18, plugins, integration, metadata, extensibility]
 ---
 
 # Phase 18 — Integration: Plugin System for Metadata Extractors
 
 **INTG-V2-01**: Integration with third-party metadata extractors via a plugin system.
+
+## Codebase Validation
+
+The following findings were verified against the live codebase (2026-06-17):
+
+| Finding | Status | Action |
+|---------|--------|--------|
+| `Extractors/` directory exists | ❌ No — needs creation | Create it |
+| `MetadataExtractorService` used via `new()` | ✅ IngestionViewModel, FolderWatcherService, FolderWatcherHostedService, FolderScanService | Replace with PluginLoaderService |
+| `OfficeDocumentExtractor` used via `new()` | ✅ IngestionViewModel, FolderWatcherService, FolderScanService | Replace with PluginLoaderService |
+| `FileIndexer` uses DI injection already | ✅ Receives `MetadataExtractorService` via constructor | Replace injected type with `PluginLoaderService` |
+| `FolderScanService` (T15.4) | ✅ Has `new()` calls for both extractor types | **Added to plan** (was missing) |
+| `ExtractedTextMetadata.HasAnyContent` | ❌ Does not exist — needs addition | Add property |
+| `MetadataProfile.HasAnyContent` | ❌ Does not exist — needs addition | Add property |
+| `SettingsViewModel.cs` | ❌ Does not exist | Plugin Manager UI as standalone dialog, not settings tab |
+| `FolderWatcherHostedService` uses OfficeDocumentExtractor | ❌ No — only uses MetadataExtractorService (line 238) | Only replace that one call |
 
 ## Architecture Summary
 
@@ -35,6 +51,7 @@ tags: [phase-18, plugins, integration, metadata, extensibility]
          ┌────────────────────┼────────────────────┐
          │                    │                    │
    IngestionVM          FolderWatcher         FileIndexer
+   FolderScanSvc          WatcherHostedSvc
          │                    │                    │
     PluginLoaderService ──────┴────────────────────┘
          │
@@ -99,10 +116,12 @@ public interface IMetadataExtractor
 
 **Estimated LOC:** ~30
 
-### T18.2 — ImageExtractor (Built-in Adapter)
+### T18.2 — ImageExtractor (Built-in Adapter) + HasAnyContent
 
 **Files:**
 - `src/Adam.Shared/Extractors/ImageExtractor.cs` (new)
+- `src/Adam.Shared/Models/ExtractedTextMetadata.cs` (add `HasAnyContent`)
+- `src/Adam.Shared/Models/MetadataProfile.cs` (add `HasAnyContent`)
 
 Wraps the existing `MetadataExtractorService` as an `IMetadataExtractor` implementation:
 
@@ -123,14 +142,28 @@ public sealed class ImageExtractor : IMetadataExtractor
     public Task<MetadataProfile?> ExtractAsync(string filePath, CancellationToken ct)
     {
         var result = _service.Extract(filePath);
-        return Task.FromResult(result.HasAnyContent ? result : null);  // Add HasAnyContent to MetadataProfile
+        return Task.FromResult(result.HasAnyContent ? result : null);
     }
 }
 ```
 
-**Design note:** The adapter itself doesn't add new logic — it wraps the existing `MetadataExtractorService` so the ingestion pipeline can treat all extractors uniformly. The `HasAnyContent` property is a small addition to `MetadataProfile`.
+**HasAnyContent additions:**
 
-**Estimated LOC:** ~40
+`ExtractedTextMetadata` — `HasAnyContent` returns `true` when any of Title, Description, Keywords, Categories, or Rating is populated:
+```csharp
+public bool HasAnyContent =>
+    !string.IsNullOrWhiteSpace(Title) ||
+    !string.IsNullOrWhiteSpace(Description) ||
+    Keywords.Count > 0 ||
+    Categories.Count > 0 ||
+    Rating.HasValue;
+```
+
+`MetadataProfile` — `HasAnyContent` returns `true` when any non-default field is populated (same logic, checking camera fields, GPS, copyright, etc.).
+
+**Design note:** The adapter itself doesn't add new logic — it wraps the existing `MetadataExtractorService` so the ingestion pipeline can treat all extractors uniformly. The `HasAnyContent` property is essential for allowing the priority chain to fall through when an extractor returns no meaningful data.
+
+**Estimated LOC:** ~40 (adapter) + ~10 (two HasAnyContent additions)
 
 ### T18.3 — OfficeExtractor (Built-in Adapter)
 
@@ -165,6 +198,7 @@ public sealed class OfficeExtractor : IMetadataExtractor
 
 **Files:**
 - `src/Adam.Shared/Services/PluginLoaderService.cs` (new)
+- `src/Adam.CatalogBrowser/App.axaml.cs` (DI registration — see also T18.5)
 
 The core plugin discovery and loading mechanism:
 
@@ -177,7 +211,7 @@ The core plugin discovery and loading mechanism:
 | `IMetadataExtractor? GetExtractor(string filePath, string mimeType)` | Returns the highest-priority extractor that `CanExtract()` |
 | `Task<ExtractionResult> ExtractAllAsync(string filePath, string mimeType, CancellationToken ct)` | Runs extractors in priority order until one returns non-null for each extraction type |
 
-**Plugin directory:** `%LOCALAPPDATA%/Adam/plugins/` (Windows) or `~/.local/share/Adam/plugins/` (Linux) — configurable via `appsettings.json` or `settings.json`.
+**Plugin directory:** `%LOCALAPPDATA%/Adam/plugins/` (Windows) or `~/.local/share/Adam/plugins/` (Linux) — configurable via `appsettings.json`.
 
 **Plugin loading process:**
 1. If the plugin directory doesn't exist, create it
@@ -192,7 +226,7 @@ The core plugin discovery and loading mechanism:
 - Always registered regardless of plugin directory contents
 - `ImageExtractor` (Priority 100)
 - `OfficeExtractor` (Priority 200)
-- Registered after built-in extractors so built-ins always win at equal priority
+- Registered before plugins so built-ins always win when priorities overlap
 
 **Estimated LOC:** ~180
 
@@ -202,43 +236,55 @@ The core plugin discovery and loading mechanism:
 - `src/Adam.CatalogBrowser/ViewModels/IngestionViewModel.cs`
 - `src/Adam.BrokerService/Services/FolderWatcherService.cs`
 - `src/Adam.BrokerService/Services/FolderWatcherHostedService.cs`
+- `src/Adam.Shared/Services/FolderScanService.cs`
 - `src/Adam.Shared/Services/FileIndexer.cs`
 - `src/Adam.CatalogBrowser/App.axaml.cs` (DI registration)
 
-**Changes:**
+**Changes by file:**
 
-Replace direct `new MetadataExtractorService()` and `new OfficeDocumentExtractor()` instantiations with `PluginLoaderService` injection.
+1. **IngestionViewModel.cs** — Replace `_metadataExtractor = new()` and `_officeExtractor = new()` with injected `PluginLoaderService`. Update `StartIngestionAsync()` to use `_pluginLoader.GetExtractor()`.
 
-**IngestionViewModel changes:**
+2. **FolderWatcherService.cs** — Replace `_metadataExtractor = new()` and `_officeExtractor = new()` with injected `PluginLoaderService`. Update `ProcessPendingEvents()` to use `_pluginLoader.GetExtractor()`.
+
+3. **FolderWatcherHostedService.cs** — Replace line 238 `var metadataExtractor = new MetadataExtractorService()` with injected `PluginLoaderService`. Update `IngestFileAsync()` to use `_pluginLoader.GetExtractor()`.
+
+4. **FolderScanService.cs** — Replace `_metadataExtractor = new()` and `_officeExtractor = new()` with injected `PluginLoaderService`. Update `ScanFolderAsync()` to use `_pluginLoader.GetExtractor()`.
+
+5. **FileIndexer.cs** — Already uses DI injection. Replace constructor parameter `MetadataExtractorService metadataExtractor` with `PluginLoaderService pluginLoader`. Update `IndexFileAsync()` to use `_pluginLoader.GetExtractor()`.
+
+6. **App.axaml.cs** — Register `PluginLoaderService` as singleton, add `PluginConfig` options:
 ```csharp
-// Before:
-private readonly MetadataExtractorService _metadataExtractor = new();
-private readonly OfficeDocumentExtractor _officeExtractor = new();
+services.Configure<PluginConfig>(config =>
+{
+    config.PluginDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Adam", "plugins");
+});
+services.AddSingleton<PluginLoaderService>();
+```
+
+**Refactored extraction flow:**
+
+```csharp
+// Before (IngestionViewModel pattern):
+if (assetType == AssetType.Image)
+    textMetadata = _metadataExtractor.ExtractTextMetadata(filePath);
+else if (assetType == AssetType.Document)
+    textMetadata = _officeExtractor.Extract(filePath);
 
 // After:
-private readonly PluginLoaderService _pluginLoader;
-// uses _pluginLoader.GetExtractor(filePath, mimeType) instead
+var extractor = _pluginLoader.GetExtractor(filePath, mimeType);
+if (extractor != null)
+{
+    textMetadata = await extractor.ExtractTextAsync(filePath, ct);
+    if (assetType == AssetType.Image)
+        metadata = await extractor.ExtractAsync(filePath, ct);
+}
 ```
 
-**DI registration in App.axaml.cs:**
-```csharp
-services.AddSingleton<PluginLoaderService>();
-services.AddSingleton<IMetadataExtractor>(sp =>
-    sp.GetRequiredService<PluginLoaderService>().Extractors[0]); // or similar
-```
+**Note:** The existing ingestion code checks `AssetType` before calling extractors. The refactored code should still check `AssetType` for non-extraction logic (thumbnail generation, checksum), but use `GetExtractor()` for metadata extraction. This preserves the existing optimization of not trying image EXIF extraction on documents.
 
-**FolderWatcherService** and **FolderWatcherHostedService** — same replacement pattern.
-
-**FileIndexer** — same replacement pattern.
-
-**Extraction flow (simplified):**
-```
-GetExtractor(filePath, mimeType)?
-  ├── Yes → extractText + extractProfile
-  ├── No  → null/empty result
-```
-
-**Estimated LOC:** ~80 (modifications across 5 files)
+**Estimated LOC:** ~120 (modifications across 6 files)
 
 ### T18.6 — Sample Plugin Project
 
@@ -303,7 +349,8 @@ public sealed class SampleVowelCounterExtractor : IMetadataExtractor
 - `src/Adam.CatalogBrowser/ViewModels/PluginManagerViewModel.cs` (new)
 - `src/Adam.CatalogBrowser/Views/PluginManagerView.axaml` (new)
 - `src/Adam.CatalogBrowser/Views/PluginManagerView.axaml.cs` (new code-behind)
-- `src/Adam.CatalogBrowser/ViewModels/SettingsViewModel.cs` (wire into settings)
+
+**Design note:** `SettingsViewModel.cs` does not exist in the codebase. The Plugin Manager is implemented as a **standalone dialog** accessible from the app menu or via an `OpenPluginManagerCommand` in `MainWindowViewModel`.
 
 **PluginManagerViewModel:**
 ```csharp
@@ -313,6 +360,7 @@ public sealed class PluginManagerViewModel : INotifyPropertyChanged
     public bool HasPlugins => Plugins.Count > 0;
     public ICommand RefreshCommand { get; }
     public ICommand OpenPluginFolderCommand { get; }
+    public ICommand CloseCommand { get; }
 }
 
 public sealed record PluginItem(
@@ -324,12 +372,12 @@ public sealed record PluginItem(
 );
 ```
 
-**UI layout (simplified):**
+**UI layout:**
 
 ```
 ┌─ Plugin Manager ──────────────────────────────┐
 │                                                 │
-│  Plugin Directory: ~/.local/share/Adam/plugins/ │
+│  Plugin Directory: %APPDATA%/Adam/plugins/      │
 │  [Open Folder]                           [↻]   │
 │                                                 │
 │  Built-in Extractors:                           │
@@ -337,18 +385,18 @@ public sealed record PluginItem(
 │  └─ Office Document Extractor (Priority 200)  │
 │                                                 │
 │  Third-Party Plugins:                           │
-│  └─ Vowel Counter Sample     (Priority 1000)  │
-│       Assembly: SampleMetadataPlugin.dll       │
+│  └─ (none)                                      │
 │                                                 │
 │  [Close]                                        │
 └─────────────────────────────────────────────────┘
 ```
 
-**Wiring into Settings:**
-- Accessible from Settings dialog → "Plugins" tab
-- Or as a standalone menu item in the app menu
+**Wiring:**
+- Add `OpenPluginManagerCommand` to `MainWindowViewModel`
+- Display as a modal window (like the settings/import dialogs)
+- Inject `PluginLoaderService` into the ViewModel
 
-**Estimated LOC:** ~180 (ViewModel + XAML + code-behind)
+**Estimated LOC:** ~150 (ViewModel + XAML + code-behind)
 
 ### T18.8 — Tests
 
@@ -364,29 +412,36 @@ public sealed record PluginItem(
 |------|---------------|
 | `ImageExtractor.CanExtract` | Returns true for image/jpeg, image/png; false for text/plain |
 | `ImageExtractor.ExtractTextAsync` | Delegates to MetadataExtractorService correctly (mock the service) |
+| `ImageExtractor.ExtractAsync` | Delegates rich metadata extraction |
+| `ImageExtractor.HasAnyContent` | Returns null when MetadataExtractorService returns empty result |
 | `OfficeExtractor.CanExtract` | Returns true for .docx, .xlsx, .pptx; false for .pdf |
+| `OfficeExtractor.ExtractTextAsync` | Delegates to OfficeDocumentExtractor correctly |
 | `OfficeExtractor.ExtractAsync` | Returns null (office docs don't have rich profiles) |
 | `PluginLoaderService.Load_NoPlugins` | Only built-in extractors registered |
 | `PluginLoaderService.Load_ValidPlugin` | Scans a temp dir with a mock .dll, verifies discovery |
 | `PluginLoaderService.Load_CorruptAssembly` | Logs error, doesn't crash, continues loading |
+| `PluginLoaderService.Load_MissingDirectory` | Creates directory if missing, no error |
 | `PluginLoaderService.GetExtractor_Priority` | Returns highest priority extractor for a mime type |
 | `PluginLoaderService.ExtractAll` | Runs pipeline, returns first non-null result |
 | `PluginManagerViewModel.Load_State` | Shows built-in + plugin extractors correctly |
 | `PluginManagerViewModel.Refresh` | Reloads plugins, updates ObservableCollection |
 
-**Estimated LOC:** ~250 (20 tests)
+**Estimated LOC:** ~280 (20 tests)
 
 ## Success Criteria
 
 - ✅ `IMetadataExtractor` interface defined with Priority, CanExtract, and async extraction methods
+- ✅ `HasAnyContent` added to `ExtractedTextMetadata` and `MetadataProfile`
 - ✅ `ImageExtractor` wraps existing `MetadataExtractorService` — no functionality lost
 - ✅ `OfficeExtractor` wraps existing `OfficeDocumentExtractor` — no functionality lost
 - ✅ `PluginLoaderService` discovers both built-in and plugin extractors via priority chain
 - ✅ Plugin directory is configurable, auto-created on first run
 - ✅ Bad plugin assemblies don't crash the app (graceful degradation with logged errors)
 - ✅ Ingestion pipeline uses `PluginLoaderService` instead of direct `new()` calls
+- ✅ `FolderScanService` integrated (was missing from original plan)
+- ✅ `FileIndexer` updated to use `PluginLoaderService` via DI (already uses DI)
 - ✅ Sample plugin project builds and produces a .dll that loads correctly
-- ✅ Plugin management UI shows loaded plugins with status indicators
+- ✅ Plugin management UI shows loaded plugins with status indicators (standalone dialog)
 - ✅ `Open Plugin Folder` button opens the plugin directory in file manager
 - ✅ All existing tests still pass with refactored pipeline
 - ✅ 20+ new tests pass (adapters, loader, ViewModel)
@@ -394,13 +449,13 @@ public sealed record PluginItem(
 ## Execution Order (Waves)
 
 ```
-Wave 1 ─── T18.1 Interface + T18.2 ImageExtractor + T18.3 OfficeExtractor ─ independent, parallel
+Wave 1 ─── T18.1 Interface + T18.2 ImageExtractor + T18.3 OfficeExtractor + HasAnyContent ─ independent, parallel
 Wave 2 ─── T18.4 PluginLoaderService (depends on T18.1)
 Wave 3 ─── T18.5 Pipeline integration (depends on T18.2, T18.3, T18.4)
 Wave 4 ─── T18.6 Sample plugin (independent of everything except T18.1)
 Wave 5 ─── T18.7 Plugin management UI (depends on T18.4)
 Wave 6 ─── T18.8 Tests (after all code)
-Wave 7 ─── Full test suite, UAT document, plan status update
+Wave 7 ─── Full test suite, code review, plan status update
 ```
 
 ## Files Created
@@ -423,13 +478,14 @@ Wave 7 ─── Full test suite, UAT document, plan status update
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `src/Adam.CatalogBrowser/ViewModels/IngestionViewModel.cs` | Replace direct `new MetadataExtractorService()` with `PluginLoaderService` |
-| 2 | `src/Adam.BrokerService/Services/FolderWatcherService.cs` | Same replacement |
-| 3 | `src/Adam.BrokerService/Services/FolderWatcherHostedService.cs` | Same replacement |
-| 4 | `src/Adam.Shared/Services/FileIndexer.cs` | Same replacement |
-| 5 | `src/Adam.CatalogBrowser/App.axaml.cs` | Register `PluginLoaderService` in DI |
-| 6 | `src/Adam.Shared/Models/MetadataProfile.cs` | Add `HasAnyContent` helper property |
-| 7 | `src/Adam.Shared/Models/ExtractedTextMetadata.cs` | Add `HasAnyContent` helper property |
+| 1 | `src/Adam.Shared/Models/ExtractedTextMetadata.cs` | Add `HasAnyContent` property |
+| 2 | `src/Adam.Shared/Models/MetadataProfile.cs` | Add `HasAnyContent` property |
+| 3 | `src/Adam.CatalogBrowser/ViewModels/IngestionViewModel.cs` | Replace `new MetadataExtractorService()`/`new OfficeDocumentExtractor()` with `PluginLoaderService` |
+| 4 | `src/Adam.BrokerService/Services/FolderWatcherService.cs` | Same replacement |
+| 5 | `src/Adam.BrokerService/Services/FolderWatcherHostedService.cs` | Replace `new MetadataExtractorService()` with `PluginLoaderService` (line 238 only — no OfficeDocumentExtractor here) |
+| 6 | `src/Adam.Shared/Services/FolderScanService.cs` | Replace `new MetadataExtractorService()`/`new OfficeDocumentExtractor()` with `PluginLoaderService` |
+| 7 | `src/Adam.Shared/Services/FileIndexer.cs` | Replace constructor param `MetadataExtractorService` with `PluginLoaderService` (already DI-injected) |
+| 8 | `src/Adam.CatalogBrowser/App.axaml.cs` | Register `PluginLoaderService` + `PluginConfig` in DI |
 
 ## Key Decisions
 
@@ -439,7 +495,7 @@ Wave 7 ─── Full test suite, UAT document, plan status update
 
 3. **No dynamic compilation or scripting**: V1 loads only pre-compiled assemblies. No script-based or runtime-compiled plugins.
 
-4. **Priority convention**: Built-in extractors use 100/200/300. Plugins should use 1000+. This ensures built-in extractors always run first for their supported file types, while plugins get a chance for unsupported file types.
+4. **Priority convention**: Built-in extractors use 100/200. Plugins should use 1000+. This ensures built-in extractors always run first for their supported file types, while plugins get a chance for unsupported file types.
 
 5. **Two-phase extraction**: `ExtractTextAsync` (Title/Description/Keywords) and `ExtractAsync` (rich EXIF/XMP profile) are separate methods. This matches the existing codebase where text metadata and profile metadata are extracted differently and used at different points in the pipeline.
 
@@ -448,3 +504,5 @@ Wave 7 ─── Full test suite, UAT document, plan status update
 7. **Plugin dependencies bundled by the plugin author**: Plugins that require additional NuGet packages should publish a self-contained output or place their dependency DLLs next to the plugin DLL. The `PluginLoaderService` loads all DLLs in the plugin directory, so dependencies are naturally resolved.
 
 8. **No plugin sandboxing**: V1 runs plugins in-process with full trust. Sandboxing (AppDomain isolation, permission restrictions) can be added in a future phase if needed.
+
+9. **Standalone Plugin Manager dialog**: Since `SettingsViewModel.cs` doesn't exist, the Plugin Manager UI is a standalone dialog opened from the app menu. This avoids creating a full settings infrastructure just for the plugin page.
