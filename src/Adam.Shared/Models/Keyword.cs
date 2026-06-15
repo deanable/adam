@@ -7,6 +7,7 @@ public class Keyword
     public string NormalizedName { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
     public int UsageCount { get; set; }
+    public bool IsAiGenerated { get; set; }
 
     public Keyword? Parent { get; set; }
     public ICollection<Keyword> Children { get; set; } = [];

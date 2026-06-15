@@ -19,6 +19,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
     private readonly ILogger<SidebarViewModel> _logger;
+    private readonly FolderScanService _folderScanService;
     private CategoryNode _selectedMediaFormat;
     private CategoryNode? _selectedMetadataCategory;
     private FolderNode? _selectedFolder;
@@ -32,10 +33,11 @@ public class SidebarViewModel : INotifyPropertyChanged
     private DateTakenNode? _selectedDateTaken;
     private ObservableCollection<DateTakenNode> _dateTakenTree = [];
 
-    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger)
+    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, FolderScanService? folderScanService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
+        _folderScanService = folderScanService ?? new FolderScanService(modeManager);
         _selectedMediaFormat = MediaFormats[0];
 
         // T8.18 / T10.3: Sidebar CRUD commands with permission gating
@@ -1296,7 +1298,7 @@ public class SidebarViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Triggers a re-scan/ingest of the selected folder (T10.5).
+    /// Triggers a re-scan/ingest of the selected folder (T10.5, T15.4).
     /// </summary>
     private async Task RescanFolderAsync()
     {
@@ -1304,10 +1306,14 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         try
         {
-            // TODO (Phase 10 Wave 2): Wire to ingestion service to re-scan the folder path.
-            // For now, refresh the sidebar data which re-queries asset counts.
+            _logger.LogInformation("Re-scanning folder: {Path}", SelectedFolder.Path);
+
+            var ingested = await _folderScanService.ScanFolderAsync(SelectedFolder.Path, recursive: true);
+
+            _logger.LogInformation("Re-scan complete for folder: {Path} — {Count} new asset(s) ingested", SelectedFolder.Path, ingested);
+
+            // Refresh the sidebar data to update asset counts
             await LoadAsync();
-            _logger.LogInformation("Re-scan requested for folder: {Path}", SelectedFolder.Path);
         }
         catch (Exception ex)
         {

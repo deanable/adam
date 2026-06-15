@@ -88,6 +88,12 @@ public static class ProtoHelper
             WriteField(output, fieldNumber, m);
     }
 
+    public static void WriteRepeatedField(CodedOutputStream output, int fieldNumber, IEnumerable<bool> values)
+    {
+        foreach (var v in values)
+            WriteField(output, fieldNumber, v);
+    }
+
     public static int FieldSize(int fieldNumber, string value)
     {
         if (value.Length == 0) return 0;
@@ -150,6 +156,14 @@ public static class ProtoHelper
         int size = 0;
         foreach (var m in messages)
             size += FieldSize(fieldNumber, m);
+        return size;
+    }
+
+    public static int RepeatedFieldSize(int fieldNumber, IEnumerable<bool> values)
+    {
+        int size = 0;
+        foreach (var v in values)
+            size += FieldSize(fieldNumber, v);
         return size;
     }
 

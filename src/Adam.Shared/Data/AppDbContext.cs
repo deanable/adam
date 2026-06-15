@@ -39,6 +39,7 @@ public class AppDbContext : DbContext
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
     public DbSet<ModeConfiguration> ModeConfigurations => Set<ModeConfiguration>();
     public DbSet<WatchedFolder> WatchedFolders => Set<WatchedFolder>();
+    public DbSet<Comment> Comments => Set<Comment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -133,6 +134,7 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
+            e.Property(x => x.IsAiGenerated).HasDefaultValue(false);
             // Composite unique: same keyword name can exist under different parents
             e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(k => k.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
@@ -144,6 +146,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
             e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.IsAiGenerated).HasDefaultValue(false);
             // Composite unique: same category name can exist under different parents
             e.HasIndex(x => new { x.NormalizedName, x.ParentId }).IsUnique();
             e.HasOne(x => x.Parent).WithMany(c => c.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
@@ -193,6 +196,20 @@ public class AppDbContext : DbContext
             e.Property(x => x.Mode).IsRequired().HasMaxLength(20);
             e.Property(x => x.DbProvider).IsRequired().HasMaxLength(20);
             e.Property(x => x.ServiceEndpoint).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<Comment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Body).IsRequired().HasMaxLength(5000);
+            e.Property(x => x.Version).HasDefaultValue(1).IsConcurrencyToken();
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
+            e.HasIndex(x => x.AssetId);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ParentComment).WithMany(c => c.Replies).HasForeignKey(x => x.ParentCommentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
 
         modelBuilder.Entity<WatchedFolder>(e =>

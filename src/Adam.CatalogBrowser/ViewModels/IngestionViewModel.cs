@@ -286,11 +286,11 @@ public class IngestionViewModel : INotifyPropertyChanged
                         if (textMetadata?.Keywords.Count > 0)
                         {
                             var deduped = DeduplicateKeywords(textMetadata.Keywords);
-                            await new KeywordService(db).AssociateKeywordsAsync(asset, deduped, ct);
+                            await new KeywordService(db).AssociateKeywordsAsync(asset, deduped, isAiGenerated: false, ct);
                         }
                         if (textMetadata?.Categories.Count > 0)
                         {
-                            await new CategoryService(db).AssociateCategoriesAsync(asset, textMetadata.Categories, ct);
+                            await new CategoryService(db).AssociateCategoriesAsync(asset, textMetadata.Categories, isAiGenerated: false, ct);
                         }
 
                         db.DigitalAssets.Add(asset);

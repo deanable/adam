@@ -72,6 +72,13 @@ public class TagEditorControl : TemplatedControl
     public static readonly StyledProperty<bool> IsMultiAssetProperty =
         AvaloniaProperty.Register<TagEditorControl, bool>(nameof(IsMultiAsset));
 
+    /// <summary>
+    /// Defines the <see cref="AiGeneratedTagNames"/> property.
+    /// Set of tag names that were AI-generated, used to show the AI badge on chips.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable<string>?> AiGeneratedTagNamesProperty =
+        AvaloniaProperty.Register<TagEditorControl, IEnumerable<string>?>(nameof(AiGeneratedTagNames));
+
     private ObservableCollection<string>? _tags;
     private ObservableCollection<TagOccurrence>? _tagOccurrences;
 
@@ -146,6 +153,15 @@ public class TagEditorControl : TemplatedControl
         set => SetValue(IsMultiAssetProperty, value);
     }
 
+    /// <summary>
+    /// Set of tag names that should show the "AI" provenance badge (T16.6).
+    /// </summary>
+    public IEnumerable<string>? AiGeneratedTagNames
+    {
+        get => GetValue(AiGeneratedTagNamesProperty);
+        set => SetValue(AiGeneratedTagNamesProperty, value);
+    }
+
     private bool _pendingSync;
 
     private void OnTagsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -196,8 +212,14 @@ public class TagEditorControl : TemplatedControl
             return;
         }
 
+        var aiNames = AiGeneratedTagNames;
         var occurrences = new ObservableCollection<TagOccurrence>(
-            _tags.Select(t => new TagOccurrence { Name = t, Level = OccurrenceLevel.All }));
+            _tags.Select(t => new TagOccurrence
+            {
+                Name = t,
+                Level = OccurrenceLevel.All,
+                IsAiGenerated = aiNames?.Contains(t, StringComparer.OrdinalIgnoreCase) == true
+            }));
 
         TagOccurrences = occurrences;
     }

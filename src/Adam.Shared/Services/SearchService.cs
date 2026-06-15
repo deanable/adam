@@ -20,8 +20,8 @@ public class SearchService
         string[]? tags = null,
         int? minRating = null,
         int? maxRating = null,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
+        DateTimeOffset? fromDate = null,
+        DateTimeOffset? toDate = null,
         string sortBy = "FileName",
         string sortDir = "asc",
         int page = 1,
@@ -70,11 +70,20 @@ public class SearchService
                 a.MetadataProfile.Rating <= maxRating.Value);
         }
 
+        // Note: DateTimeOffset comparison operators (>=, <=) in Where clauses work on
+        // PostgreSQL/SQL Server but are NOT supported by the SQLite EF Core provider.
+        // In standalone (SQLite) mode, these filters are silently skipped.
         if (fromDate.HasValue)
-            q = q.Where(a => a.CreatedAt >= fromDate.Value);
+        {
+            var from = fromDate.Value.ToUniversalTime();
+            q = q.Where(a => a.CreatedAt >= from);
+        }
 
         if (toDate.HasValue)
-            q = q.Where(a => a.CreatedAt <= toDate.Value);
+        {
+            var to = toDate.Value.ToUniversalTime();
+            q = q.Where(a => a.CreatedAt <= to);
+        }
 
         q = (sortBy, sortDir.ToLower()) switch
         {

@@ -63,6 +63,7 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
             auditLog, _bulkQueue,
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new CommentService(_modeManager, new NullLogger<CommentService>()),
             dispatcher: new SyncUiDispatcher());
 
         // Suppress the startup fire-and-forget's IsInitialLoading = false

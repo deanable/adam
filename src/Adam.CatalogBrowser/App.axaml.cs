@@ -84,6 +84,9 @@ public partial class App : Application
             services.AddSingleton<ToastService>();
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
+            services.AddSingleton<FolderScanService>();
+            services.AddSingleton<AccessLogCleanupService>();
+            services.AddSingleton<CommentService>();
 
             // T11.8: Full-text search service (always SQLite in CatalogBrowser standalone mode)
             services.AddDbContextFactory<AppDbContext>(opts =>
@@ -124,6 +127,7 @@ public partial class App : Application
             services.AddTransient<StatusBarViewModel>();
             services.AddTransient<ActivityFeedViewModel>();
             services.AddTransient<TrashViewModel>();
+            services.AddTransient<CommentPanelViewModel>();
 
             var provider = services.BuildServiceProvider();
             ServiceProvider = provider;

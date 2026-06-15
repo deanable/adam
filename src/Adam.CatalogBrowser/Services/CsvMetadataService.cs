@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
@@ -168,6 +169,113 @@ public class CsvMetadataService
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// Reads a CSV file and returns the parsed rows as a stream (T15.2).
+    /// Uses <c>StreamReader.ReadLineAsync</c> to avoid loading the entire file into memory.
+    /// The first row is parsed as the header. Rows are yielded as they are parsed.
+    /// </summary>
+    public async IAsyncEnumerable<CsvMetadataRow> ReadCsvStreamAsync(
+        string inputPath,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        using var reader = new StreamReader(inputPath, Encoding.UTF8);
+
+        // Read header row
+        var headerLine = await reader.ReadLineAsync(ct);
+        if (string.IsNullOrWhiteSpace(headerLine))
+            yield break;
+
+        var header = ParseCsvLine(headerLine);
+        var colMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < header.Length; i++)
+        {
+            if (CsvHeaderSet.Contains(header[i].Trim().ToLowerInvariant()))
+                colMap[header[i].Trim()] = i;
+        }
+
+        if (!colMap.ContainsKey("FileName"))
+            throw new InvalidDataException("CSV file is missing the required 'FileName' column.");
+
+        // Read data rows in a streaming fashion
+        string? line;
+        while ((line = await reader.ReadLineAsync(ct)) != null)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var fields = ParseCsvLine(line);
+            var row = new CsvMetadataRow();
+
+            if (TryGetField(fields, colMap, "FileName", out var fileName)) row.FileName = fileName;
+            if (TryGetField(fields, colMap, "Title", out var title)) row.Title = title;
+            if (TryGetField(fields, colMap, "Description", out var desc)) row.Description = desc;
+            if (TryGetField(fields, colMap, "Keywords", out var keywords)) row.Keywords = keywords;
+            if (TryGetField(fields, colMap, "Categories", out var categories)) row.Categories = categories;
+            if (TryGetField(fields, colMap, "Rating", out var ratingStr) && int.TryParse(ratingStr, out var rating)) row.Rating = rating;
+            if (TryGetField(fields, colMap, "Label", out var label)) row.Label = label;
+            if (TryGetField(fields, colMap, "Flag", out var flag)) row.Flag = flag;
+            if (TryGetField(fields, colMap, "Copyright", out var copyright)) row.Copyright = copyright;
+            if (TryGetField(fields, colMap, "GpsLatitude", out var latStr) && double.TryParse(latStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var lat)) row.GpsLatitude = lat;
+            if (TryGetField(fields, colMap, "GpsLongitude", out var lonStr) && double.TryParse(lonStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var lon)) row.GpsLongitude = lon;
+            if (TryGetField(fields, colMap, "CameraMake", out var camMake)) row.CameraMake = camMake;
+            if (TryGetField(fields, colMap, "CameraModel", out var camModel)) row.CameraModel = camModel;
+
+            yield return row;
+        }
+    }
+
+    /// <summary>
+    /// Imports metadata from a streaming CSV source into the database (T15.2).
+    /// Processes rows lazily with batch saving every 50 rows.
+    /// Since the total row count is unknown with streaming, progress reports
+    /// the processed count without a total estimate.
+    /// </summary>
+    public async Task<int> ImportFromCsvStreamAsync(
+        IAsyncEnumerable<CsvMetadataRow> rows,
+        AppDbContext db,
+        ConflictMode conflictMode = ConflictMode.Overwrite,
+        IProgress<int>? progress = null,
+        CancellationToken ct = default)
+    {
+        var updated = 0;
+        var processed = 0;
+
+        await foreach (var row in rows.WithCancellation(ct))
+        {
+            if (string.IsNullOrWhiteSpace(row.FileName))
+            {
+                processed++;
+                continue;
+            }
+
+            var asset = await db.DigitalAssets
+                .Include(a => a.Keywords)
+                .Include(a => a.Categories)
+                .Include(a => a.MetadataProfile)
+                .FirstOrDefaultAsync(a => a.FileName == row.FileName, ct);
+
+            if (asset == null)
+            {
+                processed++;
+                continue;
+            }
+
+            ApplyRowToAsset(row, asset, conflictMode);
+            updated++;
+            processed++;
+
+            progress?.Report(processed);
+
+            if (updated % 50 == 0)
+                await db.SaveChangesAsync(ct);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return updated;
     }
 
     /// <summary>

@@ -12,7 +12,7 @@ namespace Adam.Shared.Services;
 /// </summary>
 public sealed class CategoryService(AppDbContext db)
 {
-    public async Task AssociateCategoriesAsync(DigitalAsset asset, IEnumerable<string> categoryNames, CancellationToken ct = default)
+    public async Task AssociateCategoriesAsync(DigitalAsset asset, IEnumerable<string> categoryNames, bool isAiGenerated = false, CancellationToken ct = default)
     {
         if (categoryNames == null) return;
 
@@ -39,7 +39,8 @@ public sealed class CategoryService(AppDbContext db)
                 {
                     Id = Guid.NewGuid(),
                     Name = name,
-                    NormalizedName = normalized
+                    NormalizedName = normalized,
+                    IsAiGenerated = isAiGenerated
                 };
                 db.Categories.Add(category);
             }

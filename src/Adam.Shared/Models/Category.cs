@@ -7,6 +7,7 @@ public class Category
     public string NormalizedName { get; set; } = string.Empty;
     public string? Description { get; set; }
     public Guid? ParentId { get; set; }
+    public bool IsAiGenerated { get; set; }
 
     public Category? Parent { get; set; }
     public ICollection<Category> Children { get; set; } = [];

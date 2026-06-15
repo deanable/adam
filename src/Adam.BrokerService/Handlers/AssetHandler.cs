@@ -216,7 +216,10 @@ public sealed class AssetHandler
         };
 
         foreach (var kw in asset.Keywords)
+        {
             detail.Tags.Add(kw.Name);
+            detail.TagsAreAiGenerated.Add(kw.IsAiGenerated);
+        }
 
         return new Envelope
         {
@@ -293,11 +296,27 @@ public sealed class AssetHandler
         else asset.GpsLongitude = null;
         asset.Copyright = req.Copyright;
         asset.Orientation = (Adam.Shared.Models.ImageOrientation)req.Orientation;
+        // Snapshot AI-generated keyword names before clearing (T16.4 provenance preservation)
+        var aiKeywordNames = asset.Keywords
+            .Where(k => k.IsAiGenerated)
+            .Select(k => k.NormalizedName)
+            .ToHashSet();
+
         asset.Keywords.Clear();
         if (req.Tags.Count > 0)
         {
             var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();
-            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, ct);
+            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, isAiGenerated: false, ct);
+
+            // Re-apply provenance for previously AI-generated keywords
+            if (aiKeywordNames.Count > 0)
+            {
+                foreach (var kw in asset.Keywords)
+                {
+                    if (aiKeywordNames.Contains(kw.NormalizedName))
+                        kw.IsAiGenerated = true;
+                }
+            }
         }
         if (req.CollectionId is { Length: > 0 })
             asset.CollectionId = Guid.Parse(req.CollectionId);
@@ -388,7 +407,7 @@ public sealed class AssetHandler
         if (req.Tags.Count > 0)
         {
             var keywordSvc = scope.ServiceProvider.GetRequiredService<KeywordService>();
-            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, ct);
+            await keywordSvc.AssociateKeywordsAsync(asset, req.Tags, isAiGenerated: false, ct);
         }
 
         db.DigitalAssets.Add(asset);

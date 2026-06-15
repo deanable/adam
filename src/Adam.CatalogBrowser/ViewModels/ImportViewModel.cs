@@ -185,6 +185,23 @@ public class ImportViewModel : INotifyPropertyChanged
         ProgressValue = 0;
         ProgressText = "Importing...";
 
+        // T15.2: Use streaming import for large files (>1,000 rows) to reduce memory pressure
+        if (TotalRows > 1000)
+        {
+            await ImportStreamingAsync();
+        }
+        else
+        {
+            await ImportInMemoryAsync();
+        }
+    }
+
+    /// <summary>
+    /// In-memory import path for small-to-medium CSV files (≤1,000 rows).
+    /// Uses the pre-parsed in-memory rows already loaded for preview.
+    /// </summary>
+    private async Task ImportInMemoryAsync()
+    {
         var progress = new Progress<(int processed, int total)>(p =>
         {
             ProgressValue = p.total > 0 ? (double)p.processed / p.total * 100 : 0;
@@ -206,6 +223,42 @@ public class ImportViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             ProgressText = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            IsImporting = false;
+        }
+    }
+
+    /// <summary>
+    /// Streaming import path for large CSV files (>1,000 rows).
+    /// Reads and processes rows lazily to minimize memory usage (T15.2).
+    /// </summary>
+    private async Task ImportStreamingAsync()
+    {
+        var progress = new Progress<int>(p =>
+        {
+            ProgressValue = 0; // Unknown total, show indeterminate progress
+            ProgressText = $"Streaming import… ({p} rows processed)";
+        });
+
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+
+            var stream = _csvService.ReadCsvStreamAsync(SelectedFilePath!);
+            var updated = await _csvService.ImportFromCsvStreamAsync(stream, db, SelectedConflictMode, progress);
+
+            ProgressText = $"Streaming import complete — {updated} asset(s) updated";
+            ImportCompleted?.Invoke();
+        }
+        catch (OperationCanceledException)
+        {
+            ProgressText = "Streaming import cancelled";
+        }
+        catch (Exception ex)
+        {
+            ProgressText = $"Streaming import failed: {ex.Message}";
         }
         finally
         {

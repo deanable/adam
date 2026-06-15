@@ -47,11 +47,17 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<StatusHandler>();
         services.AddSingleton<SidebarHandler>();
         services.AddSingleton<WatchedFolderHandler>();
+        services.AddSingleton<CommentHandler>();
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();
         services.AddSingleton<MetadataWritebackService>();
+        services.AddSingleton<AccessLogCleanupService>();
         services.AddHostedService<TcpListenerHostedService>();
+        services.AddHostedService<AccessLogCleanupHostedService>();
+        // Not registering FolderScanService here — it requires ModeManager which
+        // is only available in CatalogBrowser. Re-scan is standalone-only for now.
+
         services.AddTransient<MigrationRunner>();
 
         services.AddSingleton<DbMigrationService>();

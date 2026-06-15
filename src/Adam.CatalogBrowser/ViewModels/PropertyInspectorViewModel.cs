@@ -467,6 +467,11 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
         set { _aggregatedCategories = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// Tag names that were AI-generated, used for the AI provenance badge (T16.6).
+    /// </summary>
+    public IReadOnlySet<string> AiGeneratedTagNames { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     public IEnumerable<string>? TagAutoCompleteSource
     {
         get => _tagAutoCompleteSource;
@@ -723,6 +728,10 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                         await _dispatcher.InvokeAsync(() =>
                         {
                             SelectedAssetTags = new ObservableCollection<string>(tagNames);
+                            AiGeneratedTagNames = new HashSet<string>(
+                                asset.Keywords.Where(k => k.IsAiGenerated).Select(k => k.Name),
+                                StringComparer.OrdinalIgnoreCase);
+                            OnPropertyChanged(nameof(AiGeneratedTagNames));
                             _tagsDirty = false;
 
                             SelectedAssetCategories = new ObservableCollection<string>(categoryNames);
@@ -877,13 +886,23 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
                     var level = kvp.Value == total ? OccurrenceLevel.All : kvp.Value == 1 ? OccurrenceLevel.One : OccurrenceLevel.Some;
                     return (kvp.Key, level);
                 }).ToList();
+
+                // Collect AI-generated keyword names for provenance badge (T16.6)
+                var aiKeywordNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var firstAsset = assets.FirstOrDefault();
+                if (firstAsset != null)
+                {
+                    foreach (var kw in firstAsset.Keywords.Where(k => k.IsAiGenerated))
+                        aiKeywordNames.Add(kw.Name);
+                }
+
+                // Build TagOccurrence collection while db context is still in scope
+                var tags = new ObservableCollection<TagOccurrence>();
+                foreach (var (name, level) in aggregated)
+                    tags.Add(new TagOccurrence { Name = name, Level = level, IsAiGenerated = aiKeywordNames.Contains(name) });
+
+                await _dispatcher.InvokeAsync(() => AggregatedTags = tags);
             }
-
-            var tags = new ObservableCollection<TagOccurrence>();
-            foreach (var (name, level) in aggregated)
-                tags.Add(new TagOccurrence { Name = name, Level = level });
-
-            await _dispatcher.InvokeAsync(() => AggregatedTags = tags);
         }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to compute aggregated tags"); }
     }
@@ -899,11 +918,17 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
         try
         {
             List<(string name, OccurrenceLevel level)> aggregated;
+            var aiCategoryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             await using (var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false))
             {
                 var assetIds = _selectedAssets.Select(a => a.Id).ToList();
                 var total = assetIds.Count;
                 var assets = await db.DigitalAssets.Include(a => a.Categories).Where(a => assetIds.Contains(a.Id)).ToListAsync().ConfigureAwait(false);
+
+                // Collect AI-generated category names for provenance badge (T16.6)
+                foreach (var asset in assets)
+                    foreach (var cat in asset.Categories.Where(c => c.IsAiGenerated))
+                        aiCategoryNames.Add(cat.Name);
 
                 var occurrenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 foreach (var asset in assets)
@@ -919,7 +944,7 @@ public class PropertyInspectorViewModel : INotifyPropertyChanged
 
             var cats = new ObservableCollection<TagOccurrence>();
             foreach (var (name, level) in aggregated)
-                cats.Add(new TagOccurrence { Name = name, Level = level });
+                cats.Add(new TagOccurrence { Name = name, Level = level, IsAiGenerated = aiCategoryNames.Contains(name) });
 
             await _dispatcher.InvokeAsync(() => AggregatedCategories = cats);
         }

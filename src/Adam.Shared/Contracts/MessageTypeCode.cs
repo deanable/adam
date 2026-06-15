@@ -93,6 +93,17 @@ public enum MessageTypeCode : ushort
     SubscribeChangesRequest = 111,
     SubscribeChangesResponse = 112,
 
+    // Comments (120-128)
+    ListCommentsRequest = 120,
+    ListCommentsResponse = 121,
+    CreateCommentRequest = 122,
+    CreateCommentResponse = 123,
+    UpdateCommentRequest = 124,
+    UpdateCommentResponse = 125,
+    DeleteCommentRequest = 126,
+    DeleteCommentResponse = 127,
+    CommentNotification = 128,
+
     // Session management (115)
     SessionInvalidated = 115,
 

@@ -515,6 +515,11 @@
               </StackPanel>
             </Expander>
 
+            <!-- Comments -->
+            <Expander Header="{Binding CommentPanel.HeaderText}" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <views:CommentPanelView DataContext="{Binding CommentPanel}" />
+            </Expander>
+
             <!-- Tags (single-asset editing) — Phase 7: gated by CanEditMetadata -->
             <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="6"
@@ -559,7 +564,8 @@
                   <TextBlock Text="Keywords:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
                   <controls:TagEditorControl
                     Tags="{Binding PropertyInspector.SelectedAssetTags}"
-                    AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}" />
+                    AutoCompleteSource="{Binding PropertyInspector.TagAutoCompleteSource}"
+                    AiGeneratedTagNames="{Binding PropertyInspector.AiGeneratedTagNames}" />
                 </StackPanel>
 
                 <!-- Rating (single-asset mode) -->

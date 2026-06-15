@@ -67,6 +67,11 @@ namespace Adam.Shared.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsAiGenerated")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -122,6 +127,56 @@ namespace Adam.Shared.Migrations
                         .IsUnique();
 
                     b.ToTable("Collections");
+                });
+
+            modelBuilder.Entity("Adam.Shared.Models.Comment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EditedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid?>("ParentCommentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ParentCommentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Comments");
                 });
 
             modelBuilder.Entity("Adam.Shared.Models.DigitalAsset", b =>
@@ -259,6 +314,11 @@ namespace Adam.Shared.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAiGenerated")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -697,6 +757,32 @@ namespace Adam.Shared.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("Adam.Shared.Models.Comment", b =>
+                {
+                    b.HasOne("Adam.Shared.Models.DigitalAsset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Adam.Shared.Models.Comment", "ParentComment")
+                        .WithMany()
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Adam.Shared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("ParentComment");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Adam.Shared.Models.DigitalAsset", b =>

@@ -16,6 +16,7 @@ public sealed class ConnectionHandler : IConnectionHandler
     private readonly StatusHandler _statusHandler;
     private readonly SidebarHandler _sidebarHandler;
     private readonly WatchedFolderHandler _watchedFolderHandler;
+    private readonly CommentHandler _commentHandler;
     private readonly ILogger<ConnectionHandler> _logger;
 
     public ConnectionHandler(
@@ -28,6 +29,7 @@ public sealed class ConnectionHandler : IConnectionHandler
         StatusHandler statusHandler,
         SidebarHandler sidebarHandler,
         WatchedFolderHandler watchedFolderHandler,
+        CommentHandler commentHandler,
         ILogger<ConnectionHandler> logger)
     {
         _authHandler = authHandler;
@@ -39,6 +41,7 @@ public sealed class ConnectionHandler : IConnectionHandler
         _statusHandler = statusHandler;
         _sidebarHandler = sidebarHandler;
         _watchedFolderHandler = watchedFolderHandler;
+        _commentHandler = commentHandler;
         _logger = logger;
     }
 
@@ -181,6 +184,18 @@ public sealed class ConnectionHandler : IConnectionHandler
                     break;
                 case MessageTypeCode.DeleteWatchedFolderRequest:
                     response = await _watchedFolderHandler.DeleteAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListCommentsRequest:
+                    response = await _commentHandler.ListCommentsAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateCommentRequest:
+                    response = await _commentHandler.CreateCommentAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateCommentRequest:
+                    response = await _commentHandler.UpdateCommentAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteCommentRequest:
+                    response = await _commentHandler.DeleteCommentAsync(request, ct);
                     break;
                 default:
                     _logger.LogWarning("Unknown message type: {MessageType} from conn={ConnectionId}", request.MessageType, request.ConnectionId);

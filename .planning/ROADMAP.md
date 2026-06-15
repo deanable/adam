@@ -3,7 +3,7 @@
 **Project:** adam — Digital Asset Management System  
 **Updated:** 2026-06-14
 **Granularity:** Standard  
-**Phases:** 18 planned (14 complete, 15-18 on roadmap)
+**Phases:** 18 planned (16 complete, 17-18 on roadmap)
 
 ## Overview
 
@@ -23,6 +23,7 @@
 | 12 | Performance Optimization | Decode-to-size, VirtualizingStackPanel tuning, bitmap disposal, lazy init, startup profiling | PERF-02 to PERF-05 | ✅ Complete |
 | 13 | Production Hardening | Solution file, CI fix, null-handler validation, protobuf docs, logging, watcher batching, EF Core prep | CONCERNS-01 to CONCERNS-07 | ✅ Complete |
 | 14 | Feature Growth | Batch metadata editing, CSV import/export, activity feed, metadata presets, Office XMP sidecar, bulk advanced filters, AI tag refinement, AI model selector, execution provider | META-V2-02, META-V2-03, COLL-V2-01, COLL-V2-03 | ✅ Complete |
+| 15 | Quality & Platform | EF Core 10 stable, CSV streaming, feed pruning, re-scan wiring, test coverage | CONCERNS (EF Core 10), T15.2-T15.5 | ✅ Complete |
 
 ## Phase Details
 
@@ -195,22 +196,10 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 2. **Collaboration** — activity feed / notification panel
 3. **Views & AI** — compare/loupe view completion, AI tag refinement
 
-### v3.0 — Provenance & Trust (Phases 15-16)
+### v3.0 — Provenance & Trust (Phases 15-16) 🏁
 
-**Status:** 📋 Planned
-**Goal:** Upgrade to EF Core 10 stable, add AiGenerated provenance flag, improve polish items, expand test coverage.
-
-**Phases:**
-- **Phase 15 — Quality & Platform** 🔜 Next
-  - EF Core 10 RTM upgrade
-  - CSV streaming for large imports
-  - Activity feed pruning
-  - Gallery "Re-scan folder" wiring
-  - Test coverage expansion (+40-60 tests)
-- **Phase 16 — Provenance & Trust**
-  - AiGenerated provenance flag (model, service, wire protocol, UI badge)
-  - Review dialog provenance wiring
-  - Wire-breaking change for major version
+**Status:** 🏁 Archived to `.planning/milestones/v3.0-release.md`
+**Goal:** EF Core 10 stable, CSV streaming, feed pruning, re-scan wiring, test coverage expansion, AiGenerated provenance flag, wire protocol, UI badge
 
 ### v3.1 — Collaboration (Phase 17)
 
@@ -223,5 +212,5 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 **Goal:** Fulfill INTG-V2-01 with plugin system for third-party metadata extractors.
 
 ---
-*Roadmap updated: 2026-06-14 — v3.0 milestone planned. See `.planning/plans/v3.0-milestone.md`*
+*Roadmap updated: 2026-06-15 — v3.0 milestone archived. Next: v3.1 — Collaboration (Phase 17)*
 

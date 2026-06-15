@@ -49,6 +49,7 @@
                 <controls:TagEditorControl Grid.Row="2" Grid.Column="1"
                   Tags="{Binding Tags}"
                   AutoCompleteSource="{Binding AutoCompleteSource}"
+                  AiGeneratedTagNames="{Binding AiGeneratedTagNames}"
                   PlaceholderText="Add tag..."
                   Margin="0,2,0,0" />
 

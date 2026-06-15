@@ -227,6 +227,7 @@ public sealed class AssetDetail : IProtoSerializable
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public List<string> Tags { get; } = [];
+    public List<bool> TagsAreAiGenerated { get; } = [];
     public string Type { get; set; } = string.Empty;
     public int Width { get; set; }
     public int Height { get; set; }
@@ -265,6 +266,7 @@ public sealed class AssetDetail : IProtoSerializable
         if (GpsLongitude != 0) size += ProtoHelper.FieldSize(24, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) size += ProtoHelper.FieldSize(25, Copyright);
         if (Orientation != 0) size += ProtoHelper.FieldSize(26, Orientation);
+        size += ProtoHelper.RepeatedFieldSize(27, TagsAreAiGenerated);
         return size;
     }
 
@@ -287,6 +289,7 @@ public sealed class AssetDetail : IProtoSerializable
         if (GpsLongitude != 0) ProtoHelper.WriteField(output, 24, GpsLongitude);
         if (!string.IsNullOrEmpty(Copyright)) ProtoHelper.WriteField(output, 25, Copyright);
         if (Orientation != 0) ProtoHelper.WriteField(output, 26, Orientation);
+        ProtoHelper.WriteRepeatedField(output, 27, TagsAreAiGenerated);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -322,6 +325,7 @@ public sealed class AssetDetail : IProtoSerializable
                 case 24: GpsLongitude = input.ReadDouble(); break;
                 case 25: Copyright = input.ReadString(); break;
                 case 26: Orientation = input.ReadInt32(); break;
+                case 27: TagsAreAiGenerated.Add(input.ReadBool()); break;
                 default: input.SkipLastField(); break;
             }
         }

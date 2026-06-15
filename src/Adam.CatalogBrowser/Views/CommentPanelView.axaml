@@ -1,0 +1,197 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.CommentPanelView"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,*,Auto" Background="Transparent">
+
+    <!-- Header -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="8,6,8,4">
+      <TextBlock Text="{Binding HeaderText}" Classes="Subheading"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 FontWeight="SemiBold" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="↻" Command="{Binding RefreshCommand}"
+              FontSize="12" Padding="4,1" Background="Transparent"
+              BorderThickness="0" Cursor="Hand"
+              ToolTip.Tip="Refresh comments" />
+    </Grid>
+
+    <!-- Comment list -->
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Spacing="8" Margin="8,0,8,8">
+
+        <!-- Loading indicator -->
+        <TextBlock Text="Loading comments..." Classes="Caption"
+                   Foreground="{DynamicResource TextPlaceholderBrush}"
+                   HorizontalAlignment="Center"
+                   IsVisible="{Binding IsLoading}" />
+
+        <!-- Empty state -->
+        <StackPanel IsVisible="{Binding HasComments, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                    Margin="0,16,0,0"
+                    Spacing="4">
+          <TextBlock Text="No comments yet."
+                     Classes="Body" Foreground="{DynamicResource TextPlaceholderBrush}"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="Be the first to share your thoughts!"
+                     Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}"
+                     HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Comment threads -->
+        <ItemsControl ItemsSource="{Binding Threads}" Background="Transparent">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Spacing="2">
+                <!-- Top-level comment -->
+                <Border CornerRadius="4" Padding="8,6"
+                        Background="{DynamicResource SurfaceLightBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1">
+                  <StackPanel Spacing="4">
+                    <!-- Author + timestamp + actions -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                      <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                               VerticalAlignment="Center" Margin="0,0,4,0" />
+                      <TextBlock Grid.Column="0" Text="{Binding Comment.Username}"
+                                 Classes="Caption" FontWeight="Bold"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Comment.CreatedAtText}"
+                                 Classes="Caption"
+                                 Foreground="{DynamicResource TextTertiaryBrush}"
+                                 VerticalAlignment="Center" Margin="6,0,0,0" />
+                      <Button Grid.Column="2" Content="✏️" FontSize="10" Padding="2,0"
+                              Background="Transparent" BorderThickness="0"
+                              Cursor="Hand" IsVisible="{Binding Comment.CanEdit}"
+                              ToolTip.Tip="Edit"
+                              Command="{Binding $parent[ItemsControl].DataContext.EditCommand}"
+                              CommandParameter="{Binding Comment.Id}" />
+                      <Button Grid.Column="3" Content="🗑️" FontSize="10" Padding="2,0"
+                              Background="Transparent" BorderThickness="0"
+                              Cursor="Hand" IsVisible="{Binding Comment.CanDelete}"
+                              ToolTip.Tip="Delete"
+                              Command="{Binding $parent[ItemsControl].DataContext.DeleteCommand}"
+                              CommandParameter="{Binding Comment.Id}" />
+                      <Button Grid.Column="4" Content="↩" FontSize="10" Padding="2,0"
+                              Background="Transparent" BorderThickness="0"
+                              Cursor="Hand"
+                              ToolTip.Tip="Reply"
+                              Command="{Binding $parent[ItemsControl].DataContext.ReplyCommand}"
+                              CommandParameter="{Binding Comment.Id}" />
+                    </Grid>
+
+                    <!-- Body -->
+                    <TextBlock Text="{Binding Comment.Body}"
+                               Classes="Body"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" />
+
+                    <!-- Edited indicator -->
+                    <TextBlock Text="{Binding Comment.EditedAtText}"
+                               Classes="Caption"
+                               Foreground="{DynamicResource TextTertiaryBrush}"
+                               IsVisible="{Binding Comment.EditedAtText, Converter={x:Static views:StringNotEmptyConverter.Instance}}" />
+
+                    <!-- Reply count -->
+                    <TextBlock Text="{Binding ReplyCountText}" Classes="Caption"
+                               Foreground="{DynamicResource PrimaryBrush}"
+                               Cursor="Hand"
+                               IsVisible="{Binding HasReplies}" />
+                  </StackPanel>
+                </Border>
+
+                <!-- Replies -->
+                <ItemsControl ItemsSource="{Binding Replies}" Margin="16,0,0,0"
+                              Background="Transparent">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border CornerRadius="4" Padding="8,6" Margin="0,2,0,0"
+                              Background="{DynamicResource SurfaceSubtleBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}"
+                              BorderThickness="1">
+                        <StackPanel Spacing="4">
+                          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource PrimaryBrush}"
+                                     VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Grid.Column="0" Text="{Binding Username}"
+                                       Classes="Caption" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding CreatedAtText}"
+                                       Classes="Caption"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       VerticalAlignment="Center" Margin="6,0,0,0" />
+                            <Button Grid.Column="2" Content="✏️" FontSize="10" Padding="2,0"
+                                    Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" IsVisible="{Binding CanEdit}"
+                                    ToolTip.Tip="Edit"
+                                    Command="{Binding $parent[ItemsControl].DataContext.EditCommand}"
+                                    CommandParameter="{Binding Id}" />
+                            <Button Grid.Column="3" Content="🗑️" FontSize="10" Padding="2,0"
+                                    Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" IsVisible="{Binding CanDelete}"
+                                    ToolTip.Tip="Delete"
+                                    Command="{Binding $parent[ItemsControl].DataContext.DeleteCommand}"
+                                    CommandParameter="{Binding Id}" />
+                          </Grid>
+                          <TextBlock Text="{Binding Body}" Classes="Body"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- New comment / Reply input -->
+    <Border Grid.Row="2" Padding="8,4"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,1,0,0"
+            Background="{DynamicResource SurfaceLightBrush}">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              IsVisible="{Binding IsReplying}">
+          <TextBlock Grid.Column="0" Text="Replying..."
+                     Classes="Caption"
+                     Foreground="{DynamicResource PrimaryBrush}"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="2" Content="Cancel"
+                  Classes="Caption"
+                  Background="Transparent" BorderThickness="0"
+                  Foreground="{DynamicResource TextTertiaryBrush}"
+                  Cursor="Hand"
+                  Command="{Binding CancelReplyCommand}" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+          <TextBox Grid.Column="0" Text="{Binding NewCommentText}"
+                   PlaceholderText="Write a comment..."
+                   AcceptsReturn="False"
+                   FontSize="11"
+                   BorderThickness="1"
+                   BorderBrush="{DynamicResource InputBorderBrush}"
+                   CornerRadius="4"
+                   Padding="6,3"
+                   MinHeight="28" />
+          <Button Grid.Column="1" Content="Send"
+                  Command="{Binding AddCommentCommand}"
+                  FontSize="11" Padding="10,3"
+                  Background="{DynamicResource PrimaryBrush}"
+                  Foreground="White"
+                  BorderThickness="0"
+                  CornerRadius="4"
+                  Cursor="Hand" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

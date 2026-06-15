@@ -162,16 +162,16 @@ public sealed class AiTaggingService : INotifyPropertyChanged
 
         var result = await _analyzer.AnalyzeAsync(asset.StoragePath, ct);
 
-        // Merge keywords (D-05)
+        // Merge keywords with provenance (D-05)
         if (result.Keywords.Count > 0)
         {
-            await new KeywordService(db).AssociateKeywordsAsync(asset, result.Keywords, ct);
+            await new KeywordService(db).AssociateKeywordsAsync(asset, result.Keywords, isAiGenerated: true, ct);
         }
 
-        // Merge categories (D-05)
+        // Merge categories with provenance (D-05)
         if (result.Categories.Count > 0)
         {
-            await new CategoryService(db).AssociateCategoriesAsync(asset, result.Categories, ct);
+            await new CategoryService(db).AssociateCategoriesAsync(asset, result.Categories, isAiGenerated: true, ct);
         }
 
         // Fill description only when empty (D-06)

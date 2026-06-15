@@ -91,7 +91,8 @@ public sealed class SidebarHandler
             Id = k.Id,
             Name = k.Name,
             ParentId = k.ParentId,
-            AssetCount = k.Assets.Count
+            AssetCount = k.Assets.Count,
+            IsAiGenerated = k.IsAiGenerated
         });
 
         // Propagate counts upward
@@ -165,7 +166,8 @@ public sealed class SidebarHandler
             Id = c.Id,
             Name = c.Name,
             ParentId = c.ParentId,
-            AssetCount = c.Assets.Count
+            AssetCount = c.Assets.Count,
+            IsAiGenerated = c.IsAiGenerated
         });
 
         // Propagate counts upward

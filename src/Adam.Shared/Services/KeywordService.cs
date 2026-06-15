@@ -12,7 +12,7 @@ namespace Adam.Shared.Services;
 /// </summary>
 public sealed class KeywordService(AppDbContext db)
 {
-    public async Task AssociateKeywordsAsync(DigitalAsset asset, IEnumerable<string> keywordNames, CancellationToken ct = default)
+    public async Task AssociateKeywordsAsync(DigitalAsset asset, IEnumerable<string> keywordNames, bool isAiGenerated = false, CancellationToken ct = default)
     {
         if (keywordNames == null) return;
 
@@ -26,7 +26,7 @@ public sealed class KeywordService(AppDbContext db)
 
         foreach (var name in names)
         {
-            var leafKeyword = await EnsureKeywordHierarchyAsync(name, ct);
+            var leafKeyword = await EnsureKeywordHierarchyAsync(name, isAiGenerated, ct);
             if (!asset.Keywords.Contains(leafKeyword))
             {
                 asset.Keywords.Add(leafKeyword);
@@ -35,7 +35,7 @@ public sealed class KeywordService(AppDbContext db)
         }
     }
 
-    public async Task<Keyword> EnsureKeywordHierarchyAsync(string hierarchicalName, CancellationToken ct = default)
+    public async Task<Keyword> EnsureKeywordHierarchyAsync(string hierarchicalName, bool isAiGenerated = false, CancellationToken ct = default)
     {
         var parts = hierarchicalName.Split(new[] { '|', '>' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(p => p.Trim())
@@ -67,7 +67,8 @@ public sealed class KeywordService(AppDbContext db)
                     Id = Guid.NewGuid(),
                     Name = part,
                     NormalizedName = normalized,
-                    ParentId = parent?.Id
+                    ParentId = parent?.Id,
+                    IsAiGenerated = isAiGenerated
                 };
                 db.Keywords.Add(current);
             }

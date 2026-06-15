@@ -45,6 +45,7 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
     private string _fileName = string.Empty;
     private bool _canEdit = true;
     private string _editDisabledReason = string.Empty;
+    private HashSet<string> _aiGeneratedTags = new(StringComparer.OrdinalIgnoreCase);
 
     public MetadataEditorViewModel(ModeManager modeManager, IUiDispatcher? dispatcher = null, AiTaggingService? aiTaggingService = null)
     {
@@ -143,6 +144,11 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         set { _autoCompleteSource = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// Tag names that were AI-generated, used for the AI provenance badge (T16.6).
+    /// </summary>
+    public IReadOnlySet<string> AiGeneratedTagNames => _aiGeneratedTags;
+
     public int Rating { get => _rating; set { _rating = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(SaveCommand)); } }
 
     public string CameraMake { get => _cameraMake; set { _cameraMake = value; OnPropertyChanged(); } }
@@ -236,6 +242,9 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                 Title = _asset.Title;
                 Description = _asset.Description;
                 Tags = new ObservableCollection<string>(_asset.Keywords.Select(k => k.Name));
+                _aiGeneratedTags = new HashSet<string>(
+                    _asset.Keywords.Where(k => k.IsAiGenerated).Select(k => k.Name),
+                    StringComparer.OrdinalIgnoreCase);
                 Rating = _profile?.Rating ?? 0;
 
                 CameraMake = _profile?.CameraMake ?? "";
@@ -300,7 +309,17 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
         var tagNames = Tags.ToArray();
         if (tagNames.Length > 0)
         {
-            await new KeywordService(db).AssociateKeywordsAsync(asset, tagNames, ct);
+            await new KeywordService(db).AssociateKeywordsAsync(asset, tagNames, isAiGenerated: false, ct);
+
+            // Re-apply provenance for AI-generated keywords (T16.5)
+            if (_aiGeneratedTags.Count > 0)
+            {
+                foreach (var keyword in asset.Keywords)
+                {
+                    if (_aiGeneratedTags.Contains(keyword.Name))
+                        keyword.IsAiGenerated = true;
+                }
+            }
         }
 
         if (_profile != null)
@@ -345,11 +364,14 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                     return;
                 }
 
-                // Apply only accepted keywords to the editable Tags collection
+                // Track AI-generated tag names for provenance preservation (T16.5)
                 foreach (var kw in accepted.Keywords)
                 {
                     if (!Tags.Contains(kw.Name, StringComparer.OrdinalIgnoreCase))
+                    {
                         Tags.Add(kw.Name);
+                        _aiGeneratedTags.Add(kw.Name);
+                    }
                 }
 
                 // Fill description only when empty (D-06)
@@ -381,7 +403,10 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
                 foreach (var kw in raw.Keywords)
                 {
                     if (!Tags.Contains(kw, StringComparer.OrdinalIgnoreCase))
+                    {
                         Tags.Add(kw);
+                        _aiGeneratedTags.Add(kw);
+                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(Description) && !string.IsNullOrWhiteSpace(raw.Description))

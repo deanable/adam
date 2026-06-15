@@ -84,6 +84,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new CommentService(_modeManager, new NullLogger<CommentService>()),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
@@ -1009,6 +1010,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             connection,
             statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new CommentService(_modeManager, new NullLogger<CommentService>()),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 

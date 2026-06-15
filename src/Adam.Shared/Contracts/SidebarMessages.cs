@@ -130,12 +130,14 @@ public sealed class KeywordInfo : IProtoSerializable
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
     public int AssetCount { get; set; }
+    public bool IsAiGenerated { get; set; }
 
     public int CalculateSize() =>
         ProtoHelper.FieldSize(1, Id.ToString()) +
         ProtoHelper.FieldSize(2, Name) +
         (ParentId.HasValue ? ProtoHelper.FieldSize(3, ParentId.Value.ToString()) : 0) +
-        ProtoHelper.FieldSize(4, AssetCount);
+        ProtoHelper.FieldSize(4, AssetCount) +
+        ProtoHelper.FieldSize(5, IsAiGenerated);
 
     public void WriteTo(CodedOutputStream output)
     {
@@ -143,6 +145,7 @@ public sealed class KeywordInfo : IProtoSerializable
         ProtoHelper.WriteField(output, 2, Name);
         if (ParentId.HasValue) ProtoHelper.WriteField(output, 3, ParentId.Value.ToString());
         ProtoHelper.WriteField(output, 4, AssetCount);
+        ProtoHelper.WriteField(output, 5, IsAiGenerated);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -156,6 +159,7 @@ public sealed class KeywordInfo : IProtoSerializable
                 case 2: Name = input.ReadString(); break;
                 case 3: ParentId = Guid.Parse(input.ReadString()); break;
                 case 4: AssetCount = input.ReadInt32(); break;
+                case 5: IsAiGenerated = input.ReadBool(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -267,12 +271,14 @@ public sealed class CategoryInfo : IProtoSerializable
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
     public int AssetCount { get; set; }
+    public bool IsAiGenerated { get; set; }
 
     public int CalculateSize() =>
         ProtoHelper.FieldSize(1, Id.ToString()) +
         ProtoHelper.FieldSize(2, Name) +
         (ParentId.HasValue ? ProtoHelper.FieldSize(3, ParentId.Value.ToString()) : 0) +
-        ProtoHelper.FieldSize(4, AssetCount);
+        ProtoHelper.FieldSize(4, AssetCount) +
+        ProtoHelper.FieldSize(5, IsAiGenerated);
 
     public void WriteTo(CodedOutputStream output)
     {
@@ -280,6 +286,7 @@ public sealed class CategoryInfo : IProtoSerializable
         ProtoHelper.WriteField(output, 2, Name);
         if (ParentId.HasValue) ProtoHelper.WriteField(output, 3, ParentId.Value.ToString());
         ProtoHelper.WriteField(output, 4, AssetCount);
+        ProtoHelper.WriteField(output, 5, IsAiGenerated);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -293,6 +300,7 @@ public sealed class CategoryInfo : IProtoSerializable
                 case 2: Name = input.ReadString(); break;
                 case 3: ParentId = Guid.Parse(input.ReadString()); break;
                 case 4: AssetCount = input.ReadInt32(); break;
+                case 5: IsAiGenerated = input.ReadBool(); break;
                 default: input.SkipLastField(); break;
             }
         }

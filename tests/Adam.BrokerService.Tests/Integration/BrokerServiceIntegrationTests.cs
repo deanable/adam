@@ -52,6 +52,7 @@ public sealed class BrokerServiceIntegrationTests : IAsyncLifetime
         services.AddSingleton<IConnectionHandler, ConnectionHandler>();
         services.AddSingleton<AuthHandler>();
         services.AddSingleton<MetadataWritebackService>();
+        services.AddSingleton<CommentHandler>();
         services.AddSingleton<AssetHandler>();
         services.AddSingleton<CollectionHandler>();
         services.AddSingleton<ChangeHandler>();

@@ -49,6 +49,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         DeleteService deleteService,
         ToastService toastService,
         ActivityFeedViewModel activityFeed,
+        CommentService commentService,
         AiTaggingService? aiTaggingService = null,
         LiquidVisionOptions? liquidVisionOptions = null,
         bool startUp = true,
@@ -66,6 +67,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AssetGallery = assetGallery;
         Ingestion = ingestion;
         ActivityFeed = activityFeed;
+        CommentPanel = new CommentPanelViewModel(commentService, modeManager, toastService, dispatcher: _dispatcher);
         AiModelSelector = new AiModelSelectorViewModel(aiTaggingService, liquidVisionOptions ?? new LiquidVisionOptions(), _dispatcher);
         MetadataEditor = metadataEditor;
         AuditLog = auditLog;
@@ -270,6 +272,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         assetGallery.SelectionChanged += asset =>
         {
             PropertyInspector.SelectedAsset = asset;
+            if (asset != null)
+                _ = CommentPanel.LoadCommentsAsync(asset.Id);
         };
 
         assetGallery.MultiSelectionChanged += assets =>
@@ -384,6 +388,21 @@ public class MainWindowViewModel : INotifyPropertyChanged
                     else
                     {
                         await _modeManager.InitializeAsync();
+
+                        // T15.3: Prune old access log entries on standalone startup
+                        try
+                        {
+                            var accessLogCleanup = App.ServiceProvider?.GetService<AccessLogCleanupService>();
+                            if (accessLogCleanup != null)
+                            {
+                                var deleted = await accessLogCleanup.PruneAsync(ct: CancellationToken.None);
+                                _logger.LogInformation("AccessLog cleanup on startup: {Count} entries", deleted);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "AccessLog cleanup failed on startup");
+                        }
                     }
 
                     var swData = Stopwatch.StartNew();
@@ -437,6 +456,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public AuditLogViewModel AuditLog { get; }
     public ActivityFeedViewModel ActivityFeed { get; }
     public PropertyInspectorViewModel PropertyInspector { get; }
+    public CommentPanelViewModel CommentPanel { get; }
     public ConnectionViewModel Connection { get; }
     public StatusBarViewModel StatusBar { get; }
     public AiModelSelectorViewModel AiModelSelector { get; }

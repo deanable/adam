@@ -169,11 +169,11 @@ public sealed class BulkOperationQueue : IAsyncDisposable
 
                         if (operation.IsKeyword && !string.IsNullOrEmpty(operation.Name))
                         {
-                            await new KeywordService(db).AssociateKeywordsAsync(asset, [operation.Name], ct).ConfigureAwait(false);
+                            await new KeywordService(db).AssociateKeywordsAsync(asset, [operation.Name], isAiGenerated: false, ct).ConfigureAwait(false);
                         }
                         else if (!operation.IsKeyword && !string.IsNullOrEmpty(operation.Name))
                         {
-                            await new CategoryService(db).AssociateCategoriesAsync(asset, [operation.Name], ct).ConfigureAwait(false);
+                            await new CategoryService(db).AssociateCategoriesAsync(asset, [operation.Name], isAiGenerated: false, ct).ConfigureAwait(false);
                         }
                     }
 

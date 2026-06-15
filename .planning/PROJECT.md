@@ -46,13 +46,13 @@ Users can browse, search, and manage digital assets with full metadata round-tri
 
 ## Context
 
-- **Technology**: C# 13 / .NET 10 preview, Avalonia UI 12, EF Core 10 preview, Google.Protobuf 3.30, MetadataExtractor 2.8, ImageSharp 3.1
+- **Technology**: C# 13 / .NET 10, Avalonia UI 12, EF Core 10 stable, Google.Protobuf 3.30, MetadataExtractor 2.8, ImageSharp 3.1
 - **Architecture**: Dual-mode (standalone SQLite vs multi-user TCP broker); shared `Adam.Shared` library contains all domain models, EF Core DbContext, and protobuf contracts
 - **Transport**: Raw TCP sockets with length-prefixed protobuf framing (not HTTP/gRPC)
 - **Metadata**: Full round-trip — extract on ingest, write back to source files on edit (XMP embedding for JPEG/TIFF/PNG/WebP, sidecar for RAW)
 - **Supported formats**: JPEG, PNG, WebP, TIFF, camera RAW (CR2, NEF, ARW, DNG), video (MP4, MOV), documents (PDF, DOCX, TXT), audio (MP3, WAV)
-- **Codebase state**: Brownfield — 3 projects exist with domain models, EF Core configuration, TCP transport layer, broker handlers, and Avalonia UI shell. See `.planning/codebase/` for full analysis.
-- **Known issues**: Client hardcodes broker port 5000 but server listens on 9100; static mutable JWT signing key; EF Core 10 preview dependencies; limited test coverage
+- **Codebase state**: Brownfield — 4 projects exist with domain models, EF Core configuration, TCP transport layer, broker handlers, and Avalonia UI shell. See `.planning/codebase/` for full analysis.
+- **Known issues**: Client hardcodes broker port 5000 but server listens on 9100 (see CONCERNS.md); JWT signing key is instance-level (no longer static mutable per Phase 13 fix)
 
 ## Constraints
 
@@ -93,5 +93,24 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
+### Current State (v3.0)
+
+**16 of 18 phases complete.** All **1,097 tests passing** (0 failed). v3.0 milestone archived.
+
+| Version | Status | Details |
+|---------|--------|---------|
+| v1.0 (Phases 1-4) | 🏁 Archived | Core standalone catalog |
+| v1.1 (Phases 5-6) | 🏁 Archived | Server management + DB matrix |
+| v1.2 (Phases 7-8) | 🏁 Archived | Client RBAC + polish & ship |
+| v2.0 (Phases 9-12) | 🏁 Archived | AI tagging, sidebar CRUD, FTS5, perf |
+| v2.x (Phases 13-14) | 🏁 Archived | Hardening, feature growth |
+| **v3.0 (Phases 15-16)** | **🏁 Archived** | **Quality, provenance, trust** |
+| **v3.1 (Phase 17)** | **🔜 Next** | Collaboration — comment threads |
+| v3.2 (Phase 18) | 📋 Planned | Plugin system for metadata extractors |
+
+### Next Milestone Goals
+
+- **v3.1 — Collaboration** (Phase 17): Threaded comment threads on assets (COLL-V2-02)
+
 ---
-*Last updated: 2026-05-23 after initialization*
+*Last updated: 2026-06-15 after v3.0 milestone archive*
