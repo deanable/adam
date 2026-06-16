@@ -59,9 +59,12 @@ public sealed class ModeManager
         _logger.LogDebug("ModeManager basePath: {BasePath}", _basePath);
 
         await using var db = CreateDbContext();
-        await db.Database.MigrateAsync();
+        // Use EnsureCreatedAsync during development to auto-generate schema from model
+        // without maintaining EF Core migration files for every schema change.
+        // The BrokerService uses DbMigrationService for production schema management.
+        await db.Database.EnsureCreatedAsync();
 
-        // T11.5: Initialize FTS5 tables and triggers after migration
+        // T11.5: Initialize FTS5 tables and triggers after schema creation
         if (FtsService != null)
         {
             try
@@ -94,7 +97,7 @@ public sealed class ModeManager
         };
 
         await using var db = CreateDbContext();
-        await db.Database.MigrateAsync();
+        await db.Database.EnsureCreatedAsync();
     }
 
     public AppDbContext CreateDbContext()

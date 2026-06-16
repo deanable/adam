@@ -54,6 +54,16 @@ public partial class SearchableTreeView : UserControl
     /// </summary>
     internal TreeView TreeViewBoxAccessor => TreeViewBox;
 
+    /// <summary>
+    /// Exposed for headless test access to programmatically-created controls.
+    /// </summary>
+    internal TextBox SearchTextBoxAccessor => SearchTextBox;
+
+    /// <summary>
+    /// Exposed for headless test access to the flat list box.
+    /// </summary>
+    internal ListBox FlatListBoxAccessor => FlatListBox;
+
     private bool _isUpdatingSelection;
 
     // ──────────────────────────────────────────────
@@ -206,28 +216,88 @@ public partial class SearchableTreeView : UserControl
     // ──────────────────────────────────────────────
 
     public SearchableTreeView()
+        : this(loadXaml: true)
     {
-        InitializeComponent();
+    }
 
-        SearchTextBox.TextChanged += OnSearchTextChanged;
-        TreeViewBox.SelectionChanged += OnTreeViewSelectionChanged;
-        FlatListBox.SelectionChanged += OnFlatListSelectionChanged;
-
+    /// <summary>
+    /// Internal constructor that optionally skips XAML loading.
+    /// When <paramref name="loadXaml"/> is false, call
+    /// <see cref="InitializeVisualTree"/> to set up the visual tree elements.
+    /// </summary>
+    internal SearchableTreeView(bool loadXaml)
+    {
+        // Drag-drop handlers are on the control itself — subscribe once regardless of XAML loading
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
 
-        // T8.18: Context menu on tree items
-        TreeViewBox.ContextRequested += OnTreeViewContextRequested;
-        FlatListBox.ContextRequested += OnFlatListContextRequested;
+        if (loadXaml)
+        {
+            InitializeComponent();
+        }
 
-        // T10.2: Double-click for inline rename
-        TreeViewBox.PointerPressed += OnTreeViewPointerPressed;
-        // T10.2: Enter/Escape for inline rename commit/cancel
-        TreeViewBox.KeyDown += OnTreeViewKeyDown;
+        SubscribeVisualEventHandlers();
 
-        ItemsSourceProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.RebuildFilteredList());
+        ItemsSourceProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) =>
+        {
+            s.RebuildFilteredList();
+            // Also propagate ItemsSource to TreeView in case XAML bindings aren't active
+            if (s.TreeViewBox != null)
+                s.TreeViewBox.ItemsSource = s.ItemsSource;
+        });
+
         SelectedItemProperty.Changed.AddClassHandler<SearchableTreeView>((s, _) => s.SyncSelection());
+    }
+
+    /// <summary>
+    /// Initializes the visual tree programmatically (for headless test scenarios
+    /// where XAML precompilation is unavailable). Creates SearchTextBox,
+    /// TreeViewBox, and FlatListBox elements, parents them in a layout panel,
+    /// and subscribes all event handlers.
+    /// </summary>
+    internal void InitializeVisualTree()
+    {
+        SearchTextBox = new TextBox { Name = "SearchTextBox" };
+        TreeViewBox = new TreeView { Name = "TreeViewBox", SelectionMode = SelectionMode.Single };
+        FlatListBox = new ListBox { Name = "FlatListBox", IsVisible = false };
+
+        // Parent all controls under the UserControl so routed events bubble up
+        // and layout works correctly.
+        var panel = new Grid();
+        panel.Children.Add(SearchTextBox);
+        panel.Children.Add(TreeViewBox);
+        panel.Children.Add(FlatListBox);
+        Content = panel;
+
+        // Push ItemsSource to TreeView immediately (catches cases where ItemsSource
+        // was set before InitializeVisualTree was called)
+        if (ItemsSource != null)
+            TreeViewBox.ItemsSource = ItemsSource;
+
+        SubscribeVisualEventHandlers();
+    }
+
+    /// <summary>
+    /// Subscribes the event handlers for the visual tree elements.
+    /// Null-guarded so it can be called before or after the elements are created.
+    /// </summary>
+    private void SubscribeVisualEventHandlers()
+    {
+        if (SearchTextBox != null)
+            SearchTextBox.TextChanged += OnSearchTextChanged;
+        if (TreeViewBox != null)
+        {
+            TreeViewBox.SelectionChanged += OnTreeViewSelectionChanged;
+            TreeViewBox.ContextRequested += OnTreeViewContextRequested;
+            TreeViewBox.PointerPressed += OnTreeViewPointerPressed;
+            TreeViewBox.KeyDown += OnTreeViewKeyDown;
+        }
+        if (FlatListBox != null)
+        {
+            FlatListBox.SelectionChanged += OnFlatListSelectionChanged;
+            FlatListBox.ContextRequested += OnFlatListContextRequested;
+        }
     }
 
     // ──────────────────────────────────────────────

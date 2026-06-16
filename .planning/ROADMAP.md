@@ -1,9 +1,9 @@
 # Roadmap: adam
 
 **Project:** adam — Digital Asset Management System  
-**Updated:** 2026-06-14
+**Updated:** 2026-06-17
 **Granularity:** Standard  
-**Phases:** 18 planned (16 complete, 17-18 on roadmap)
+**Phases:** 20 (18 complete, 19-20 planned for v4.0)
 
 ## Overview
 
@@ -24,6 +24,11 @@
 | 13 | Production Hardening | Solution file, CI fix, null-handler validation, protobuf docs, logging, watcher batching, EF Core prep | CONCERNS-01 to CONCERNS-07 | ✅ Complete |
 | 14 | Feature Growth | Batch metadata editing, CSV import/export, activity feed, metadata presets, Office XMP sidecar, bulk advanced filters, AI tag refinement, AI model selector, execution provider | META-V2-02, META-V2-03, COLL-V2-01, COLL-V2-03 | ✅ Complete |
 | 15 | Quality & Platform | EF Core 10 stable, CSV streaming, feed pruning, re-scan wiring, test coverage | CONCERNS (EF Core 10), T15.2-T15.5 | ✅ Complete |
+| 16 | Provenance & Trust | AiGenerated provenance flag, wire protocol, UI badge | PROV-01 to PROV-03 | ✅ Complete |
+| 17 | Collaboration | Comment threads on assets | COLL-V2-02 | ✅ Complete |
+| 18 | Integration | Plugin system for third-party metadata extractors | INTG-V2-01 | ✅ Complete |
+| **19** | **Advanced Search & Discovery** | **Saved searches, smart collections, search history, semantic search, visual similarity** | **CATA-05, CATA-06** | **🔜 Planned** |
+| **20** | **UX Modernization** | **Theme engine, loupe view, compare view, drag-reorder collections** | **CATA-05, CATA-06** | **🔜 Planned** |
 
 ## Phase Details
 
@@ -96,8 +101,8 @@ Production-ready server administration and database flexibility.
 ### v1.2 — Client Polish (Phases 7-8) ✅
 Permission-aware UI and v1.0 polish & ship — all complete.
 
-### v2.0 — Advanced Features & Performance (Phases 10-12) ✅
-Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+ asset collections.
+### v2.0 — Advanced Features & Performance (Phases 9-12) ✅
+AI tagging (Phase 9), sidebar tree CRUD (Phase 10), FTS5 full-text search (Phase 11), and performance optimization (Phase 12) for 100K+ asset collections.
 
 **Status:** 🏁 Archived to `.planning/milestones/v2.0-release.md`
 
@@ -211,6 +216,61 @@ Sidebar tree CRUD, FTS5 full-text search, and performance optimization for 100K+
 **Status:** 🏁 Archived to `.planning/milestones/v3.2-release.md`
 **Goal:** Fulfill INTG-V2-01 with plugin system for third-party metadata extractors.
 
+### Phase 19: Advanced Search & Discovery 🔜
+**Goal:** Extend search with persistent saved searches, smart collections, search history, semantic search via ONNX embeddings, and visual similarity.
+
+**Depends on:** Phase 18 (Integration)
+
+**Deliverables:**
+1. **SavedSearch entity + CRUD** — Named, persistable filter+query combinations; pinning; standalone + broker
+2. **Smart Collections** — Dynamic collections populated from saved search criteria; ✦ indicator; auto-refresh
+3. **Search History** — Persistent per-user history (last 200 entries); auto-purge; autocomplete integration
+4. **Semantic Search (Text)** — `all-MiniLM-L6-v2` ONNX text embedding model (384-dim); cosine similarity in-process
+5. **Visual Similarity** — "Find Similar" via LFM2-VL vision encoder (4096-dim); similarity score badges
+
+**Success Criteria:**
+- ✅ Saved searches persist across sessions and sync in multi-user mode
+- ✅ Smart collections auto-populate from their saved query
+- ✅ Natural language search produces relevant results
+- ✅ "Find Similar" returns visually similar images ranked by similarity
+- ✅ All existing tests still pass; 20+ new tests pass
+
 ---
-*Roadmap updated: 2026-06-17 — All 18 phases complete. All milestones (v1.0–v3.2) archived.*
+
+### Phase 20: UX Modernization 🔜
+**Goal:** Modernize the user experience with a theme engine, full-resolution viewing, asset comparison, and drag-reorder collections.
+
+**Depends on:** Phase 19
+
+**Deliverables:**
+1. **Theme Engine** — Dark mode, 5 accent color presets (Blue/Green/Purple/Orange/Teal), `ThemeService`, settings dialog, persisted to `settings.json`
+2. **Full-Resolution Loupe View** — Dedicated full-window mode; `ZoomBorder` control (mouse wheel zoom, click-drag pan); asynchronous image loading; filmstrip navigation; info overlay
+3. **Compare View** — Side-by-side with synchronized pan/zoom; overlay/swipe mode; metadata diff table
+4. **Drag-Reorder Collections** — `SortOrder` field; broker handler; gallery drag-drop with insertion line feedback
+5. **Design Templates** — `.design_templates/` with design token reference, component style guide, layout patterns, accent palettes
+
+**Success Criteria:**
+- ✅ Dark theme renders correctly across all views
+- ✅ Accent color persists and applies immediately
+- ✅ Loupe opens from double-click/Enter; full-res loads asynchronously; wheel zoom + drag pan work
+- ✅ Compare shows two assets with synchronized zoom and metadata diff
+- ✅ Drag-reorder updates SortOrder in DB with visual feedback
+- ✅ All existing tests still pass; 20+ new tests pass
+
+---
+
+## Milestones
+
+### v4.0 — Advanced Discovery & Experience (Phases 19-20) 🔜
+**Goal:** Extend search with AI-powered semantic search and modernize the UI with theming, loupe, and compare views.
+
+| Phase | Theme | Effort | Status |
+|-------|-------|--------|--------|
+| 19 | Advanced Search & Discovery | Medium-Large | 🔜 Planned |
+| 20 | UX Modernization | Medium | 🔜 Planned |
+
+**Status:** 🔜 Planning — both phase plans complete.
+
+---
+*Roadmap updated: 2026-06-17 — v3.2 complete. v4.0 in planning with Phases 19-20.*
 

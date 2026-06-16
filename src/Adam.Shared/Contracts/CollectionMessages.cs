@@ -41,6 +41,9 @@ public sealed class CollectionNode : IProtoSerializable
     public string Description { get; set; } = string.Empty;
     public string ParentId { get; set; } = string.Empty;
     public int AssetCount { get; set; }
+    public bool IsSmart { get; set; }
+    public string SmartQueryJson { get; set; } = string.Empty;
+    public long LastAutoRefreshedAt { get; set; }
     public List<CollectionNode> Children { get; } = [];
 
     public int CalculateSize()
@@ -49,6 +52,9 @@ public sealed class CollectionNode : IProtoSerializable
         size += ProtoHelper.FieldSize(1, Id); size += ProtoHelper.FieldSize(2, Name);
         size += ProtoHelper.FieldSize(3, Description); size += ProtoHelper.FieldSize(4, ParentId);
         size += ProtoHelper.FieldSize(5, AssetCount); size += ProtoHelper.RepeatedFieldSize(6, Children);
+        if (IsSmart) size += ProtoHelper.FieldSize(7, IsSmart);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) size += ProtoHelper.FieldSize(8, SmartQueryJson);
+        if (LastAutoRefreshedAt != 0) size += ProtoHelper.FieldSize(9, LastAutoRefreshedAt);
         return size;
     }
 
@@ -57,6 +63,9 @@ public sealed class CollectionNode : IProtoSerializable
         ProtoHelper.WriteField(output, 1, Id); ProtoHelper.WriteField(output, 2, Name);
         ProtoHelper.WriteField(output, 3, Description); ProtoHelper.WriteField(output, 4, ParentId);
         ProtoHelper.WriteField(output, 5, AssetCount); ProtoHelper.WriteRepeatedField(output, 6, Children);
+        if (IsSmart) ProtoHelper.WriteField(output, 7, IsSmart);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) ProtoHelper.WriteField(output, 8, SmartQueryJson);
+        if (LastAutoRefreshedAt != 0) ProtoHelper.WriteField(output, 9, LastAutoRefreshedAt);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -81,6 +90,9 @@ public sealed class CollectionNode : IProtoSerializable
                         Children.Add(child);
                         break;
                     }
+                case 7: IsSmart = input.ReadBool(); break;
+                case 8: SmartQueryJson = input.ReadString(); break;
+                case 9: LastAutoRefreshedAt = input.ReadInt64(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -92,12 +104,16 @@ public sealed class CreateCollectionRequest : IProtoSerializable
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string ParentId { get; set; } = string.Empty;
+    public bool IsSmart { get; set; }
+    public string SmartQueryJson { get; set; } = string.Empty;
 
     public int CalculateSize()
     {
         int size = 0;
         size += ProtoHelper.FieldSize(1, Name); size += ProtoHelper.FieldSize(2, Description);
         size += ProtoHelper.FieldSize(3, ParentId);
+        if (IsSmart) size += ProtoHelper.FieldSize(4, IsSmart);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) size += ProtoHelper.FieldSize(5, SmartQueryJson);
         return size;
     }
 
@@ -105,6 +121,8 @@ public sealed class CreateCollectionRequest : IProtoSerializable
     {
         ProtoHelper.WriteField(output, 1, Name); ProtoHelper.WriteField(output, 2, Description);
         ProtoHelper.WriteField(output, 3, ParentId);
+        if (IsSmart) ProtoHelper.WriteField(output, 4, IsSmart);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) ProtoHelper.WriteField(output, 5, SmartQueryJson);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -117,6 +135,8 @@ public sealed class CreateCollectionRequest : IProtoSerializable
                 case 1: Name = input.ReadString(); break;
                 case 2: Description = input.ReadString(); break;
                 case 3: ParentId = input.ReadString(); break;
+                case 4: IsSmart = input.ReadBool(); break;
+                case 5: SmartQueryJson = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -128,12 +148,14 @@ public sealed class UpdateCollectionRequest : IProtoSerializable
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string SmartQueryJson { get; set; } = string.Empty;
 
     public int CalculateSize()
     {
         int size = 0;
         size += ProtoHelper.FieldSize(1, Id); size += ProtoHelper.FieldSize(2, Name);
         size += ProtoHelper.FieldSize(3, Description);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) size += ProtoHelper.FieldSize(4, SmartQueryJson);
         return size;
     }
 
@@ -141,6 +163,7 @@ public sealed class UpdateCollectionRequest : IProtoSerializable
     {
         ProtoHelper.WriteField(output, 1, Id); ProtoHelper.WriteField(output, 2, Name);
         ProtoHelper.WriteField(output, 3, Description);
+        if (!string.IsNullOrEmpty(SmartQueryJson)) ProtoHelper.WriteField(output, 4, SmartQueryJson);
     }
 
     public void MergeFrom(CodedInputStream input)
@@ -153,6 +176,7 @@ public sealed class UpdateCollectionRequest : IProtoSerializable
                 case 1: Id = input.ReadString(); break;
                 case 2: Name = input.ReadString(); break;
                 case 3: Description = input.ReadString(); break;
+                case 4: SmartQueryJson = input.ReadString(); break;
                 default: input.SkipLastField(); break;
             }
         }
@@ -217,3 +241,66 @@ public sealed class DeleteCollectionResponse : IProtoSerializable
     public void WriteTo(CodedOutputStream output) { }
     public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
 }
+
+// ─── RefreshSmartCollection ─────────────────────────────────────
+
+public sealed class RefreshSmartCollectionRequest : IProtoSerializable
+{
+    public string Id { get; set; } = string.Empty;
+
+    public int CalculateSize() => ProtoHelper.FieldSize(1, Id);
+    public void WriteTo(CodedOutputStream output) => ProtoHelper.WriteField(output, 1, Id);
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            if (WireFormat.GetTagFieldNumber(tag) == 1)
+                Id = input.ReadString();
+            else
+                input.SkipLastField();
+        }
+    }
+}
+
+public sealed class RefreshSmartCollectionResponse : IProtoSerializable
+{
+    public List<string> AssetIds { get; } = [];
+    public long LastAutoRefreshedAt { get; set; }
+    public int TotalCount { get; set; }
+
+    public int CalculateSize()
+    {
+        int size = 0;
+        size += ProtoHelper.RepeatedFieldSize(1, AssetIds);
+        if (LastAutoRefreshedAt != 0) size += ProtoHelper.FieldSize(2, LastAutoRefreshedAt);
+        if (TotalCount != 0) size += ProtoHelper.FieldSize(3, TotalCount);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteRepeatedField(output, 1, AssetIds);
+        if (LastAutoRefreshedAt != 0) ProtoHelper.WriteField(output, 2, LastAutoRefreshedAt);
+        if (TotalCount != 0) ProtoHelper.WriteField(output, 3, TotalCount);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1:
+                    AssetIds.Add(input.ReadString());
+                    break;
+                case 2: LastAutoRefreshedAt = input.ReadInt64(); break;
+                case 3: TotalCount = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+

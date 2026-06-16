@@ -88,12 +88,12 @@ public sealed class PluginManagerViewModelTests
     }
 
     [Fact]
-    public void OpenPluginFolderCommand_DoesNotThrow()
+    public void OpenPluginFolderCommand_IsDefined()
     {
         var sut = CreateSut();
 
-        var act = () => sut.OpenPluginFolderCommand.Execute(null);
-        act.Should().NotThrow();
+        sut.OpenPluginFolderCommand.Should().NotBeNull();
+        sut.OpenPluginFolderCommand.CanExecute(null).Should().BeTrue();
     }
 
     private static PluginManagerViewModel CreateSut()

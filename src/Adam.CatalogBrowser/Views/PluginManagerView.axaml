@@ -53,7 +53,7 @@
                   <Border Background="{Binding IsBuiltIn, Converter={x:Static views:InverseBoolConverter.Instance}}"
                           CornerRadius="4"
                           Padding="4,1">
-                    <TextBlock Text="{Binding IsBuiltIn, StringFormat='{0:l}'}"
+                    <TextBlock Text="{Binding IsBuiltIn}"
                                FontSize="11"
                                Foreground="White" />
                   </Border>

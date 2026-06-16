@@ -20,16 +20,32 @@
                   VerticalAlignment="Center"
                   ToolTip.Tip="View mode" />
 
-        <!-- T11.9/T11.11: Full-text search bar with autocomplete suggestions -->
+        <!-- T11.9/T11.11: Search bar with FTS/semantic mode toggle (Phase 19) -->
         <Grid Grid.Column="1" Margin="6,0">
-          <Grid ColumnDefinitions="*,Auto">
-            <AutoCompleteBox Grid.Column="0"
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <!-- Search mode toggle: 🔍 (FTS) ↔ ✦ (semantic) -->
+            <Button Grid.Column="0"
+                    Content="{Binding SearchModeIcon}"
+                    Command="{Binding ToggleSearchModeCommand}"
+                    FontSize="14"
+                    Padding="4,0"
+                    Margin="0,0,2,0"
+                    MinWidth="24"
+                    Height="26"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    ToolTip.Tip="{Binding SearchModeTooltip}"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center" />
+
+            <AutoCompleteBox Grid.Column="1"
                              x:Name="SearchAutoComplete"
                              Text="{Binding SearchText, Mode=TwoWay}"
                              ItemsSource="{Binding SearchSuggestions}"
                              MinimumPrefixLength="2"
                              FilterMode="Contains"
-                             PlaceholderText="Search assets..."
+                             PlaceholderText="{Binding SearchPlaceholderText}"
                              FontSize="12"
                              Height="26"
                              VerticalAlignment="Center"
@@ -56,6 +72,24 @@
                     BorderThickness="0"
                     Cursor="Hand"
                     ToolTip.Tip="Clear search"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center" />
+
+            <!-- Phase 19: Save current search as a saved search -->
+            <Button Grid.Column="2"
+                    Content="💾 Save"
+                    Command="{Binding DataContext.SaveCurrentSearchCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                    IsVisible="{Binding IsSearchActive}"
+                    FontSize="10"
+                    Padding="6,1"
+                    Margin="4,0,0,0"
+                    Background="{DynamicResource SurfaceLightBrush}"
+                    Foreground="{DynamicResource PrimaryBrush}"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource PrimaryBrush}"
+                    CornerRadius="4"
+                    Cursor="Hand"
+                    ToolTip.Tip="Save this search"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center" />
           </Grid>

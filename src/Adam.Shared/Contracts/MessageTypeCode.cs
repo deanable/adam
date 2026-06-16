@@ -41,6 +41,8 @@ public enum MessageTypeCode : ushort
     UpdateCollectionRequest = 33,
     DeleteCollectionRequest = 34,
     DeleteCollectionResponse = 35,
+    RefreshSmartCollectionRequest = 38,
+    RefreshSmartCollectionResponse = 39,
 
     // Users / Roles / Audit (40-59)
     ListUsersRequest = 40,
@@ -87,6 +89,38 @@ public enum MessageTypeCode : ushort
     UpdateWatchedFolderRequest = 74,
     DeleteWatchedFolderRequest = 75,
     DeleteWatchedFolderResponse = 76,
+
+    // Saved Searches (140-149)
+    CreateSavedSearchRequest = 140,
+    CreateSavedSearchResponse = 141,
+    ListSavedSearchesRequest = 142,
+    ListSavedSearchesResponse = 143,
+    UpdateSavedSearchRequest = 144,
+    UpdateSavedSearchResponse = 145,
+    DeleteSavedSearchRequest = 146,
+    DeleteSavedSearchResponse = 147,
+    PinSavedSearchRequest = 148,
+    PinSavedSearchResponse = 149,
+
+    // Search History (150-155)
+    RecordSearchHistoryRequest = 150,
+    RecordSearchHistoryResponse = 151,
+    ListSearchHistoryRequest = 152,
+    ListSearchHistoryResponse = 153,
+    ClearSearchHistoryRequest = 154,
+    ClearSearchHistoryResponse = 155,
+
+    // Semantic Search / Find Similar (156-167)
+    SemanticSearchRequest = 156,
+    SemanticSearchResponse = 157,
+    FindSimilarRequest = 158,
+    FindSimilarResponse = 159,
+    RecomputeEmbeddingsRequest = 160,
+    RecomputeEmbeddingsResponse = 161,
+
+    // ComputeAssetEmbedding (162-163)
+    ComputeAssetEmbeddingRequest = 162,
+    ComputeAssetEmbeddingResponse = 163,
 
     // Change Notifications (110-112)
     ChangeNotification = 110,

@@ -59,6 +59,14 @@ public sealed class AdamConfig
     /// </summary>
     public int AiGpuDeviceId { get; set; } = 0;
 
+    // ── Design Theme ──
+
+    /// <summary>
+    /// Filename (without extension) of the selected design theme from the <c>.design/</c> folder.
+    /// Empty string means use the default hardcoded theme (ColorResources.axaml).
+    /// </summary>
+    public string DesignThemeFile { get; set; } = string.Empty;
+
     // ── Recent hosts ──
 
     /// <summary>

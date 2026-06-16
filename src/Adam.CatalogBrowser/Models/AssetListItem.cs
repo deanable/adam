@@ -229,6 +229,22 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
     public bool IsSearchHighlighted => !string.IsNullOrEmpty(HighlightText);
 
     /// <summary>
+    /// Semantic search similarity score (0.0 to 1.0). Shown on result tiles
+    /// when the gallery is displaying semantic search results.
+    /// </summary>
+    public float SearchScore { get; set; }
+
+    /// <summary>
+    /// Formatted similarity score for display (e.g. "92% match").
+    /// </summary>
+    public string SearchScoreText => SearchScore > 0 ? $"{SearchScore * 100:F0}% match" : string.Empty;
+
+    /// <summary>
+    /// True when this tile has a semantic search score to display.
+    /// </summary>
+    public bool HasSearchScore => SearchScore > 0;
+
+    /// <summary>
     /// Toolbar action buttons for the tile (e.g., quick rate, label, flag).
     /// </summary>
     public ObservableCollection<ToolbarAction> ToolbarActions { get; set; } = [];

@@ -17,6 +17,9 @@ public sealed class ConnectionHandler : IConnectionHandler
     private readonly SidebarHandler _sidebarHandler;
     private readonly WatchedFolderHandler _watchedFolderHandler;
     private readonly CommentHandler _commentHandler;
+    private readonly SavedSearchHandler _savedSearchHandler;
+    private readonly SearchHistoryHandler _searchHistoryHandler;
+    private readonly SemanticSearchHandler _semanticSearchHandler;
     private readonly ILogger<ConnectionHandler> _logger;
 
     public ConnectionHandler(
@@ -30,6 +33,9 @@ public sealed class ConnectionHandler : IConnectionHandler
         SidebarHandler sidebarHandler,
         WatchedFolderHandler watchedFolderHandler,
         CommentHandler commentHandler,
+        SavedSearchHandler savedSearchHandler,
+        SearchHistoryHandler searchHistoryHandler,
+        SemanticSearchHandler semanticSearchHandler,
         ILogger<ConnectionHandler> logger)
     {
         _authHandler = authHandler;
@@ -42,6 +48,9 @@ public sealed class ConnectionHandler : IConnectionHandler
         _sidebarHandler = sidebarHandler;
         _watchedFolderHandler = watchedFolderHandler;
         _commentHandler = commentHandler;
+        _savedSearchHandler = savedSearchHandler;
+        _searchHistoryHandler = searchHistoryHandler;
+        _semanticSearchHandler = semanticSearchHandler;
         _logger = logger;
     }
 
@@ -109,6 +118,9 @@ public sealed class ConnectionHandler : IConnectionHandler
                     break;
                 case MessageTypeCode.DeleteCollectionRequest:
                     response = await _collectionHandler.DeleteCollectionAsync(request, ct);
+                    break;
+                case MessageTypeCode.RefreshSmartCollectionRequest:
+                    response = await _collectionHandler.RefreshSmartCollectionAsync(request, ct);
                     break;
                 case MessageTypeCode.GetChangesRequest:
                     response = await _changeHandler.GetChangesAsync(request, ct);
@@ -196,6 +208,39 @@ public sealed class ConnectionHandler : IConnectionHandler
                     break;
                 case MessageTypeCode.DeleteCommentRequest:
                     response = await _commentHandler.DeleteCommentAsync(request, ct);
+                    break;
+                case MessageTypeCode.CreateSavedSearchRequest:
+                    response = await _savedSearchHandler.CreateSavedSearchAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListSavedSearchesRequest:
+                    response = await _savedSearchHandler.ListSavedSearchesAsync(request, ct);
+                    break;
+                case MessageTypeCode.UpdateSavedSearchRequest:
+                    response = await _savedSearchHandler.UpdateSavedSearchAsync(request, ct);
+                    break;
+                case MessageTypeCode.DeleteSavedSearchRequest:
+                    response = await _savedSearchHandler.DeleteSavedSearchAsync(request, ct);
+                    break;
+                case MessageTypeCode.PinSavedSearchRequest:
+                    response = await _savedSearchHandler.PinSavedSearchAsync(request, ct);
+                    break;
+                case MessageTypeCode.RecordSearchHistoryRequest:
+                    response = await _searchHistoryHandler.RecordSearchHistoryAsync(request, ct);
+                    break;
+                case MessageTypeCode.ListSearchHistoryRequest:
+                    response = await _searchHistoryHandler.ListSearchHistoryAsync(request, ct);
+                    break;
+                case MessageTypeCode.ClearSearchHistoryRequest:
+                    response = await _searchHistoryHandler.ClearSearchHistoryAsync(request, ct);
+                    break;
+                case MessageTypeCode.SemanticSearchRequest:
+                    response = await _semanticSearchHandler.SearchByTextAsync(request, ct);
+                    break;
+                case MessageTypeCode.FindSimilarRequest:
+                    response = await _semanticSearchHandler.FindSimilarAsync(request, ct);
+                    break;
+                case MessageTypeCode.RecomputeEmbeddingsRequest:
+                    response = await _semanticSearchHandler.RecomputeEmbeddingsAsync(request, ct);
                     break;
                 default:
                     _logger.LogWarning("Unknown message type: {MessageType} from conn={ConnectionId}", request.MessageType, request.ConnectionId);

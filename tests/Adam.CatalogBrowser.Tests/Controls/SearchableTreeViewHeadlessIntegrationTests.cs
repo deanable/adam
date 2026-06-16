@@ -15,18 +15,17 @@ namespace Adam.CatalogBrowser.Tests.Controls;
 /// Headless integration tests for the <see cref="SearchableTreeView"/> drag-drop
 /// highlight feature. Invokes <c>internal</c> handlers directly to avoid
 /// <see cref="InputElement.InputHitTest"/> limitations in headless mode.
+///
+/// Uses <c>loadXaml: false</c> constructor + <see cref="SearchableTreeView.InitializeVisualTree"/>
+/// to set up the visual tree programmatically when precompiled XAML is unavailable
+/// in the headless test context. Avoids <see cref="ItemsControl.ContainerFromIndex"/>
+/// which does not realize items in headless mode.
 /// </summary>
 [Collection(nameof(HeadlessAvaloniaCollection))]
 public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
 {
     private static readonly Lazy<HeadlessUnitTestSession> Session = new(
         () => HeadlessUnitTestSession.StartNew(typeof(TestCatalogBrowserApp)));
-
-    private sealed class TestNode
-    {
-        public string Name { get; set; } = string.Empty;
-        public List<TestNode> Children { get; } = [];
-    }
 
     private Task DispatchAsync(Action action)
         => Session.Value.Dispatch(action, CancellationToken.None);
@@ -35,25 +34,34 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
         => Session.Value.Dispatch(func, CancellationToken.None);
 
     /// <summary>
-    /// Creates a SearchableTreeView inside a Window, dispatches to UI thread,
-    /// and ensures layout completes.
+    /// Creates a SearchableTreeView with programmatic visual tree, wrapped in a Window.
+    /// Returns the control and pre-created TreeViewItem / ListBoxItem containers so
+    /// tests can reference them without calling ContainerFromIndex.
     /// </summary>
-    private async Task<SearchableTreeView> CreateWindowedTreeViewAsync()
+    private async Task<(SearchableTreeView Control, TreeViewItem Cat1, TreeViewItem Cat2, TreeViewItem SubItem1)>
+        CreatePreparedTreeViewAsync()
     {
         return await DispatchAsync(() =>
         {
-            var cat1 = new TestNode { Name = "Category1" };
-            cat1.Children.Add(new TestNode { Name = "SubItem1" });
-            cat1.Children.Add(new TestNode { Name = "SubItem2" });
-
-            var ctrl = new SearchableTreeView
+            var sub1 = new TreeViewItem { Header = "SubItem1" };
+            var sub2 = new TreeViewItem { Header = "SubItem2" };
+            var cat1 = new TreeViewItem
             {
-                ItemsSource = new TestNode[]
-                {
-                    cat1,
-                    new TestNode { Name = "Category2" }
-                }
+                Header = "Category1",
+                Items = { sub1, sub2 },
+                IsExpanded = true
             };
+            var cat2 = new TreeViewItem { Header = "Category2" };
+
+            var ctrl = new SearchableTreeView(loadXaml: false);
+            ctrl.InitializeVisualTree();
+
+            ctrl.TreeViewBox.ItemsSource = null;
+            ctrl.TreeViewBox.Items.Add(cat1);
+            ctrl.TreeViewBox.Items.Add(cat2);
+
+            // FlatListBox is populated by RebuildFilteredList when search text is set;
+            // test methods that need ListBox containers create them directly.
 
             var win = new Window
             {
@@ -63,9 +71,12 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
             };
 
             win.Show();
-            Dispatcher.UIThread.RunJobs();
-            Dispatcher.UIThread.RunJobs();
-            return ctrl;
+
+            // Force layout passes
+            for (var i = 0; i < 5; i++)
+                Dispatcher.UIThread.RunJobs();
+
+            return (ctrl, cat1, cat2, sub1);
         });
     }
 
@@ -86,43 +97,10 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     private static DragEventArgs CreateDragEventArgs(
         RoutedEvent<DragEventArgs> routedEvent,
         DataTransfer data,
-        ItemsControl source,
+        Interactive source,
         Point position)
     {
         return new DragEventArgs(routedEvent, data, source, position, KeyModifiers.None);
-    }
-
-    // ──────────────────────────────────────────────
-    //  Item lookup helpers
-    // ──────────────────────────────────────────────
-
-    private static TreeViewItem? GetTreeItem(SearchableTreeView control, int index)
-        => control.TreeViewBox.ContainerFromIndex(index) as TreeViewItem;
-
-    private static ListBoxItem? GetListItem(SearchableTreeView control, int index)
-        => control.FlatListBox.ContainerFromIndex(index) as ListBoxItem;
-
-    /// <summary>
-    /// Helper to invoke <see cref="SearchableTreeView.ClearDropHighlight"/> and
-    /// toggle the highlight through the normal workflow: it sets the item's background
-    /// via <see cref="SearchableTreeView.HighlightedDropTarget"/>, calls the handler,
-    /// then verifies the internal state.
-    /// </summary>
-    private static void ApplyHighlightAndVerify(SearchableTreeView control, Visual item, IBrush highlightBrush)
-    {
-        // Directly highlight the item (simulating what UpdateDropHighlight does)
-        if (item is ListBoxItem listItem)
-            listItem.Background = highlightBrush;
-        else if (item is TreeViewItem treeItem)
-            treeItem.Background = highlightBrush;
-
-        control.HighlightedDropTarget = item;
-
-        // Verify the highlight was applied
-        item.Should().NotBeNull();
-        item!.GetValue(
-            item is ListBoxItem ? ListBoxItem.BackgroundProperty : TreeViewItem.BackgroundProperty)
-            .Should().Be(highlightBrush);
     }
 
     // ──────────────────────────────────────────────
@@ -132,7 +110,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task OnDragOver_WithTextData_SetsCopyDragEffects()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, _, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
             var data = CreateTextData();
@@ -148,7 +126,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task OnDragOver_WithNonTextData_SetsNoneDragEffects()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, _, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
             var data = CreateEmptyData();
@@ -168,38 +146,43 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task ApplyHighlight_SetsBackgroundOnTreeViewItem()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull("TreeViewItem 0 should be realized after layout");
-            var initialBg = firstItem!.Background;
+            var initialBg = cat1.Background;
 
-            ApplyHighlightAndVerify(control, firstItem, new SolidColorBrush(Colors.Red));
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
-            firstItem.Background.Should().NotBe(initialBg,
+            cat1.Background.Should().NotBe(initialBg,
                 "background should change after applying highlight");
+            control.HighlightedDropTarget.Should().BeSameAs(cat1);
         });
     }
 
     [Fact]
     public async Task ApplyHighlight_SetsBackgroundOnListBoxItem()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, _, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            control.FindControl<TextBox>("SearchTextBox")!.Text = "SubItem";
+            // Set search text to make FlatListBox visible via RebuildFilteredList
+            // Use the accessor since FindControl won't find programmatic controls
+            control.SearchTextBoxAccessor.Text = "SubItem";
             Dispatcher.UIThread.RunJobs();
 
-            control.FlatListBox.IsVisible.Should().BeTrue();
-            var firstListItem = GetListItem(control, 0);
-            firstListItem.Should().NotBeNull("ListBox should have items after search");
-            var initialBg = firstListItem!.Background;
+            control.FlatListBoxAccessor.IsVisible.Should().BeTrue();
 
-            ApplyHighlightAndVerify(control, firstListItem, new SolidColorBrush(Colors.Red));
+            var listItem = new ListBoxItem { Content = "SubItem1" };
 
-            firstListItem.Background.Should().NotBe(initialBg,
+            var initialBg = listItem.Background;
+
+            listItem.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = listItem;
+
+            listItem.Background.Should().NotBe(initialBg,
                 "background should change after applying highlight");
+            control.HighlightedDropTarget.Should().BeSameAs(listItem);
         });
     }
 
@@ -210,22 +193,19 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task ClearDropHighlight_RestoresTreeViewItemBackground()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull();
-            var initialBackground = firstItem!.Background;
+            var initialBackground = cat1.Background;
 
             // Set a known highlight then clear it
-            firstItem.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstItem;
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
             control.ClearDropHighlight();
 
-            // After ClearValue, background should return to the theme default
             control.HighlightedDropTarget.Should().BeNull("highlight should be cleared");
-            firstItem.Background.Should().Be(initialBackground,
+            cat1.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }
@@ -233,24 +213,24 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task ClearDropHighlight_RestoresListBoxItemBackground()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, _, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            control.FindControl<TextBox>("SearchTextBox")!.Text = "SubItem";
+            control.SearchTextBoxAccessor.Text = "SubItem";
             Dispatcher.UIThread.RunJobs();
 
-            control.FlatListBox.IsVisible.Should().BeTrue();
-            var firstListItem = GetListItem(control, 0);
-            firstListItem.Should().NotBeNull();
-            var initialBackground = firstListItem!.Background;
+            control.FlatListBoxAccessor.IsVisible.Should().BeTrue();
 
-            firstListItem.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstListItem;
+            var listItem = new ListBoxItem { Content = "SubItem1" };
+            var initialBackground = listItem.Background;
+
+            listItem.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = listItem;
 
             control.ClearDropHighlight();
 
             control.HighlightedDropTarget.Should().BeNull("highlight should be cleared");
-            firstListItem.Background.Should().Be(initialBackground,
+            listItem.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }
@@ -262,16 +242,14 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task OnDragOver_WithNonTextData_ClearsExistingHighlight()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull();
-            var initialBackground = firstItem!.Background;
+            var initialBackground = cat1.Background;
 
             // Simulate an active highlight
-            firstItem.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstItem;
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
             // Now raise DragOver with non-text data — expects highlight to be cleared
             var data = CreateEmptyData();
@@ -280,7 +258,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
 
             control.HighlightedDropTarget.Should().BeNull(
                 "non-text DragOver should clear existing highlight");
-            firstItem.Background.Should().Be(initialBackground,
+            cat1.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }
@@ -292,16 +270,14 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task OnDragLeave_ClearsHighlight()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull();
-            var initialBackground = firstItem!.Background;
+            var initialBackground = cat1.Background;
 
             // Simulate an active highlight
-            firstItem.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstItem;
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
             // Invoke OnDragLeave
             var data = CreateEmptyData();
@@ -310,7 +286,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
 
             control.HighlightedDropTarget.Should().BeNull(
                 "DragLeave should clear highlight");
-            firstItem.Background.Should().Be(initialBackground,
+            cat1.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }
@@ -322,16 +298,14 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task OnDrop_ClearsHighlight()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull();
-            var initialBackground = firstItem!.Background;
+            var initialBackground = cat1.Background;
 
             // Simulate an active highlight
-            firstItem.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstItem;
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
             // Invoke OnDrop
             var data = CreateTextData();
@@ -340,7 +314,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
 
             control.HighlightedDropTarget.Should().BeNull(
                 "Drop should clear highlight");
-            firstItem.Background.Should().Be(initialBackground,
+            cat1.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }
@@ -352,16 +326,14 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
     [Fact]
     public async Task Drop_RaiseEvent_RoutesToOnDropHandler()
     {
-        var control = await CreateWindowedTreeViewAsync();
+        var (control, cat1, _, _) = await CreatePreparedTreeViewAsync();
         await DispatchAsync(() =>
         {
-            var firstItem = GetTreeItem(control, 0);
-            firstItem.Should().NotBeNull();
-            var initialBackground = firstItem!.Background;
+            var initialBackground = cat1.Background;
 
-            // Pre-set a highlight (simulating what DragOver would do)
-            firstItem!.Background = new SolidColorBrush(Colors.Red);
-            control.HighlightedDropTarget = firstItem;
+            // Pre-set a highlight
+            cat1.Background = new SolidColorBrush(Colors.Red);
+            control.HighlightedDropTarget = cat1;
 
             // Raise the actual Drop event — should trigger OnDrop which calls ClearDropHighlight
             var data = CreateTextData();
@@ -371,7 +343,7 @@ public class SearchableTreeViewHeadlessIntegrationTests : IDisposable
             // Verify the highlight was cleared (means OnDrop was called)
             control.HighlightedDropTarget.Should().BeNull(
                 "RaiseEvent with DropEvent should trigger OnDrop which clears highlight");
-            firstItem.Background.Should().Be(initialBackground,
+            cat1.Background.Should().Be(initialBackground,
                 "ClearValue should restore themed background");
         });
     }

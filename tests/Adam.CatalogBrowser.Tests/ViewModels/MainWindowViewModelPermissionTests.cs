@@ -63,6 +63,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            designThemeService: new DesignThemeService(App.Config),
             startUp: false,
             dispatcher: new SyncUiDispatcher());
     }

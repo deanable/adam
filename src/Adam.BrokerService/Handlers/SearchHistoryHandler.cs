@@ -1,0 +1,196 @@
+using Adam.BrokerService.Transport;
+using Adam.Shared.Contracts;
+using Adam.Shared.Data;
+using Adam.Shared.Models;
+using Google.Protobuf;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Adam.BrokerService.Handlers;
+
+public sealed class SearchHistoryHandler
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<SearchHistoryHandler> _logger;
+    private readonly AuthorizationMiddleware _authz;
+    private readonly AuthHandler _authHandler;
+
+    public SearchHistoryHandler(
+        IServiceProvider serviceProvider,
+        ILogger<SearchHistoryHandler> logger,
+        AuthorizationMiddleware authz,
+        AuthHandler authHandler)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+        _authz = authz;
+        _authHandler = authHandler;
+    }
+
+    public async Task<Envelope> RecordSearchHistoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
+
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+
+        RecordSearchHistoryRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<RecordSearchHistoryRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
+
+        if (string.IsNullOrWhiteSpace(req.QueryText))
+            return ErrorResponse(request, ErrorCode.InvalidArgument, "Query text cannot be empty");
+
+        var userId = _authHandler.GetUserId(request);
+        Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var entry = new SearchHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            QueryText = req.QueryText.Trim(),
+            FiltersJson = req.FiltersJson,
+            IsSemantic = req.IsSemantic,
+            ExecutedAt = DateTimeOffset.UtcNow,
+            UserId = userGuid
+        };
+
+        db.SearchHistoryEntries.Add(entry);
+
+        // Auto-purge: keep only the last 200 entries for this user
+        await PurgeOldEntriesAsync(db, userGuid, ct);
+
+        await db.SaveChangesAsync(ct);
+
+        var response = new RecordSearchHistoryResponse
+        {
+            Id = entry.Id.ToString()
+        };
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.RecordSearchHistoryResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
+        };
+    }
+
+    public async Task<Envelope> ListSearchHistoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
+
+        // Parse optional maxResults from payload
+        int maxResults = 200;
+        if (request.Payload != null && request.Payload.Length > 0)
+        {
+            try
+            {
+                var req = ProtoHelper.Deserialize<ListSearchHistoryRequest>(request.Payload.ToByteArray());
+                maxResults = req.MaxResults;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize ListSearchHistoryRequest payload — using defaults");
+            }
+        }
+
+        var userId = _authHandler.GetUserId(request);
+        Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var items = await db.SearchHistoryEntries
+            .Where(s => s.UserId == userGuid)
+            .OrderByDescending(s => s.ExecutedAt)
+            .Take(maxResults)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var response = new ListSearchHistoryResponse();
+        foreach (var item in items)
+        {
+            response.Items.Add(new SearchHistoryWire
+            {
+                Id = item.Id.ToString(),
+                QueryText = item.QueryText,
+                FiltersJson = item.FiltersJson,
+                IsSemantic = item.IsSemantic,
+                ExecutedAt = item.ExecutedAt.ToUnixTimeSeconds()
+            });
+        }
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.ListSearchHistoryResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
+        };
+    }
+
+    public async Task<Envelope> ClearSearchHistoryAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
+
+        var userId = _authHandler.GetUserId(request);
+        Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var entries = await db.SearchHistoryEntries
+            .Where(s => s.UserId == userGuid)
+            .ToListAsync(ct);
+
+        db.SearchHistoryEntries.RemoveRange(entries);
+        await db.SaveChangesAsync(ct);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.ClearSearchHistoryResponse,
+            StatusCode = ErrorCode.Success
+        };
+    }
+
+    private static async Task PurgeOldEntriesAsync(AppDbContext db, Guid? userId, CancellationToken ct)
+    {
+        if (userId == null) return;
+
+        // Single query: skip the 200 most recent entries, delete the rest
+        var toDelete = await db.SearchHistoryEntries
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.ExecutedAt)
+            .Skip(200)
+            .ToListAsync(ct);
+
+        if (toDelete.Count > 0)
+            db.SearchHistoryEntries.RemoveRange(toDelete);
+    }
+
+    private static Envelope ErrorResponse(Envelope request, int code, string message)
+    {
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = request.MessageType,
+            StatusCode = code,
+            ErrorMessage = message
+        };
+    }
+}

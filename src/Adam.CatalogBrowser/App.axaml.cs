@@ -80,6 +80,13 @@ public partial class App : Application
 
             services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
             services.AddSingleton<ChecksumService>();
+
+            // Phase 20: Design theme engine — loads .design/*.md for dynamic styling
+            // DesignThemeService is also populated into MainWindowViewModel.DesignThemeService
+            // during constructor resolution, giving the title-bar ComboBox access to available themes.
+            services.AddSingleton<DesignThemeService>();
+            // Register AdamConfig for DI consumers (DesignThemeService, etc.)
+            services.AddSingleton(Config);
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();
             services.AddSingleton<ToastService>();
@@ -121,6 +128,10 @@ public partial class App : Application
             });
             services.AddSingleton<AiTaggingService>();
 
+            // Phase 19: Semantic search embedding service
+            services.AddSingleton<EmbeddingService>();
+            services.AddSingleton<SemanticSearchService>();
+
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>(sp =>
@@ -144,6 +155,11 @@ public partial class App : Application
 
             // T11.8: Wire FTS service into ModeManager for startup initialization
             modeManager.FtsService = provider.GetRequiredService<IFtsService>();
+
+            // Phase 20: Load design themes and apply the saved or first available theme
+            var themeService = provider.GetRequiredService<DesignThemeService>();
+            themeService.LoadThemes();
+            themeService.ApplyTheme(themeService.CurrentTheme);
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow = new MainWindow

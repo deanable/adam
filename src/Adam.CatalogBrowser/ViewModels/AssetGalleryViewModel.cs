@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -63,6 +64,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         SelectAllCommand = new RelayCommand(_ => SelectAll());
         ClearSearchCommand = new RelayCommand(_ => ClearSearch());
         ClearSelectionCommand = new RelayCommand(_ => ClearSelection());
+        ToggleSearchModeCommand = new RelayCommand(_ => IsSemanticSearch = !IsSemanticSearch);
 
         // T12.1: Wire shared in-memory thumbnail cache
         AssetListItem.SharedThumbnailCache = _thumbnailCache;
@@ -132,7 +134,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     // ──────────────────────────────────────────────
 
     /// <summary>
-    /// Current search query text. Triggers debounced FTS search on change.
+    /// Current search query text. Triggers debounced FTS/semantic search on change.
     /// </summary>
     public string SearchText
     {
@@ -149,7 +151,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// True when the gallery is displaying FTS search results (T11.9).
+    /// True when the gallery is displaying search results (T11.9).
     /// </summary>
     public bool IsSearchActive
     {
@@ -157,11 +159,63 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         set { _isSearchActive = value; OnPropertyChanged(); }
     }
 
+    // ── Phase 19: Semantic search mode toggle ────────────────
+
+    private bool _isSemanticSearch;
+
+    /// <summary>
+    /// True when semantic (natural language) search is active instead of FTS.
+    /// When toggled, changes the search icon and placeholder text.
+    /// </summary>
+    public bool IsSemanticSearch
+    {
+        get => _isSemanticSearch;
+        set
+        {
+            if (_isSemanticSearch == value) return;
+            _isSemanticSearch = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SearchModeIcon));
+            OnPropertyChanged(nameof(SearchModeTooltip));
+            OnPropertyChanged(nameof(SearchPlaceholderText));
+
+            // If there's an active search, re-execute in the new mode
+            if (_isSearchActive && !string.IsNullOrWhiteSpace(_searchText))
+            {
+                _ = OnSearchTextChangedAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Display icon for the current search mode: 🔍 (FTS) or ✦ (semantic).
+    /// </summary>
+    public string SearchModeIcon => _isSemanticSearch ? "✦" : "🔍";
+
+    /// <summary>
+    /// Tooltip text for the search mode toggle button.
+    /// </summary>
+    public string SearchModeTooltip => _isSemanticSearch
+        ? "Switch to keyword search (FTS)"
+        : "Switch to natural language search (semantic)";
+
+    /// <summary>
+    /// Placeholder text for the search bar, changing based on the active search mode.
+    /// </summary>
+    public string SearchPlaceholderText => _isSemanticSearch
+        ? "Describe what you're looking for..."
+        : "Search assets...";
+
     /// <summary>
     /// Autocomplete suggestions from FTS index (T11.11).
     /// Populated asynchronously as the user types.
     /// </summary>
     public ObservableCollection<string> SearchSuggestions { get; } = [];
+
+    /// <summary>
+    /// Toggle between FTS (keyword) and semantic (natural language) search mode.
+    /// </summary>
+    public ICommand ToggleSearchModeCommand { get; }
 
     /// <summary>
     /// Handles search text changes with 300ms debounce (T11.11).
@@ -177,8 +231,8 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
 
         var text = _searchText?.Trim() ?? string.Empty;
 
-        // Update autocomplete suggestions (fast, immediate)
-        if (text.Length >= 2 && _ftsService != null)
+        // Update autocomplete suggestions (fast, immediate) — skip in semantic mode
+        if (!_isSemanticSearch && text.Length >= 2 && _ftsService != null)
         {
             try
             {
@@ -217,7 +271,10 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        await ExecuteSearchAsync(text, ct);
+        if (_isSemanticSearch)
+            await ExecuteSemanticSearchAsync(text, ct);
+        else
+            await ExecuteSearchAsync(text, ct);
     }
 
     /// <summary>
@@ -309,6 +366,148 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Search failed for query: {Query}", query);
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
+        }
+    }
+
+    /// <summary>
+    /// Executes a semantic (natural language) search using text embeddings.
+    /// In standalone mode, uses SemanticSearchService directly.
+    /// In multi-user mode, sends a broker request via SemanticSearchHandler.
+    /// </summary>
+    private async Task ExecuteSemanticSearchAsync(string query, CancellationToken ct)
+    {
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => IsLoading = true);
+            IsSearchActive = true;
+
+            IReadOnlyList<SemanticSearchResult> results = [];
+
+            if (_modeManager.IsStandalone)
+            {
+                // Use SemanticSearchService directly (standalone mode)
+                var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+                // SemanticSearchService is resolved from DI if available
+                var searchService = App.ServiceProvider?.GetService<SemanticSearchService>();
+                if (searchService == null)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => StatusText = "Semantic search is not available — AI model not loaded");
+                    return;
+                }
+                results = await searchService.SearchByTextAsync(query, 50, 0.0, ct);
+            }
+            else if (_modeManager.IsMultiUser)
+            {
+                var broker = _modeManager.BrokerClient;
+                var auth = _modeManager.AuthSession;
+                if (broker == null || auth == null) return;
+
+                if (!broker.IsConnected)
+                    await broker.ConnectAsync(ct);
+
+                var req = new SemanticSearchRequest
+                {
+                    Query = query,
+                    MaxResults = 50,
+                    MinScore = 0.0,
+                    RecordHistory = true
+                };
+
+                var envelope = new Envelope
+                {
+                    AuthToken = auth.Token ?? "",
+                    CorrelationId = Guid.NewGuid().ToString(),
+                    MessageType = MessageTypeCode.SemanticSearchRequest,
+                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(req))
+                };
+
+                var response = await broker.SendAsync(envelope, ct);
+                if (response.StatusCode != 0)
+                {
+                    _logger.LogWarning("Semantic search broker rejected: status={StatusCode}", response.StatusCode);
+                    await Dispatcher.UIThread.InvokeAsync(() => StatusText = "Semantic search failed");
+                    return;
+                }
+
+                var data = ProtoHelper.Deserialize<SemanticSearchResponse>(response.Payload.ToByteArray());
+                results = data.Results.Select(r => new SemanticSearchResult
+                {
+                    Asset = new DigitalAsset
+                    {
+                        Id = Guid.Parse(r.AssetId),
+                        Title = r.Title,
+                        FileName = r.FileName,
+                        MimeType = r.MimeType,
+                        FileSize = r.FileSize,
+                        CreatedAt = DateTimeOffset.FromUnixTimeSeconds(r.CreatedAt)
+                    },
+                    Score = r.Score,
+                    Rank = r.Rank
+                }).ToList();
+            }
+
+            var dbDir2 = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+            var thumbnailDir = Path.Combine(dbDir2, "thumbnails");
+
+            var newItems = new List<AssetListItem>(results.Count);
+            foreach (var result in results)
+            {
+                var thumbnailPath = _thumbnailService.GetThumbnailPath(
+                    result.Asset.StoragePath, thumbnailDir);
+
+                var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(result.Asset.Label);
+
+                var item = new AssetListItem
+                {
+                    Id = result.Asset.Id,
+                    Title = result.Asset.Title,
+                    FileName = result.Asset.FileName,
+                    StoragePath = result.Asset.StoragePath,
+                    FileType = result.Asset.MimeType,
+                    FileSize = result.Asset.FileSize,
+                    CreatedAt = result.Asset.CreatedAt,
+                    ThumbnailPath = thumbnailPath,
+                    Rating = result.Asset.Rating,
+                    ColorLabel = colorLabel,
+                    ColorBrush = colorBrush,
+                    IsFlagged = result.Asset.Flag != AssetFlag.Unflagged,
+                    SearchScore = result.Score
+                };
+
+                AddToolbarActions(item);
+                newItems.Add(item);
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SelectedAsset = null;
+                _selectedAssets.Clear();
+
+                foreach (var item in Assets)
+                    item.Dispose();
+                Assets.Clear();
+
+                foreach (var item in newItems)
+                    Assets.Add(item);
+
+                HasAssets = Assets.Count > 0;
+                HasMore = false;
+                StatusText = Assets.Count > 0
+                    ? $"Semantic search: {Assets.Count} result(s) for \"{query}\""
+                    : $"No semantic results for \"{query}\"";
+            });
+
+            foreach (var item in newItems)
+                _ = item.LoadThumbnailAsync((int)ThumbnailSize);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Semantic search failed for query: {Query}", query);
         }
         finally
         {
@@ -774,7 +973,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         return query;
     }
 
-    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null, DateTime? dateFrom = null, DateTime? dateTo = null, int ratingFilter = 0, int labelFilter = 0, int flagFilter = 0)
+    public void ApplyFilter(string? mediaFormat, string? folderPath, List<Guid>? keywordIds = null, List<Guid>? categoryIds = null, DateTime? dateFrom = null, DateTime? dateTo = null, int ratingFilter = 0, int labelFilter = 0, int flagFilter = 0, string? searchQuery = null)
     {
         _activeCategory = mediaFormat;
         _activeFolderPath = folderPath;
@@ -785,7 +984,25 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         _activeRatingFilter = ratingFilter;
         _activeLabelFilter = labelFilter;
         _activeFlagFilter = flagFilter;
-        _ = LoadAssetsAsync();
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            // Seamless search execution: skip LoadAssetsAsync() when a search query is
+            // provided. Cancel any pending debounce and execute the FTS search immediately
+            // rather than going through the debounced SearchText setter, so the user sees
+            // results right away instead of waiting 300ms.
+            _searchCts?.Cancel();
+            _searchCts?.Dispose();
+            _searchCts = null;
+            _searchText = searchQuery;
+            OnPropertyChanged(nameof(SearchText));
+            IsSearchActive = true;
+            _ = ExecuteSearchAsync(searchQuery, CancellationToken.None);
+        }
+        else
+        {
+            _ = LoadAssetsAsync();
+        }
     }
 
     // ──────────────────────────────────────────────

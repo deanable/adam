@@ -1,0 +1,19 @@
+feat(phase-18): Add plugin system for metadata extractors
+
+Implement plugin system (INTG-V2-01) for third-party metadata
+extractors across all layers:
+
+- IMetadataExtractor interface with priority-based extraction chain
+- ImageExtractor (Priority 100) wrapping MetadataExtractorService
+- OfficeExtractor (Priority 200) wrapping OfficeDocumentExtractor
+- HasAnyContent properties on ExtractedTextMetadata + MetadataProfile
+- PluginLoaderService with assembly scanning, graceful degradation
+- Pipeline integration across 6 files (IngestionVM, FolderWatcher,
+  FolderWatcherHosted, FolderScanService, FileIndexer, DI registration)
+- Sample plugin project (VowelCounter demo) with developer README
+- Plugin Manager UI dialog with built-in + plugin display
+- 43 new tests (adapters, loader, ViewModel) — all passing
+
+Also:
+- Archive v3.2 milestone to .planning/milestones/v3.2-release.md
+- Mark all 18 phases complete — project fully implemented

@@ -4,6 +4,7 @@ using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -47,12 +48,17 @@ public sealed class CollectionHandler
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        var now = DateTimeOffset.UtcNow;
         var collection = new Collection
         {
             Id = Guid.NewGuid(),
             Name = req.Name,
             Description = req.Description,
-            ParentId = string.IsNullOrEmpty(req.ParentId) ? null : Guid.Parse(req.ParentId)
+            ParentId = string.IsNullOrEmpty(req.ParentId) ? null : Guid.Parse(req.ParentId),
+            IsSmart = req.IsSmart,
+            SmartQueryJson = string.IsNullOrWhiteSpace(req.SmartQueryJson) ? null : req.SmartQueryJson,
+            CreatedAt = now,
+            ModifiedAt = now
         };
 
         db.Collections.Add(collection);
@@ -137,7 +143,13 @@ public sealed class CollectionHandler
             collection.Name = req.Name;
         if (!string.IsNullOrEmpty(req.Description))
             collection.Description = req.Description;
+        if (!string.IsNullOrEmpty(req.SmartQueryJson))
+        {
+            collection.SmartQueryJson = req.SmartQueryJson;
+            collection.IsSmart = true;
+        }
 
+        collection.ModifiedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
         // Broadcast change notification to other connected clients (T10.10)
@@ -216,7 +228,10 @@ public sealed class CollectionHandler
             Name = collection.Name,
             Description = collection.Description ?? "",
             ParentId = collection.ParentId?.ToString() ?? "",
-            AssetCount = collection.Assets?.Count ?? 0
+            AssetCount = collection.Assets?.Count ?? 0,
+            IsSmart = collection.IsSmart,
+            SmartQueryJson = collection.SmartQueryJson ?? "",
+            LastAutoRefreshedAt = collection.LastAutoRefreshedAt?.ToUnixTimeSeconds() ?? 0
         };
 
         var children = allCollections.Where(c => c.ParentId == collection.Id);
@@ -238,6 +253,103 @@ public sealed class CollectionHandler
             ids.AddRange(CollectDescendantCollectionIds(allCollections, child.Id));
         }
         return ids;
+    }
+
+    public async Task<Envelope> RefreshSmartCollectionAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "collection:read", ct))
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
+
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+
+        RefreshSmartCollectionRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<RefreshSmartCollectionRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
+
+        if (!Guid.TryParse(req.Id, out var id))
+            return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid collection ID");
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (collection == null)
+            return ErrorResponse(request, ErrorCode.NotFound, "Collection not found");
+
+        if (!collection.IsSmart || string.IsNullOrWhiteSpace(collection.SmartQueryJson))
+            return ErrorResponse(request, ErrorCode.InvalidArgument, "Collection is not a smart collection");
+
+        // Parse the smart query JSON and find matching assets
+        // SmartQueryJson contains the same serialized filter criteria as SavedSearch.FiltersJson
+        var assetIds = await FindAssetsMatchingSmartQueryAsync(db, collection.SmartQueryJson, ct);
+
+        collection.LastAutoRefreshedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var response = new RefreshSmartCollectionResponse
+        {
+            LastAutoRefreshedAt = collection.LastAutoRefreshedAt.Value.ToUnixTimeSeconds(),
+            TotalCount = assetIds.Count
+        };
+        foreach (var aid in assetIds)
+            response.AssetIds.Add(aid.ToString());
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.RefreshSmartCollectionResponse,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(response)),
+            StatusCode = ErrorCode.Success
+        };
+    }
+
+    /// <summary>
+    /// Executes a smart collection query against the database and returns matching asset IDs.
+    /// The SmartQueryJson contains the same serialized filter criteria as SavedSearch.FiltersJson.
+    /// For v1, this applies basic filters (type, date range, query text).
+    /// </summary>
+    private async Task<List<Guid>> FindAssetsMatchingSmartQueryAsync(
+        AppDbContext db, string smartQueryJson, CancellationToken ct)
+    {
+        // Start with all non-deleted assets
+        var q = db.DigitalAssets.AsQueryable();
+
+        try
+        {
+            var filters = System.Text.Json.JsonSerializer.Deserialize<SmartQueryFilters>(smartQueryJson);
+            if (filters != null)
+            {
+                if (!string.IsNullOrWhiteSpace(filters.QueryText))
+                {
+                    var search = filters.QueryText.ToLowerInvariant();
+                    q = q.Where(a =>
+                        a.Title.ToLower().Contains(search) ||
+                        (a.Description != null && a.Description.ToLower().Contains(search)) ||
+                        a.FileName.ToLower().Contains(search));
+                }
+
+                if (filters.Type.HasValue)
+                    q = q.Where(a => a.Type == filters.Type.Value);
+
+                if (filters.CollectionId.HasValue)
+                    q = q.Where(a => a.CollectionId == filters.CollectionId.Value);
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse smart query JSON: {SmartQueryJson}", smartQueryJson[..Math.Min(smartQueryJson.Length, 200)]);
+            return [];
+        }
+
+        return await q.Select(a => a.Id).ToListAsync(ct);
     }
 
     private static Envelope ErrorResponse(Envelope request, int code, string message)

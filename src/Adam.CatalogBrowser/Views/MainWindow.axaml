@@ -112,7 +112,7 @@
                    Foreground="{DynamicResource TitleBarStatusBrush}" VerticalAlignment="Center"
                    Margin="12,0,8,0" TextTrimming="CharacterEllipsis" />
 
-        <!-- Mode toggle + Connection controls -->
+        <!-- Mode toggle + Theme selector + Connection controls -->
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
           <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Mode:" Classes="Body" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" Margin="4,0,4,0" />
@@ -123,6 +123,24 @@
                   Background="{Binding Connection.IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
                   Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2" CornerRadius="3" Cursor="Hand" />
           <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="4,0" VerticalAlignment="Center" />
+          <!-- T20.1: Design theme selector -->
+          <TextBlock Text="Theme:" Classes="Body" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" Margin="4,0,2,0" />
+          <ComboBox x:Name="ThemeSelector"
+                    ItemsSource="{Binding DesignThemeService.AvailableThemes}"
+                    SelectedItem="{Binding DesignThemeService.CurrentTheme, Mode=OneWay}"
+                    DisplayMemberBinding="{Binding Name}"
+                    FontSize="11"
+                    MinWidth="100"
+                    BorderThickness="0"
+                    Background="{DynamicResource TitleBarBrush}"
+                    Foreground="White"
+                    SelectionChanged="OnThemeSelectionChanged">
+            <ComboBox.Styles>
+              <Style Selector="ComboBoxItem">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+              </Style>
+            </ComboBox.Styles>
+          </ComboBox>
         </StackPanel>
 
         <!-- Connection area: compact context-dependent controls -->
@@ -236,6 +254,11 @@
                   <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Grid ColumnDefinitions="*,Auto">
                       <Panel>
+                        <!-- T19.2: Smart collection indicator -->
+                        <TextBlock Text="{Binding SmartIcon}" Classes="Body"
+                                   Foreground="{DynamicResource PrimaryBrush}"
+                                   Margin="0,0,2,0" VerticalAlignment="Center"
+                                   IsVisible="{Binding IsSmart}" />
                         <!-- T10.13: Active filter indicator -->
                         <TextBlock Text="{Binding Name}" Classes="Body" Foreground="{DynamicResource TextPrimaryBrush}"
                                    IsVisible="{Binding !IsEditing}"
@@ -253,6 +276,69 @@
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
               </TreeView>
+            </Expander>
+
+            <!-- Saved Searches -->
+            <Expander Header="Saved Searches" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.SavedSearches}"
+                       SelectedItem="{Binding Sidebar.SelectedSavedSearch}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                      <TextBlock Text="{Binding PinIcon}" Classes="Body"
+                                 Foreground="{DynamicResource TextTertiaryBrush}"
+                                 Margin="0,0,4,0" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ContextFlyout>
+                  <MenuFlyout>
+                    <MenuItem Header="Execute" Command="{Binding $parent[Window].DataContext.Sidebar.ExecuteSavedSearchCommand}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="{Binding IsPinned, Converter={x:Static views:BoolToPinTextConverter.Instance}}"
+                              Command="{Binding $parent[Window].DataContext.Sidebar.TogglePinSavedSearchCommand}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Delete"
+                              Command="{Binding $parent[Window].DataContext.Sidebar.DeleteSavedSearchCommand}"
+                              CommandParameter="{Binding}" />
+                  </MenuFlyout>
+                </ListBox.ContextFlyout>
+              </ListBox>
+            </Expander>
+
+            <!-- Recent Searches -->
+            <Expander Header="Recent Searches" IsExpanded="True" Padding="8,4" Background="Transparent">
+              <ListBox ItemsSource="{Binding Sidebar.RecentSearches}"
+                       SelectedItem="{Binding Sidebar.SelectedRecentSearch}"
+                       Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <TextBlock Grid.Column="0" Text="{Binding QueryText}" Classes="Body"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontWeight="{Binding IsActiveFilter, Converter={x:Static views:BoolToFontWeightConverter.Instance}}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding TimeAgo}" Classes="Caption"
+                                 Foreground="{DynamicResource TextTertiaryBrush}"
+                                 Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ContextFlyout>
+                  <MenuFlyout>
+                    <MenuItem Header="Search" Command="{Binding $parent[Window].DataContext.Sidebar.ExecuteRecentSearchCommand}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Clear All" Command="{Binding $parent[Window].DataContext.Sidebar.ClearRecentSearchesCommand}" />
+                  </MenuFlyout>
+                </ListBox.ContextFlyout>
+              </ListBox>
             </Expander>
 
             <!-- Keywords -->

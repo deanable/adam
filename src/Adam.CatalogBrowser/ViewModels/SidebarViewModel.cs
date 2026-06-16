@@ -33,6 +33,11 @@ public class SidebarViewModel : INotifyPropertyChanged
     private bool _isLoading;
     private DateTakenNode? _selectedDateTaken;
     private ObservableCollection<DateTakenNode> _dateTakenTree = [];
+    private string? _activeSearchQueryText;
+    private SavedSearchNode? _selectedSavedSearch;
+    private SearchHistoryNode? _selectedRecentSearch;
+    private ObservableCollection<SavedSearchNode> _savedSearches = [];
+    private ObservableCollection<SearchHistoryNode> _recentSearches = [];
 
     public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, FolderScanService? folderScanService = null)
     {
@@ -75,6 +80,13 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         // T10.2: F2 inline rename keyboard shortcut
         F2RenameCommand = new RelayCommand(_ => BeginRenameSelectedNode(), _ => SelectedKeyword != null || SelectedCollection != null || SelectedMetadataCategory != null);
+
+        // Phase 19: Saved search & search history commands
+        ExecuteSavedSearchCommand = new RelayCommand(OnExecuteSavedSearch, _ => SelectedSavedSearch != null);
+        ExecuteRecentSearchCommand = new RelayCommand(OnExecuteRecentSearch, _ => SelectedRecentSearch != null);
+        DeleteSavedSearchCommand = new RelayCommand(OnDeleteSavedSearch, _ => SelectedSavedSearch != null);
+        TogglePinSavedSearchCommand = new RelayCommand(OnTogglePinSavedSearch, _ => SelectedSavedSearch != null);
+        ClearRecentSearchesCommand = new RelayCommand(_ => ClearRecentSearches());
     }
 
     public ObservableCollection<FolderNode> Folders { get; } = [];
@@ -258,6 +270,91 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// The currently active search query text, set when a saved search or
+    /// quick search is selected from the sidebar. Used by MainWindowViewModel
+    /// to pass the query to ApplyFilter (Phase 19 Wave 7).
+    /// </summary>
+    public string? ActiveSearchQueryText
+    {
+        get => _activeSearchQueryText;
+        set
+        {
+            _activeSearchQueryText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public ObservableCollection<SavedSearchNode> SavedSearches
+    {
+        get => _savedSearches;
+        private set { _savedSearches = value; OnPropertyChanged(); }
+    }
+
+    public ObservableCollection<SearchHistoryNode> RecentSearches
+    {
+        get => _recentSearches;
+        private set { _recentSearches = value; OnPropertyChanged(); }
+    }
+
+    public SavedSearchNode? SelectedSavedSearch
+    {
+        get => _selectedSavedSearch;
+        set
+        {
+            if (_selectedSavedSearch == value) return;
+
+            // Clear previous selection's IsActiveFilter
+            if (_selectedSavedSearch != null)
+                _selectedSavedSearch.IsActiveFilter = false;
+
+            _selectedSavedSearch = value;
+
+            // Update ActiveSearchQueryText
+            ActiveSearchQueryText = value?.QueryText;
+
+            // Mutual exclusion: selecting a saved search deselects recent search
+            if (value != null && _selectedRecentSearch != null)
+            {
+                _selectedRecentSearch.IsActiveFilter = false;
+                _selectedRecentSearch = null;
+                OnPropertyChanged(nameof(SelectedRecentSearch));
+            }
+
+            OnPropertyChanged();
+            OnFilterChanged();
+        }
+    }
+
+    public SearchHistoryNode? SelectedRecentSearch
+    {
+        get => _selectedRecentSearch;
+        set
+        {
+            if (_selectedRecentSearch == value) return;
+
+            // Clear previous selection's IsActiveFilter
+            if (_selectedRecentSearch != null)
+                _selectedRecentSearch.IsActiveFilter = false;
+
+            _selectedRecentSearch = value;
+
+            // Update ActiveSearchQueryText
+            ActiveSearchQueryText = value?.QueryText;
+
+            // Mutual exclusion: selecting a recent search deselects saved search
+            if (value != null && _selectedSavedSearch != null)
+            {
+                _selectedSavedSearch.IsActiveFilter = false;
+                _selectedSavedSearch = null;
+                OnPropertyChanged(nameof(SelectedSavedSearch));
+            }
+
+            OnPropertyChanged();
+            OnFilterChanged();
+        }
+    }
+
     // ── T8.18: Sidebar CRUD commands ──
     public ICommand CreateCollectionCommand { get; }
     public ICommand RenameCollectionCommand { get; }
@@ -289,6 +386,13 @@ public class SidebarViewModel : INotifyPropertyChanged
     // ── T10.5: Folder commands ──
     public ICommand RevealFolderCommand { get; }
     public ICommand RescanFolderCommand { get; }
+
+    // ── Phase 19: Saved search & search history commands ──
+    public ICommand ExecuteSavedSearchCommand { get; }
+    public ICommand ExecuteRecentSearchCommand { get; }
+    public ICommand DeleteSavedSearchCommand { get; }
+    public ICommand TogglePinSavedSearchCommand { get; }
+    public ICommand ClearRecentSearchesCommand { get; }
 
     // ── T10.3: Permission gating ──
     public bool CanEditMetadata => _modeManager.IsStandalone || EvaluatePermission("asset:update");
@@ -329,7 +433,9 @@ public class SidebarViewModel : INotifyPropertyChanged
                 LoadKeywordsAsync(ct),
                 LoadMediaFormatCountsAsync(ct),
                 LoadMetadataCategoriesAsync(ct),
-                LoadDateTakenTreeAsync(ct)).ConfigureAwait(false);
+                LoadDateTakenTreeAsync(ct),
+                LoadSavedSearchesAsync(ct),
+                LoadRecentSearchesAsync(ct)).ConfigureAwait(false);
             _logger.LogInformation("[LoadAsync] All parallel loads completed successfully");
         }
         catch (Exception ex)
@@ -484,11 +590,11 @@ public class SidebarViewModel : INotifyPropertyChanged
         {
             await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
             var all = await db.Collections
-                .Select(c => new { c.Id, c.Name, c.ParentId, AssetCount = c.Assets.Count })
+                .Select(c => new { c.Id, c.IsSmart, c.Name, c.ParentId, AssetCount = c.Assets.Count })
                 .ToListAsync(ct).ConfigureAwait(false);
             var allCols = all.Select(c => new CollectionNode
             {
-                Id = c.Id, Name = c.Name, ParentId = c.ParentId, AssetCount = c.AssetCount
+                Id = c.Id, Name = c.Name, ParentId = c.ParentId, AssetCount = c.AssetCount, IsSmart = c.IsSmart
             }).ToList();
 
             foreach (var col in allCols.Where(c => c.ParentId == null))
@@ -510,7 +616,8 @@ public class SidebarViewModel : INotifyPropertyChanged
                     Id = Guid.Parse(c.Id),
                     Name = c.Name,
                     ParentId = string.IsNullOrEmpty(c.ParentId) ? null : Guid.Parse(c.ParentId),
-                    AssetCount = c.AssetCount
+                    AssetCount = c.AssetCount,
+                    IsSmart = c.IsSmart
                 }).ToList();
 
                 foreach (var col in allCols.Where(c => c.ParentId == null))
@@ -764,6 +871,100 @@ public class SidebarViewModel : INotifyPropertyChanged
         });
     }
 
+    private async Task LoadSavedSearchesAsync(CancellationToken ct = default)
+    {
+        var items = new List<SavedSearchNode>();
+
+        if (_modeManager.IsStandalone)
+        {
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var saved = await db.SavedSearches
+                .OrderByDescending(s => s.IsPinned)
+                .ThenBy(s => s.Name)
+                .AsNoTracking()
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            items = saved.Select(s => new SavedSearchNode
+            {
+                SearchId = s.Id,
+                Name = s.Name,
+                QueryText = s.QueryText,
+                IsPinned = s.IsPinned
+            }).ToList();
+
+            _logger.LogInformation("[LoadSavedSearchesAsync] Loaded {Count} saved searches", items.Count);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var resp = await SendBrokerRequestAsync(
+                new ListSavedSearchesRequest(),
+                MessageTypeCode.ListSavedSearchesRequest, ct);
+            if (resp != null && resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListSavedSearchesResponse>(resp.Payload.ToByteArray());
+                items = data.Items.Select(w => new SavedSearchNode
+                {
+                    SearchId = Guid.Parse(w.Id),
+                    Name = w.Name,
+                    QueryText = w.QueryText,
+                    IsPinned = w.IsPinned
+                }).ToList();
+                _logger.LogInformation("[LoadSavedSearchesAsync] Loaded {Count} saved searches from broker", items.Count);
+            }
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            SavedSearches = new ObservableCollection<SavedSearchNode>(items);
+        });
+    }
+
+    private async Task LoadRecentSearchesAsync(CancellationToken ct = default)
+    {
+        var items = new List<SearchHistoryNode>();
+
+        if (_modeManager.IsStandalone)
+        {
+            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var history = await db.SearchHistoryEntries
+                .OrderByDescending(h => h.ExecutedAt)
+                .Take(200)
+                .AsNoTracking()
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            items = history.Select(h => new SearchHistoryNode
+            {
+                EntryId = h.Id,
+                QueryText = h.QueryText,
+                ExecutedAt = h.ExecutedAt
+            }).ToList();
+
+            _logger.LogInformation("[LoadRecentSearchesAsync] Loaded {Count} recent searches", items.Count);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            var resp = await SendBrokerRequestAsync(
+                new ListSearchHistoryRequest { MaxResults = 200 },
+                MessageTypeCode.ListSearchHistoryRequest, ct);
+            if (resp != null && resp.StatusCode == 0)
+            {
+                var data = ProtoHelper.Deserialize<ListSearchHistoryResponse>(resp.Payload.ToByteArray());
+                items = data.Items.Select(w => new SearchHistoryNode
+                {
+                    EntryId = Guid.Parse(w.Id),
+                    QueryText = w.QueryText,
+                    ExecutedAt = DateTimeOffset.FromUnixTimeSeconds(w.ExecutedAt)
+                }).ToList();
+                _logger.LogInformation("[LoadRecentSearchesAsync] Loaded {Count} recent searches from broker", items.Count);
+            }
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            RecentSearches = new ObservableCollection<SearchHistoryNode>(items);
+        });
+    }
+
     private async Task LoadMediaFormatCountsAsync(CancellationToken ct = default)
     {
         if (_modeManager.IsStandalone)
@@ -962,24 +1163,73 @@ public class SidebarViewModel : INotifyPropertyChanged
                 case CollectionNode col: col.IsActiveFilter = false; break;
                 case FolderNode f: f.IsActiveFilter = false; break;
                 case DateTakenNode dt: dt.IsActiveFilter = false; break;
+                case SavedSearchNode ss: ss.IsActiveFilter = false; break;
+                case SearchHistoryNode rs: rs.IsActiveFilter = false; break;
             }
         }
 
-        // Also walk the tree to catch any other stale nodes
+        // Also walk the tree and flat lists to catch any other stale nodes
         ClearActiveFilterStates();
 
-        if (SelectedKeyword != null) { SelectedKeyword.IsActiveFilter = true; _previousActiveFilterNode = SelectedKeyword; }
-        else if (SelectedMetadataCategory != null) { SelectedMetadataCategory.IsActiveFilter = true; _previousActiveFilterNode = SelectedMetadataCategory; }
-        else if (SelectedCollection != null) { SelectedCollection.IsActiveFilter = true; _previousActiveFilterNode = SelectedCollection; }
-        else if (SelectedFolder != null) { SelectedFolder.IsActiveFilter = true; _previousActiveFilterNode = SelectedFolder; }
-        else if (SelectedDateTaken != null) { SelectedDateTaken.IsActiveFilter = true; _previousActiveFilterNode = SelectedDateTaken; }
-        else { _previousActiveFilterNode = null; }
+        // Phase 19: If switching to a non-search filter, clear saved/recent search selections
+        // so the priority chain below picks the correct active filter.
+        if (SelectedKeyword != null || SelectedCollection != null || SelectedFolder != null ||
+            SelectedMetadataCategory != null || SelectedDateTaken != null)
+        {
+            if (_selectedSavedSearch != null)
+            {
+                _selectedSavedSearch.IsActiveFilter = false;
+                _selectedSavedSearch = null;
+                OnPropertyChanged(nameof(SelectedSavedSearch));
+            }
+            if (_selectedRecentSearch != null)
+            {
+                _selectedRecentSearch.IsActiveFilter = false;
+                _selectedRecentSearch = null;
+                OnPropertyChanged(nameof(SelectedRecentSearch));
+            }
+        }
+
+        // Determine new active filter (Phase 19: saved/recent search takes priority)
+        INotifyPropertyChanged? newActive = null;
+        if (SelectedSavedSearch != null) newActive = SelectedSavedSearch;
+        else if (SelectedRecentSearch != null) newActive = SelectedRecentSearch;
+        else if (SelectedKeyword != null) newActive = SelectedKeyword;
+        else if (SelectedMetadataCategory != null) newActive = SelectedMetadataCategory;
+        else if (SelectedCollection != null) newActive = SelectedCollection;
+        else if (SelectedFolder != null) newActive = SelectedFolder;
+        else if (SelectedDateTaken != null) newActive = SelectedDateTaken;
+
+        if (newActive != null)
+        {
+            // Clear ActiveSearchQueryText for non-search filters (keyword, collection, etc.)
+            if (newActive is not SavedSearchNode and not SearchHistoryNode)
+                ActiveSearchQueryText = null;
+
+            switch (newActive)
+            {
+                case SavedSearchNode ss: ss.IsActiveFilter = true; break;
+                case SearchHistoryNode rs: rs.IsActiveFilter = true; break;
+                case KeywordNode kw: kw.IsActiveFilter = true; break;
+                case CategoryNode cat: cat.IsActiveFilter = true; break;
+                case CollectionNode col: col.IsActiveFilter = true; break;
+                case FolderNode f: f.IsActiveFilter = true; break;
+                case DateTakenNode dt: dt.IsActiveFilter = true; break;
+            }
+            _previousActiveFilterNode = newActive;
+        }
+        else
+        {
+            if (_activeSearchQueryText != null)
+                ActiveSearchQueryText = null;
+            _previousActiveFilterNode = null;
+        }
 
         FilterChanged?.Invoke();
     }
 
     /// <summary>
-    /// Clears IsActiveFilter on all tree nodes recursively.
+    /// Clears IsActiveFilter on all tree nodes recursively and flat lists.
     /// </summary>
     private void ClearActiveFilterStates()
     {
@@ -1018,6 +1268,10 @@ public class SidebarViewModel : INotifyPropertyChanged
         ClearRecursive(Collections.FirstOrDefault()?.Children ?? Enumerable.Empty<CollectionNode>());
         ClearRecursive(Folders.FirstOrDefault()?.Children ?? Enumerable.Empty<FolderNode>());
         ClearRecursive(DateTakenTree.FirstOrDefault()?.Children ?? Enumerable.Empty<DateTakenNode>());
+
+        // Phase 19: Clear saved and recent search active states from flat lists
+        ClearSavedSearchActiveStates();
+        ClearRecentSearchActiveStates();
     }
 
 
@@ -1112,6 +1366,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         switch (parameter)
         {
+            case SavedSearchNode ss:
+                SelectedSavedSearch = ss;
+                break;
+            case SearchHistoryNode rs:
+                SelectedRecentSearch = rs;
+                break;
             case KeywordNode kw:
                 SelectedKeyword = kw;
                 break;
@@ -1134,6 +1394,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         switch (parameter)
         {
+            case SavedSearchNode:
+                SelectedSavedSearch = null;
+                break;
+            case SearchHistoryNode:
+                SelectedRecentSearch = null;
+                break;
             case KeywordNode:
                 SelectedKeyword = null;
                 break;
@@ -1842,6 +2108,146 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
     }
 
+    // ──────────────────────────────────────────────
+    //  Phase 19: Saved search & search history
+    // ──────────────────────────────────────────────
+
+    private void OnExecuteSavedSearch(object? parameter)
+    {
+        if (parameter is SavedSearchNode ss)
+            SelectedSavedSearch = ss;
+    }
+
+    private void OnExecuteRecentSearch(object? parameter)
+    {
+        if (parameter is SearchHistoryNode rs)
+            SelectedRecentSearch = rs;
+    }
+
+    private void OnDeleteSavedSearch(object? parameter)
+    {
+        if (SelectedSavedSearch == null) return;
+        // In standalone mode, delete from DB; in multi-user, send broker request
+        if (_modeManager.IsStandalone)
+        {
+            _ = DeleteSavedSearchFromDbAsync(SelectedSavedSearch.SearchId);
+        }
+        else if (_modeManager.BrokerClient != null)
+        {
+            _ = DeleteSavedSearchFromBrokerAsync(SelectedSavedSearch.SearchId);
+        }
+    }
+
+    private async Task DeleteSavedSearchFromDbAsync(Guid searchId)
+    {
+        try
+        {
+            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+            var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == searchId).ConfigureAwait(false);
+            if (saved != null)
+            {
+                db.SavedSearches.Remove(saved);
+                await db.SaveChangesAsync().ConfigureAwait(false);
+            }
+            var toRemove = _savedSearches.Where(s => s.SearchId == searchId).ToList();
+            foreach (var s in toRemove)
+                _savedSearches.Remove(s);
+            OnPropertyChanged(nameof(SavedSearches));
+            if (SelectedSavedSearch?.SearchId == searchId)
+                SelectedSavedSearch = null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete saved search: {SearchId}", searchId);
+        }
+    }
+
+    private async Task DeleteSavedSearchFromBrokerAsync(Guid searchId)
+    {
+        try
+        {
+            await SendBrokerRequestAsync(
+                new DeleteSavedSearchRequest { Id = searchId.ToString() },
+                MessageTypeCode.DeleteSavedSearchRequest);
+            var toRemove = _savedSearches.Where(s => s.SearchId == searchId).ToList();
+            foreach (var s in toRemove)
+                _savedSearches.Remove(s);
+            OnPropertyChanged(nameof(SavedSearches));
+            if (SelectedSavedSearch?.SearchId == searchId)
+                SelectedSavedSearch = null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete saved search via broker: {SearchId}", searchId);
+        }
+    }
+
+    private void OnTogglePinSavedSearch(object? parameter)
+    {
+        if (SelectedSavedSearch == null) return;
+        SelectedSavedSearch.IsPinned = !SelectedSavedSearch.IsPinned;
+        // Persist pin state
+        _ = PersistPinStateAsync(SelectedSavedSearch.SearchId, SelectedSavedSearch.IsPinned);
+    }
+
+    private async Task PersistPinStateAsync(Guid searchId, bool isPinned)
+    {
+        try
+        {
+            if (_modeManager.IsStandalone)
+            {
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == searchId).ConfigureAwait(false);
+                if (saved != null)
+                {
+                    saved.IsPinned = isPinned;
+                    await db.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+            else if (_modeManager.BrokerClient != null)
+            {
+                await SendBrokerRequestAsync(
+                    new PinSavedSearchRequest
+                    {
+                        Id = searchId.ToString(),
+                        IsPinned = isPinned
+                    },
+                    MessageTypeCode.PinSavedSearchRequest);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist pin state: {SearchId}", searchId);
+        }
+    }
+
+    private void ClearRecentSearches()
+    {
+        foreach (var rs in _recentSearches)
+            rs.IsActiveFilter = false;
+        _recentSearches.Clear();
+        OnPropertyChanged(nameof(RecentSearches));
+        SelectedRecentSearch = null;
+    }
+
+    /// <summary>
+    /// Clears IsActiveFilter on all SavedSearchNode items in the flat list.
+    /// </summary>
+    private void ClearSavedSearchActiveStates()
+    {
+        foreach (var ss in _savedSearches)
+            ss.IsActiveFilter = false;
+    }
+
+    /// <summary>
+    /// Clears IsActiveFilter on all SearchHistoryNode items in the flat list.
+    /// </summary>
+    private void ClearRecentSearchActiveStates()
+    {
+        foreach (var rs in _recentSearches)
+            rs.IsActiveFilter = false;
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -1896,6 +2302,7 @@ public class CollectionNode : INotifyPropertyChanged
     private bool _isEditing;
     private string _editName = string.Empty;
     private bool _isActiveFilter;
+    private bool _isSmart;
 
     public Guid Id { get; set; }
     public Guid? ParentId { get; set; }
@@ -1904,6 +2311,20 @@ public class CollectionNode : INotifyPropertyChanged
     public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
     public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
 
+
+    /// <summary>
+    /// True when this collection is a smart collection (auto-refreshed from a saved query).
+    /// </summary>
+    public bool IsSmart
+    {
+        get => _isSmart;
+        set { _isSmart = value; OnPropertyChanged(); OnPropertyChanged(nameof(SmartIcon)); }
+    }
+
+    /// <summary>
+    /// Display icon for smart collection status: ✦ when smart, empty when manual.
+    /// </summary>
+    public string SmartIcon => _isSmart ? "✦" : string.Empty;
     /// <summary>
     /// True when this collection is the currently active gallery filter (T10.13).
     /// </summary>
@@ -2030,6 +2451,118 @@ public class DateTakenNode : INotifyPropertyChanged
     /// Whether this node represents a year (true) or a month (false).
     /// </summary>
     public bool IsYear => Year.HasValue && !Month.HasValue;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? n = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+}
+
+/// <summary>
+/// Represents a saved search node in the sidebar (Phase 19).
+/// </summary>
+public class SavedSearchNode : INotifyPropertyChanged
+{
+    private string _name = string.Empty;
+    private string? _queryText;
+    private bool _isPinned;
+    private bool _isActiveFilter;
+
+    public Guid SearchId { get; set; }
+
+    public string Name
+    {
+        get => _name;
+        set { _name = value; OnPropertyChanged(); }
+    }
+
+    public string? QueryText
+    {
+        get => _queryText;
+        set { _queryText = value; OnPropertyChanged(); }
+    }
+
+    public bool IsPinned
+    {
+        get => _isPinned;
+        set
+        {
+            _isPinned = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PinIcon));
+        }
+    }
+
+    /// <summary>
+    /// Pin icon: 📌 when pinned, empty when not pinned.
+    /// </summary>
+    public string PinIcon => _isPinned ? "\U0001F4CC" : string.Empty;
+
+    /// <summary>
+    /// True when this saved search is the currently active gallery filter.
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? n = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+}
+
+/// <summary>
+/// Represents a recent search history entry in the sidebar (Phase 19).
+/// </summary>
+public class SearchHistoryNode : INotifyPropertyChanged
+{
+    private string? _queryText;
+    private DateTimeOffset _executedAt;
+    private bool _isActiveFilter;
+
+    public Guid EntryId { get; set; }
+
+    public string? QueryText
+    {
+        get => _queryText;
+        set { _queryText = value; OnPropertyChanged(); }
+    }
+
+    public DateTimeOffset ExecutedAt
+    {
+        get => _executedAt;
+        set
+        {
+            _executedAt = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TimeAgo));
+        }
+    }
+
+    /// <summary>
+    /// Human-readable relative time (e.g., "just now", "5 min ago", "3h ago", "2d ago", "Jan 15").
+    /// </summary>
+    public string TimeAgo
+    {
+        get
+        {
+            var elapsed = DateTimeOffset.UtcNow - _executedAt;
+            if (elapsed.TotalSeconds < 60) return "just now";
+            if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes} min ago";
+            if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+            if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}d ago";
+            return _executedAt.ToString("MMM dd");
+        }
+    }
+
+    /// <summary>
+    /// True when this search history entry is the currently active gallery filter.
+    /// </summary>
+    public bool IsActiveFilter
+    {
+        get => _isActiveFilter;
+        set { _isActiveFilter = value; OnPropertyChanged(); }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null)

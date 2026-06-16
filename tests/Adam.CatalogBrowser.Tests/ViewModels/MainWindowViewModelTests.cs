@@ -90,6 +90,7 @@ public class MainWindowViewModelTests : IAsyncLifetime
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            designThemeService: new DesignThemeService(App.Config),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
@@ -804,6 +805,74 @@ public class MainWindowViewModelTests : IAsyncLifetime
     }
 
     // ──────────────────────────────────────────────
+    //  Phase 19 Wave 7: FilterChanged → searchQuery passthrough
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void FilterChanged_WhenSavedSearchSelected_PassesSearchQueryToGallery()
+    {
+        var ss = new SavedSearchNode { Name = "My Search", SearchId = Guid.NewGuid(), QueryText = "nature photos" };
+
+        _sidebar.FilterByThisCommand.Execute(ss);
+
+        _gallery.SearchText.Should().Be("nature photos");
+        _gallery.IsSearchActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FilterChanged_WhenRecentSearchSelected_PassesSearchQueryToGallery()
+    {
+        var rs = new SearchHistoryNode { QueryText = "sunset beach", EntryId = Guid.NewGuid(), ExecutedAt = DateTimeOffset.UtcNow };
+
+        _sidebar.FilterByThisCommand.Execute(rs);
+
+        _gallery.SearchText.Should().Be("sunset beach");
+        _gallery.IsSearchActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FilterChanged_WhenKeywordFilterSelected_ClearsActiveSearchQueryText()
+    {
+        // First select a saved search
+        var ss = new SavedSearchNode { Name = "Prev Search", SearchId = Guid.NewGuid(), QueryText = "old query" };
+        _sidebar.FilterByThisCommand.Execute(ss);
+        _gallery.SearchText.Should().Be("old query");
+        _gallery.IsSearchActive.Should().BeTrue();
+
+        // Now select a keyword filter directly (tree node click) — should clear
+        // the sidebar's ActiveSearchQueryText and unset the saved search.
+        // gallery.SearchText persists visually but the sidebar no longer
+        // carries an active search query. ApplyFilter is called with
+        // searchQuery: null → falls through to LoadAssetsAsync().
+        var kw = new KeywordNode { Name = "Nature", KeywordId = Guid.NewGuid() };
+        _sidebar.SelectedKeyword = kw;
+
+        _sidebar.ActiveSearchQueryText.Should().BeNull("switching to keyword filter clears the sidebar's active search query");
+        _sidebar.SelectedSavedSearch.Should().BeNull();
+        _gallery.SearchText.Should().Be("old query", "gallery state persists because ApplyFilter was called with searchQuery: null → LoadAssetsAsync()");
+        _gallery.IsSearchActive.Should().BeTrue("gallery search state unchanged by LoadAssetsAsync()");
+    }
+
+    [Fact]
+    public void FilterChanged_WhenSavedSearchCleared_ClearsActiveSearchQueryText()
+    {
+        var ss = new SavedSearchNode { Name = "Search", SearchId = Guid.NewGuid(), QueryText = "query text" };
+        _sidebar.FilterByThisCommand.Execute(ss);
+        _gallery.SearchText.Should().Be("query text");
+
+        // Clear the saved search selection — the sidebar clears ActiveSearchQueryText
+        // and signals FilterChanged with a null query. ApplyFilter falls through
+        // to LoadAssetsAsync() which doesn't touch SearchText (it persists
+        // visually), but the sidebar no longer tracks an active search query.
+        _sidebar.ClearFilterCommand.Execute(ss);
+
+        _sidebar.ActiveSearchQueryText.Should().BeNull();
+        _sidebar.SelectedSavedSearch.Should().BeNull();
+        _gallery.SearchText.Should().Be("query text", "gallery state persists — ApplyFilter called with searchQuery: null");
+        _gallery.IsSearchActive.Should().BeTrue();
+    }
+
+    // ──────────────────────────────────────────────
     //  Helpers — reflection-based
     // ──────────────────────────────────────────────
 
@@ -1018,6 +1087,7 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            designThemeService: new DesignThemeService(App.Config),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 

@@ -6,9 +6,11 @@ using System.Windows.Input;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
+using Adam.Shared.Contracts;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Avalonia;
+using Google.Protobuf;
 using Avalonia.Input;
 using Avalonia.Threading;
 using LiquidVision.Core;
@@ -50,6 +52,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ToastService toastService,
         ActivityFeedViewModel activityFeed,
         CommentService commentService,
+        DesignThemeService designThemeService,
         AiTaggingService? aiTaggingService = null,
         LiquidVisionOptions? liquidVisionOptions = null,
         bool startUp = true,
@@ -63,6 +66,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _deleteService = deleteService;
         ToastService = toastService;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
+        DesignThemeService = designThemeService;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
@@ -183,6 +187,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
         FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
 
+        // Phase 19: Save current search query as a saved search
+        SaveCurrentSearchCommand = new RelayCommand(async _ => await SaveCurrentSearchAsync(),
+            _ => !string.IsNullOrWhiteSpace(AssetGallery.SearchText) && AssetGallery.IsSearchActive && CanEditMetadata);
+
+        // Re-evaluate save-search command when search text changes
+        AssetGallery.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(AssetGalleryViewModel.SearchText) or nameof(AssetGalleryViewModel.IsSearchActive))
+                (SaveCurrentSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        };
+
         // Re-evaluate delete/trash/reveal/copy commands when selection changes
         assetGallery.MultiSelectionChanged += _ =>
         {
@@ -246,7 +261,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var labelFilter = sidebar.SelectedLabelFilter;
             var flagFilter = sidebar.SelectedFlagFilter;
 
-            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo, ratingFilter, labelFilter, flagFilter);
+            // Phase 19 Wave 7: Seamless search execution — pass the sidebar's active
+            // search query directly to ApplyFilter so it can skip the unnecessary
+            // LoadAssetsAsync() call when a search query is provided. The FTS search
+            // (triggered by setting SearchText) loads results directly, eliminating
+            // the double-load (ApplyFilter → LoadAssetsAsync + separate SearchText → FTS).
+            var searchQuery = sidebar.ActiveSearchQueryText;
+            assetGallery.ApplyFilter(mediaFormat, folderPath, keywordIds, categoryIds, dateFrom, dateTo, ratingFilter, labelFilter, flagFilter, searchQuery: searchQuery);
         };
 
         ingestion.IngestionCompleted += () =>
@@ -449,6 +470,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>
+    /// Design theme engine — loads .design/*.md for dynamic styling.
+    /// Exposed so the title-bar ComboBox can bind to AvailableThemes and CurrentTheme.
+    /// </summary>
+    public DesignThemeService DesignThemeService { get; }
+
     public SidebarViewModel Sidebar { get; }
     public AssetGalleryViewModel AssetGallery { get; }
     public IngestionViewModel Ingestion { get; }
@@ -492,6 +519,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand SetFlagRejectCommand { get; }
     public ICommand RenameAssetCommand { get; }
     public ICommand FocusSearchCommand { get; }
+    public ICommand SaveCurrentSearchCommand { get; }
 
     /// <summary>
     /// Event fired when the user presses Ctrl+F. MainWindow code-behind
@@ -1021,6 +1049,94 @@ public class MainWindowViewModel : INotifyPropertyChanged
         await Task.CompletedTask;
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Phase 19: Save Current Search
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Prompts for a name and persists the current full-text search query as a saved search.
+    /// After saving, reloads the sidebar's saved searches list.
+    /// </summary>
+    private async Task SaveCurrentSearchAsync()
+    {
+        var query = AssetGallery.SearchText?.Trim();
+        if (string.IsNullOrWhiteSpace(query)) return;
+
+        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
+        if (mainWindow == null) return;
+
+        var name = await Views.InputDialog.ShowAsync(mainWindow,
+            "Save Search",
+            $"Save \"{query}\" as a saved search:",
+            "Save",
+            "Cancel",
+            defaultValue: query.Length > 40 ? query[..40] : query);
+
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            if (_modeManager.IsMultiUser)
+            {
+                // Multi-user: send via broker
+                var broker = _modeManager.BrokerClient;
+                if (broker == null || !broker.IsConnected) return;
+
+                var authToken = _modeManager.AuthSession?.Token ?? string.Empty;
+                var envelope = new Envelope
+                {
+                    AuthToken = authToken,
+                    CorrelationId = Guid.NewGuid().ToString(),
+                    MessageType = MessageTypeCode.CreateSavedSearchRequest,
+                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new CreateSavedSearchRequest
+                    {
+                        Name = name.Trim(),
+                        QueryText = query,
+                        FiltersJson = "{}"
+                    }))
+                };
+
+                var resp = await broker.SendAsync(envelope);
+                if (resp == null || resp.StatusCode != 0)
+                {
+                    _logger.LogWarning("Broker rejected save search: status={StatusCode}", resp?.StatusCode);
+                    ToastService.Show("Failed to save search", Services.ToastLevel.Error);
+                    return;
+                }
+            }
+            else
+            {
+                // Standalone: save directly to local DB
+                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
+                db.SavedSearches.Add(new Adam.Shared.Models.SavedSearch
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name.Trim(),
+                    QueryText = query,
+                    FiltersJson = "{}",
+                    IsPinned = false,
+                    CreatedAt = now,
+                    ModifiedAt = now
+                });
+                await db.SaveChangesAsync().ConfigureAwait(false);
+            }
+
+            ToastService.Show($"Search saved as '{name.Trim()}'", Services.ToastLevel.Success);
+
+            // Reload sidebar saved searches
+            await Sidebar.LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save current search");
+            ToastService.Show("Failed to save search", Services.ToastLevel.Error);
+        }
+    }
+
     /// <summary>
     /// Cycles the rating on all selected assets (T8.22 bulk actions).
     /// Each asset gets its own next-rating value independently.
@@ -1519,6 +1635,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             (SetLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetFlagCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SetRatingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SaveCurrentSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
         });
 
         // If token is expired, show a warning in the status bar

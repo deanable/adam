@@ -48,6 +48,11 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<SidebarHandler>();
         services.AddSingleton<WatchedFolderHandler>();
         services.AddSingleton<CommentHandler>();
+        services.AddSingleton<SavedSearchHandler>();
+        services.AddSingleton<SearchHistoryHandler>();
+        services.AddSingleton<SemanticSearchHandler>();
+        services.AddSingleton<EmbeddingService>();
+        services.AddSingleton<SemanticSearchService>();
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();

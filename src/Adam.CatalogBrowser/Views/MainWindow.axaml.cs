@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
+using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Services;
 
@@ -21,6 +22,18 @@ public partial class MainWindow : Window
 
         // Wire context menus after the window and its children are ready
         Loaded += OnLoaded;
+    }
+
+    /// <summary>
+    /// Handles theme selection from the title-bar ComboBox.
+    /// Applies the selected theme immediately via DesignThemeService.
+    /// </summary>
+    private void OnThemeSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is DesignTheme selected)
+        {
+            VM?.DesignThemeService.ApplyTheme(selected);
+        }
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -445,6 +458,22 @@ public class IntToInverseBoolConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is int i && i == 0;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Converts a boolean (IsPinned) to menu item text: true → "Unpin", false → "Pin".
+/// </summary>
+public class BoolToPinTextConverter : IValueConverter
+{
+    public static readonly BoolToPinTextConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is bool b && b ? "Unpin" : "Pin";
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

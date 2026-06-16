@@ -62,6 +62,13 @@ public static class ProtoHelper
         output.WriteBool(value);
     }
 
+    public static void WriteField(CodedOutputStream output, int fieldNumber, float value)
+    {
+        if (value == 0) return;
+        output.WriteTag(fieldNumber, WireFormat.WireType.Fixed32);
+        output.WriteFloat(value);
+    }
+
     public static void WriteField(CodedOutputStream output, int fieldNumber, double value)
     {
         if (value == 0) return;
@@ -127,6 +134,13 @@ public static class ProtoHelper
         if (!value) return 0;
         var tagSize = CodedOutputStream.ComputeRawVarint32Size(WireFormat.MakeTag(fieldNumber, WireFormat.WireType.Varint));
         return tagSize + 1;
+    }
+
+    public static int FieldSize(int fieldNumber, float value)
+    {
+        if (value == 0) return 0;
+        var tagSize = CodedOutputStream.ComputeRawVarint32Size(WireFormat.MakeTag(fieldNumber, WireFormat.WireType.Fixed32));
+        return tagSize + 4;
     }
 
     public static int FieldSize(int fieldNumber, double value)
