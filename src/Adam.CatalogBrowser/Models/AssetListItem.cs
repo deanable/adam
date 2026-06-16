@@ -6,6 +6,7 @@ using Adam.CatalogBrowser.Controls;
 using Adam.Shared.Models;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -125,7 +126,10 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
                     SharedThumbnailCache.TryGet(_thumbnailPath, out var cached) &&
                     cached is Bitmap cachedBmp)
                 {
-                    Thumbnail = cachedBmp;
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        Thumbnail = cachedBmp;
+                    });
                     return;
                 }
 
@@ -146,7 +150,11 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
                     useAsync: true);
 
                 var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
-                Thumbnail = bitmap;
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Thumbnail = bitmap;
+                });
 
                 // T12.1: Store in memory cache
                 SharedThumbnailCache?.Add(
