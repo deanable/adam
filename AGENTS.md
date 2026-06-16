@@ -29,8 +29,8 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 - `/gsd-verify-work` — Validate completed features against requirements
 - `/gsd-code-review 7` — Review code changes in Phase 7
 
-**Current Phase:** 20 — Client Experience Polish
-**Milestone:** v3.x — Client Polish (Phases 14-20)
+**Current Phase:** 21 — Virtualized Gallery & DB Optimization
+**Milestone:** v4.x — Performance & UX (Phases 20-21)
 **Tests:** 1,232 passing (2 Docker-dependent skipped)
 
 ## Project-Specific Guidance
@@ -189,6 +189,55 @@ The Compare View places two assets side-by-side (or overlaid) with synchronized 
 - `accent_palettes.md` — Alternative accent color palettes (teal, amber, rose, violet, emerald)
 
 Use these templates as a reference when building new UI components to maintain visual consistency across the application.
+
+### Viewport-Based Gallery Virtualization (Phase 21)
+
+**T21.1 — Visibility-Based Thumbnail Loading** (`AssetGalleryViewModel.LoadVisibleThumbnails`):
+- Calculates which items fall within or near the visible viewport using `_viewportTop`, `_viewportHeight`, and `_viewportWidth`
+- Loads thumbnails immediately for visible items (viewport + 50% overscan buffer)
+- Cancels pending loads (`CancelPendingLoad()`) for off-screen items to avoid wasted work
+- Estimates tile rows and items-per-row from actual viewport width (falls back to 1280px)
+
+**Scroll wiring** (`AssetGalleryView.axaml.cs.OnScrollChanged`):
+- `UpdateViewport(offset, height, width)` called on every `ScrollChanged` event — happens before the infinite scroll guard so tracking works on initial layout
+- Passes actual `GalleryScroller.Viewport.Width` for accurate items-per-row estimation
+
+**T21.2 — Prioritized Thumbnail Loading** (`BatchLoadRemainingThumbnailsAsync`):
+- Loads deferred thumbnails in batches of 8 with 50ms spacing to avoid CPU/IO bursts
+- Previous batch is cancelled on new page load or filter change via `_thumbnailBatchCts`
+- Visible items load immediately via `LoadVisibleThumbnails`; off-screen items processed by the batch loader
+
+### Async Thumbnail Disk I/O (Phase 21)
+
+**T21.3 — Non-blocking File I/O** (`AssetListItem.LoadThumbnailAsync`):
+- Uses `FileStream(FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true)` for non-blocking disk reads
+- Async file existence check via `Task.Run(() => File.Exists(...))`
+- Maintains the existing LRU memory cache path (T12.1): checks `SharedThumbnailCache` first before reading disk
+- Respects `CancellationToken` throughout for cancellation support
+
+### Composite DB Indexes & Keyset Pagination (Phase 21)
+
+**T21.4a — Composite Indexes** (`AppDbContext.OnModelCreating`):
+
+New composite indexes on `DigitalAsset` for common filter+sort patterns:
+- `(Type, CreatedAt, Id)` — filter by type, sort by date
+- `(Rating, CreatedAt)` and `(Rating, CreatedAt, Id)` — filter by rating, sort by date
+- `(MimeType, FileName)` — filter by type, sort by name
+- `(MimeType, CreatedAt)` — filter by type, sort by date
+- `(FileName, CreatedAt, Id)` — sort by filename with date tiebreaker
+- `(CreatedAt, Id)` — sort by date
+- `(FileSize, Id)` — sort by file size
+
+All indexes are compatible with SQLite, PostgreSQL, and SQL Server through EF Core's provider-agnostic `HasIndex` API.
+
+**T21.4b — Keyset Pagination** (`ApplyKeysetPagination`):
+- Replaces `Skip/TAKE` with seek-based WHERE clause for "load more" calls (page > 0)
+- Uses `WHERE (sortCol > @lastSeenValue) OR (sortCol = @lastSeenValue AND Id > @lastSeenId)` pattern
+- Avoids the OFFSET performance degradation at high page numbers
+- Supports all 4 sort modes: FileName, Date Added, FileType, FileSize
+- Each sort mode has appropriate tiebreaker on `Id` for deterministic ordering
+- `Skip/TAKE` retained for page 0 (initial load) since keyset values aren't available yet
+- Last item's sort values stored in `_lastSeek*` fields after each page load
 
 ### File Streaming
 - **GetFileRequest** / **GetFileResponse** — Protobuf contracts for retrieving file bytes from BrokerService

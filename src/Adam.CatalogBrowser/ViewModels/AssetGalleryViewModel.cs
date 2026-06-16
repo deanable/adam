@@ -31,6 +31,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     // T21.1: Viewport tracking for visibility-based thumbnail loading
     private double _viewportTop;
     private double _viewportHeight;
+    private double _viewportWidth;
     private const double ViewportOverscanPercent = 0.5; // Load thumbnails 50% beyond viewport
     private CancellationTokenSource? _thumbnailBatchCts;
     private int _thumbnailSize = 150;
@@ -1226,10 +1227,11 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     /// Updates the current viewport position. Called from the gallery ScrollViewer's
     /// ScrollChanged event handler in code-behind.
     /// </summary>
-    public void UpdateViewport(double scrollOffset, double viewportHeight)
+    public void UpdateViewport(double scrollOffset, double viewportHeight, double viewportWidth = 1280)
     {
         _viewportTop = scrollOffset;
         _viewportHeight = viewportHeight;
+        _viewportWidth = viewportWidth;
     }
 
     /// <summary>
@@ -1243,8 +1245,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
 
         // Estimate tile height including margin (~ thumbnail size + 24px for labels)
         var tileHeight = _thumbnailSize + 24;
-        // Estimate items per row based on viewport width (use a reasonable default)
-        var itemsPerRow = Math.Max(1, (int)(1280.0 / (tileHeight + 8)));
+        // Estimate items per row based on actual viewport width (T21.1)
+        var tileWidth = tileHeight + 8; // approximate tile width with margin
+        var itemsPerRow = Math.Max(1, (int)((_viewportWidth > 0 ? _viewportWidth : 1280) / tileWidth));
         var visibleStart = Math.Max(0, (int)((_viewportTop - _viewportHeight * ViewportOverscanPercent) / tileHeight) * itemsPerRow);
         var visibleEnd = Math.Min(items.Count, (int)((_viewportTop + _viewportHeight * (1 + ViewportOverscanPercent)) / tileHeight + 1) * itemsPerRow);
 

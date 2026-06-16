@@ -105,6 +105,13 @@ public partial class AssetGalleryView : UserControl
     {
         if (DataContext is not AssetGalleryViewModel vm) return;
 
+        // T21.1: Update viewport tracking for visibility-based thumbnail loading
+        vm.UpdateViewport(
+            GalleryScroller.Offset.Y,
+            GalleryScroller.Viewport.Height,
+            GalleryScroller.Viewport.Width);
+
+        // Infinite scroll: trigger load more at 80% scroll threshold
         var scrollableHeight = GalleryScroller.Extent.Height - GalleryScroller.Viewport.Height;
         if (scrollableHeight <= 0) return;
 
