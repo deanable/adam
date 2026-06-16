@@ -14,7 +14,6 @@ namespace Adam.CatalogBrowser.ViewModels;
 public class AiTagReviewViewModel : INotifyPropertyChanged
 {
     private double _confidenceThreshold = 0.6;
-    private bool _acceptAllAboveThreshold;
     private int _acceptedCount;
     private int _totalCount;
 

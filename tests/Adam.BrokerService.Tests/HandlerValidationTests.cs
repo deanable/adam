@@ -128,7 +128,7 @@ public sealed class HandlerValidationTests : IAsyncLifetime
         AuthToken = token ?? "",
         CorrelationId = Guid.NewGuid().ToString(),
         MessageType = type,
-        Payload = payload
+        Payload = payload!
     };
 
     /// <summary>

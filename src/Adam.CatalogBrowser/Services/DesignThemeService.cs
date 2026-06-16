@@ -208,7 +208,7 @@ public sealed class DesignThemeService
     private static bool TryGetDesignColor(
         IReadOnlyDictionary<string, Color> colors,
         string[] designKeys,
-        out Color? color)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Color? color)
     {
         foreach (var key in designKeys)
         {

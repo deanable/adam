@@ -50,6 +50,11 @@ public sealed class ActivityFeedViewModel : INotifyPropertyChanged
             };
         }
 
+        RefreshCommand = new RelayCommand(async _ => await LoadRecentActivityAsync());
+        MarkAllAsReadCommand = new RelayCommand(_ => MarkAllAsRead());
+        ClearAllCommand = new RelayCommand(_ => ClearAll());
+        ClearFilterCommand = new RelayCommand(_ => { FilterEntityType = string.Empty; });
+
         // Note: mode switch reload is handled externally by MainWindowViewModel
         // (ModeManager does not implement INotifyPropertyChanged)
     }

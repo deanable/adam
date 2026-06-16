@@ -182,6 +182,14 @@
                   BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="3"
                   Background="{DynamicResource SurfaceLightBrush}" Cursor="Hand" />
           <Separator Width="1" Background="{DynamicResource BorderBrush}" Margin="2,0" />
+          <Button Content="↔ Compare"
+                  Command="{Binding CompareSelectedCommand}"
+                  IsVisible="{Binding HasComparePair}"
+                  FontSize="10" Padding="6,2"
+                  BorderBrush="{DynamicResource PrimaryBrush}" BorderThickness="1" CornerRadius="3"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  Foreground="{DynamicResource PrimaryBrush}" Cursor="Hand" />
+          <Separator Width="1" Background="{DynamicResource BorderBrush}" Margin="2,0" />
           <Button Content="✕ Clear"
                   Command="{Binding ClearSelectionCommand}"
                   FontSize="10" Padding="6,2"

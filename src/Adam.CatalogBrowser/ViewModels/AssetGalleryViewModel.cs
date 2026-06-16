@@ -81,6 +81,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         ClearSearchCommand = new RelayCommand(_ => ClearSearch());
         ClearSelectionCommand = new RelayCommand(_ => ClearSelection());
         ToggleSearchModeCommand = new RelayCommand(_ => IsSemanticSearch = !IsSemanticSearch);
+        CompareSelectedCommand = new RelayCommand(_ => CompareSelected(), _ => HasComparePair);
 
         // T12.1: Wire shared in-memory thumbnail cache
         AssetListItem.SharedThumbnailCache = _thumbnailCache;
@@ -624,6 +625,24 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     public void RequestOpenAsset(AssetListItem asset) => OpenAssetRequested?.Invoke(asset);
 
     /// <summary>
+    /// Called from the View code-behind to request comparing two assets.
+    /// Fires the <see cref="CompareAssetsRequested"/> event.
+    /// </summary>
+    public void RequestCompareAssets(AssetListItem left, AssetListItem right) =>
+        CompareAssetsRequested?.Invoke(left, right);
+
+    /// <summary>
+    /// Command that compares the first two selected assets side-by-side.
+    /// Only enabled when exactly 2 assets are selected.
+    /// </summary>
+    public ICommand CompareSelectedCommand { get; }
+
+    /// <summary>
+    /// True when exactly 2 assets are selected (ideal for compare).
+    /// </summary>
+    public bool HasComparePair => _selectedAssets.Count == 2;
+
+    /// <summary>
     /// Fires when the multi-asset selection changes.
     /// Carries the full list of currently selected assets.
     /// </summary>
@@ -650,6 +669,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(SelectedAssets));
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasComparePair));
+
+        (CompareSelectedCommand as RelayCommand)?.RaiseCanExecuteChanged();
 
         // Primary selection (first item)
         SelectedAsset = items.Count > 0 ? items[0] : null;
@@ -681,6 +703,16 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     private void ClearSelection()
     {
         UpdateSelection([]);
+    }
+
+    /// <summary>
+    /// Compares the first two selected assets.
+    /// Fires <see cref="CompareAssetsRequested"/> via <see cref="RequestCompareAssets"/>.
+    /// </summary>
+    private void CompareSelected()
+    {
+        if (_selectedAssets.Count < 2) return;
+        RequestCompareAssets(_selectedAssets[0], _selectedAssets[1]);
     }
 
     public async Task LoadAssetsAsync(CancellationToken ct = default)
@@ -1248,8 +1280,21 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         // Estimate items per row based on actual viewport width (T21.1)
         var tileWidth = tileHeight + 8; // approximate tile width with margin
         var itemsPerRow = Math.Max(1, (int)((_viewportWidth > 0 ? _viewportWidth : 1280) / tileWidth));
-        var visibleStart = Math.Max(0, (int)((_viewportTop - _viewportHeight * ViewportOverscanPercent) / tileHeight) * itemsPerRow);
-        var visibleEnd = Math.Min(items.Count, (int)((_viewportTop + _viewportHeight * (1 + ViewportOverscanPercent)) / tileHeight + 1) * itemsPerRow);
+        int visibleStart, visibleEnd;
+
+        if (_viewportHeight <= 0)
+        {
+            // Viewport not yet initialized (no scroll event has fired yet).
+            // Load thumbnails for all items on the first page to ensure
+            // the initial gallery display has immediate thumbnails.
+            visibleStart = 0;
+            visibleEnd = items.Count;
+        }
+        else
+        {
+            visibleStart = Math.Max(0, (int)((_viewportTop - _viewportHeight * ViewportOverscanPercent) / tileHeight) * itemsPerRow);
+            visibleEnd = Math.Min(items.Count, (int)((_viewportTop + _viewportHeight * (1 + ViewportOverscanPercent)) / tileHeight + 1) * itemsPerRow);
+        }
 
         for (int i = 0; i < items.Count; i++)
         {
