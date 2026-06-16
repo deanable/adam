@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
+             x:Class="Adam.CatalogBrowser.Views.LoupeView"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             Background="Black"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Toolbar -->
+    <Border Grid.Row="0" Background="#1A1A1A" Padding="8,6">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="&#x2190; Prev" Command="{Binding PrevCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="Next &#x2192;" Command="{Binding NextCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Rectangle Width="1" Height="20" Fill="#555" VerticalAlignment="Center" />
+          <Button Content="&#x1F4CB; Info" Command="{Binding ToggleInfoOverlayCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="&#x25A3; Fit" Command="{Binding FitToWindowCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="1" Text="{Binding StatusText}"
+                   Foreground="#AAA" FontSize="12"
+                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <Button Content="+" Command="{Binding ZoomInCommand}"
+                  FontSize="14" Padding="6,2" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand"
+                  Width="28" Height="24" />
+          <Button Content="-" Command="{Binding ZoomOutCommand}"
+                  FontSize="14" Padding="6,2" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand"
+                  Width="28" Height="24" />
+          <TextBlock Text="Esc to close" Foreground="#666" FontSize="10"
+                     VerticalAlignment="Center" Margin="4,0,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Image area with ZoomBorder -->
+    <Grid Grid.Row="1">
+      <controls:ZoomBorder x:Name="ImageZoomBorder"
+                           MinZoom="0.1" MaxZoom="20.0"
+                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Border Background="Transparent">
+          <Image Source="{Binding FullResImage}"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </controls:ZoomBorder>
+
+      <!-- Loading overlay -->
+      <Border Background="#80000000" IsVisible="{Binding IsLoading}"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+          <controls:LoadingSpinner Width="36" Height="36" Foreground="White"
+                                    HorizontalAlignment="Center" />
+          <TextBlock Text="Loading image..." Foreground="White" FontSize="12"
+                     HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <!-- Info overlay (toggled with I key) -->
+      <Border Background="#CC1A1A1A" CornerRadius="6" Padding="12,8"
+              HorizontalAlignment="Left" VerticalAlignment="Top"
+              Margin="12" IsVisible="{Binding ShowInfoOverlay}">
+        <StackPanel Spacing="3">
+          <TextBlock Text="{Binding FileName}" Foreground="White" FontSize="12"
+                     FontWeight="Bold" />
+          <TextBlock Text="{Binding Dimensions}" Foreground="#CCC" FontSize="11"
+                     IsVisible="{Binding Dimensions, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+          <TextBlock Text="{Binding FileSizeFormatted}" Foreground="#CCC" FontSize="11" />
+          <TextBlock Text="{Binding RatingStars}" Foreground="#FFD700" FontSize="11" />
+          <Rectangle Height="1" Fill="#444" Margin="0,2" />
+          <TextBlock Text="{Binding CameraModel}" Foreground="#CCC" FontSize="11" IsVisible="{Binding CameraModel, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+          <TextBlock Text="{Binding LensModel}" Foreground="#CCC" FontSize="11" IsVisible="{Binding LensModel, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+          <TextBlock Text="{Binding Iso}" Foreground="#CCC" FontSize="11" IsVisible="{Binding Iso, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+          <TextBlock Text="{Binding Aperture}" Foreground="#CCC" FontSize="11" IsVisible="{Binding Aperture, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+          <TextBlock Text="{Binding ShutterSpeed}" Foreground="#CCC" FontSize="11" IsVisible="{Binding ShutterSpeed, Converter={x:Static local:StringNotEmptyConverter.Instance}}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Filmstrip -->
+    <Border Grid.Row="2" Background="#1A1A1A" Padding="4" Height="70">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Hidden">
+        <ListBox ItemsSource="{Binding FilmstripItems}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 SelectionMode="Single">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border Width="60" Height="54" Margin="2,0"
+                      BorderBrush="{Binding IsCurrent, Converter={x:Static local:BoolToFilmstripBorderConverter.Instance}}"
+                      BorderThickness="2"
+                      CornerRadius="4"
+                      PointerPressed="OnFilmstripItemPointerPressed">
+                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                       VerticalAlignment="Center" HorizontalAlignment="Center" />
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </ScrollViewer>
+    </Border>
+
+  </Grid>
+</UserControl>

@@ -1,0 +1,139 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Adam.CatalogBrowser.Controls"
+             xmlns:local="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.CompareView"
+             Background="#1A1A1A"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Toolbar -->
+    <Border Grid.Row="0" Background="#1A1A1A" Padding="8,6">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="&#x1F504; Swap" Command="{Binding SwapCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="&#x1F517; Sync: ON" Command="{Binding ToggleSyncCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="&#x25A3; Overlay" Command="{Binding ToggleViewModeCommand}"
+                  FontSize="12" Padding="8,3" Background="#333" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="1" Text="Compare View"
+                   Foreground="#AAA" FontSize="12"
+                   VerticalAlignment="Center" HorizontalAlignment="Center" />
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <Button Content="Esc to close" Command="{Binding CloseCommand}"
+                  FontSize="10" Padding="6,2" Background="#333" Foreground="#AAA"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Main content area -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" Margin="0,4">
+
+      <!-- Left panel -->
+      <Border Grid.Column="0" Margin="4,0,2,0" CornerRadius="4" ClipToBounds="True">
+        <Grid>
+          <controls:ZoomBorder x:Name="LeftZoomBorder"
+                               MinZoom="0.1" MaxZoom="20.0"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Background="Black">
+              <Image Source="{Binding LeftImage}"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </controls:ZoomBorder>
+          <!-- Loading overlay -->
+          <Border Background="#80000000" IsVisible="{Binding IsLoadingLeft}"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <controls:LoadingSpinner Width="24" Height="24" Foreground="White"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Separator -->
+      <Rectangle Grid.Column="1" Width="2" Fill="#444" VerticalAlignment="Stretch" />
+
+      <!-- Right panel -->
+      <Border Grid.Column="2" Margin="2,0,4,0" CornerRadius="4" ClipToBounds="True">
+        <Grid>
+          <controls:ZoomBorder x:Name="RightZoomBorder"
+                               MinZoom="0.1" MaxZoom="20.0"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Background="Black">
+              <Image Source="{Binding RightImage}"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </controls:ZoomBorder>
+          <!-- Loading overlay -->
+          <Border Background="#80000000" IsVisible="{Binding IsLoadingRight}"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <controls:LoadingSpinner Width="24" Height="24" Foreground="White"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Overlay mode (right image overlaid on left, shown instead of side-by-side when active) -->
+      <Grid Grid.ColumnSpan="3" IsVisible="{Binding IsOverlayMode}" Margin="0">
+        <Border CornerRadius="4" ClipToBounds="True">
+          <Grid>
+            <Image Source="{Binding LeftImage}" Stretch="Uniform"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Image Source="{Binding RightImage}" Stretch="Uniform"
+                   Opacity="{Binding OverlayOpacity}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+        <!-- Opacity slider -->
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                Background="#80000000" CornerRadius="4" Padding="12,6" Margin="0,0,0,8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Opacity:" Foreground="#CCC" FontSize="11" VerticalAlignment="Center" />
+            <Slider Minimum="0" Maximum="1" Width="120"
+                    Value="{Binding OverlayOpacity}" />
+
+            <Button Content="{Binding ViewMode, Converter={x:Static local:CompareViewModeToButtonTextConverter.Instance}}"
+                    FontSize="10" Padding="6,2" Background="#333" Foreground="White"
+                    BorderThickness="0" CornerRadius="4" Cursor="Hand"
+                    Command="{Binding ToggleViewModeCommand}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- Metadata diff bar -->
+    <Border Grid.Row="2" Background="#1A1A1A" Padding="8,4" MaxHeight="120">
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding DiffItems}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="100,*,Auto,*,Auto" Margin="0,1">
+                <TextBlock Grid.Column="0" Text="{Binding Field}" Foreground="#888" FontSize="11"
+                           FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="{Binding LeftValue}" Foreground="#CCC" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="→" Foreground="#555" FontSize="11" Margin="4,0" />
+                <TextBlock Grid.Column="3" Text="{Binding RightValue}" Foreground="#CCC" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="{Binding IsDifferent, Converter={x:Static local:DiffStatusToIconConverter.Instance}}"
+                           Foreground="{Binding IsDifferent, Converter={x:Static local:DiffStatusToColorConverter.Instance}}"
+                           FontSize="11" Margin="4,0,0,0" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+  </Grid>
+</UserControl>

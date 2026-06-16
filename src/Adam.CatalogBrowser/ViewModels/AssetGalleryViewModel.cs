@@ -591,6 +591,22 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Fires when the user wants to open an asset in the loupe view (double-click/Enter).
+    /// </summary>
+    public event Action<AssetListItem>? OpenAssetRequested;
+
+    /// <summary>
+    /// Fires when the user wants to compare two assets.
+    /// </summary>
+    public event Action<AssetListItem, AssetListItem>? CompareAssetsRequested;
+
+    /// <summary>
+    /// Called from the View code-behind to request opening an asset in the loupe.
+    /// Fires the <see cref="OpenAssetRequested"/> event.
+    /// </summary>
+    public void RequestOpenAsset(AssetListItem asset) => OpenAssetRequested?.Invoke(asset);
+
+    /// <summary>
     /// Fires when the multi-asset selection changes.
     /// Carries the full list of currently selected assets.
     /// </summary>

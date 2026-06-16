@@ -119,6 +119,9 @@ public sealed class ConnectionHandler : IConnectionHandler
                 case MessageTypeCode.DeleteCollectionRequest:
                     response = await _collectionHandler.DeleteCollectionAsync(request, ct);
                     break;
+                case MessageTypeCode.ReorderCollectionAssetsRequest:
+                    response = await _collectionHandler.ReorderCollectionAssetsAsync(request, ct);
+                    break;
                 case MessageTypeCode.RefreshSmartCollectionRequest:
                     response = await _collectionHandler.RefreshSmartCollectionAsync(request, ct);
                     break;

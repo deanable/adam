@@ -26,6 +26,12 @@
     <DataTemplate DataType="{x:Type vm:ActivityFeedViewModel}">
       <views:ActivityFeedView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:LoupeViewModel}">
+      <views:LoupeView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:CompareViewModel}">
+      <views:CompareView />
+    </DataTemplate>
 
   </Window.DataTemplates>
 

@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
+using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.ViewModels;
 
 namespace Adam.CatalogBrowser.Views;
@@ -35,6 +36,10 @@ public partial class AssetGalleryView : UserControl
         GridViewBox.PointerMoved += OnGalleryPointerMoved;
         ListViewBox.PointerPressed += OnGalleryPointerPressed;
         ListViewBox.PointerMoved += OnGalleryPointerMoved;
+
+        // T20.2: Wire loupe open on double-click
+        GridViewBox.DoubleTapped += OnGalleryDoubleTapped;
+        ListViewBox.DoubleTapped += OnGalleryDoubleTapped;
 
         // Wire context menus programmatically (T8.16) — avoids
         // FindAncestor Window bindings that break in MenuFlyout popup roots.
@@ -285,6 +290,19 @@ public partial class AssetGalleryView : UserControl
     // ──────────────────────────────────────────────
     //  Selection
     // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// T20.2: Opens the loupe view when an asset is double-clicked.
+    /// </summary>
+    private void OnGalleryDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        var source = e.Source as Control;
+        var listBoxItem = source?.FindAncestorOfType<ListBoxItem>();
+        if (listBoxItem?.DataContext is not AssetListItem asset) return;
+
+        if (DataContext is AssetGalleryViewModel vm)
+            vm.RequestOpenAsset(asset);
+    }
 
     private void OnGallerySelectionChanged(object? sender, SelectionChangedEventArgs e)
     {

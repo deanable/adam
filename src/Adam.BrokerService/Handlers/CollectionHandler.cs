@@ -352,6 +352,62 @@ public sealed class CollectionHandler
         return await q.Select(a => a.Id).ToListAsync(ct);
     }
 
+    public async Task<Envelope> ReorderCollectionAssetsAsync(Envelope request, CancellationToken ct)
+    {
+        if (!await _authz.HasPermissionAsync(request, "collection:update", ct))
+            return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
+
+        if (request.Payload == null)
+            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+
+        ReorderCollectionAssetsRequest req;
+        try
+        {
+            req = ProtoHelper.Deserialize<ReorderCollectionAssetsRequest>(request.Payload.ToByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
+            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
+        }
+
+        if (!Guid.TryParse(req.CollectionId, out var collectionId))
+            return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid collection ID");
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == collectionId, ct);
+        if (collection == null)
+            return ErrorResponse(request, ErrorCode.NotFound, "Collection not found");
+
+        // Batch-update SortOrder for all reordered assets
+        var assetIds = req.Entries.Select(e => Guid.Parse(e.AssetId)).ToList();
+        var assets = await db.DigitalAssets
+            .Where(a => assetIds.Contains(a.Id))
+            .ToListAsync(ct);
+
+        foreach (var entry in req.Entries)
+        {
+            var asset = assets.FirstOrDefault(a => a.Id.ToString() == entry.AssetId);
+            if (asset != null)
+                asset.SortOrder = entry.SortOrder;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // Broadcast change notification to other connected clients
+        var userId = _authHandler.GetUserId(request);
+        _ = _notificationService.NotifyUpdatedAsync(collectionId.ToString(), userId, request.ConnectionId);
+
+        return new Envelope
+        {
+            CorrelationId = request.CorrelationId,
+            MessageType = MessageTypeCode.ReorderCollectionAssetsResponse,
+            StatusCode = 0
+        };
+    }
+
     private static Envelope ErrorResponse(Envelope request, int code, string message)
     {
         return new Envelope

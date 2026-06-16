@@ -303,4 +303,86 @@ public sealed class RefreshSmartCollectionResponse : IProtoSerializable
     }
 }
 
+// ─── ReorderCollectionAssets ─────────────────────────────
 
+public sealed class AssetOrderEntry : IProtoSerializable
+{
+    public string AssetId { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, AssetId);
+        size += ProtoHelper.FieldSize(2, SortOrder);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, AssetId);
+        ProtoHelper.WriteField(output, 2, SortOrder);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: AssetId = input.ReadString(); break;
+                case 2: SortOrder = input.ReadInt32(); break;
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class ReorderCollectionAssetsRequest : IProtoSerializable
+{
+    public string CollectionId { get; set; } = string.Empty;
+    public List<AssetOrderEntry> Entries { get; } = [];
+
+    public int CalculateSize()
+    {
+        int size = ProtoHelper.FieldSize(1, CollectionId);
+        size += ProtoHelper.RepeatedFieldSize(2, Entries);
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        ProtoHelper.WriteField(output, 1, CollectionId);
+        ProtoHelper.WriteRepeatedField(output, 2, Entries);
+    }
+
+    public void MergeFrom(CodedInputStream input)
+    {
+        uint tag;
+        while ((tag = input.ReadTag()) > 0)
+        {
+            switch (WireFormat.GetTagFieldNumber(tag))
+            {
+                case 1: CollectionId = input.ReadString(); break;
+                case 2:
+                    {
+                        var entry = new AssetOrderEntry();
+                        var buf = input.ReadBytes().ToByteArray();
+                        using var ms = new MemoryStream(buf);
+                        using var cis = new CodedInputStream(ms);
+                        entry.MergeFrom(cis);
+                        Entries.Add(entry);
+                        break;
+                    }
+                default: input.SkipLastField(); break;
+            }
+        }
+    }
+}
+
+public sealed class ReorderCollectionAssetsResponse : IProtoSerializable
+{
+    public int CalculateSize() => 0;
+    public void WriteTo(CodedOutputStream output) { }
+    public void MergeFrom(CodedInputStream input) { uint tag; while ((tag = input.ReadTag()) > 0) input.SkipLastField(); }
+}

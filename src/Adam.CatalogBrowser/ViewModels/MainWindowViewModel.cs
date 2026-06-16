@@ -187,6 +187,33 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
         FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
 
+        // T20.2: Loupe view — open on double-click
+        assetGallery.OpenAssetRequested += async asset =>
+        {
+            var loupe = new LoupeViewModel(_modeManager);
+            await loupe.OpenAsync(asset, assetGallery.Assets.ToList());
+            loupe.CloseRequested += () =>
+            {
+                loupe.Dispose();
+                CurrentView = assetGallery;
+            };
+            CurrentView = loupe;
+        };
+
+        // T20.3: Compare view
+        assetGallery.CompareAssetsRequested += async (left, right) =>
+        {
+            var compare = new CompareViewModel(_modeManager);
+            await compare.SetLeftAssetAsync(left);
+            await compare.SetRightAssetAsync(right);
+            compare.CloseRequested += () =>
+            {
+                compare.Dispose();
+                CurrentView = assetGallery;
+            };
+            CurrentView = compare;
+        };
+
         // Phase 19: Save current search query as a saved search
         SaveCurrentSearchCommand = new RelayCommand(async _ => await SaveCurrentSearchAsync(),
             _ => !string.IsNullOrWhiteSpace(AssetGallery.SearchText) && AssetGallery.IsSearchActive && CanEditMetadata);

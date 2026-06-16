@@ -43,6 +43,8 @@ public enum MessageTypeCode : ushort
     DeleteCollectionResponse = 35,
     RefreshSmartCollectionRequest = 38,
     RefreshSmartCollectionResponse = 39,
+    ReorderCollectionAssetsRequest = 37,
+    ReorderCollectionAssetsResponse = 130,
 
     // Users / Roles / Audit (40-59)
     ListUsersRequest = 40,
