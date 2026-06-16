@@ -62,7 +62,17 @@ public sealed class ModeManager
         // Use EnsureCreatedAsync during development to auto-generate schema from model
         // without maintaining EF Core migration files for every schema change.
         // The BrokerService uses DbMigrationService for production schema management.
-        await db.Database.EnsureCreatedAsync();
+        var wasCreated = await db.Database.EnsureCreatedAsync();
+
+        // If the database already existed (wasCreated == false), EnsureCreatedAsync
+        // does NOT add columns that were added to the model after the DB was created.
+        // Manually add the SortOrder column and its indexes for existing databases.
+        // This is safe to run repeatedly — SQLite's IF NOT EXISTS semantics on ALTER
+        // TABLE ADD COLUMN only exist in custom SQL via PRAGMA or exception handling.
+        if (!wasCreated)
+        {
+            await AddMissingColumnsAsync(db);
+        }
 
         // T11.5: Initialize FTS5 tables and triggers after schema creation
         if (FtsService != null)
@@ -81,6 +91,47 @@ public sealed class ModeManager
         sw.Stop();
         InitElapsedMs = sw.ElapsedMilliseconds;
         _logger.LogInformation("ModeManager.InitializeAsync completed in {ElapsedMs}ms", InitElapsedMs);
+    }
+
+    /// <summary>
+    /// Adds columns and indexes that were added to the EF Core model after the database
+    /// was initially created. Since standalone mode uses <c>EnsureCreatedAsync</c> (which
+    /// does NOT alter existing tables), these schema additions are applied via raw SQL.
+    /// </summary>
+    private static async Task AddMissingColumnsAsync(AppDbContext db)
+    {
+        // SQLite does not support IF NOT EXISTS for ALTER TABLE ADD COLUMN.
+        // Catch the "duplicate column" exception and ignore it.
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"DigitalAssets\" ADD COLUMN \"SortOrder\" INTEGER NOT NULL DEFAULT 0;");
+        }
+        catch (Exception ex) when (ex.Message.Contains("duplicate column"))
+        {
+            // Column already exists — no action needed
+        }
+
+        // Create indexes for SortOrder (IF NOT EXISTS syntax works for CREATE INDEX)
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_SortOrder\" ON \"DigitalAssets\" (\"SortOrder\");");
+        }
+        catch
+        {
+            // Index creation failure is non-fatal
+        }
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_CollectionId_SortOrder\" ON \"DigitalAssets\" (\"CollectionId\", \"SortOrder\");");
+        }
+        catch
+        {
+            // Index creation failure is non-fatal
+        }
     }
 
     public async Task InitializeMultiUserAsync(string host, int port, string dbProvider = "sqlite", string? connectionString = null)

@@ -104,8 +104,6 @@ public sealed class DesignThemeService
             try
             {
                 var fm = YamlFrontmatterParser.Parse(filePath);
-                if (fm == null)
-                    continue;
 
                 var theme = new DesignTheme
                 {

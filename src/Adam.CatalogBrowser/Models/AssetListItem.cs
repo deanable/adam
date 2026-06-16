@@ -50,16 +50,38 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
         get => _thumbnailPath;
         set
         {
-            // T12.1: Remove stale cache entry before disposing the bitmap
-            // so the cache doesn't return a disposed bitmap on next scroll-back.
-            if (!string.IsNullOrEmpty(_thumbnailPath) && SharedThumbnailCache != null)
-                SharedThumbnailCache.Remove(_thumbnailPath);
+            var oldPath = _thumbnailPath;
+            var oldThumbnail = _thumbnail;
 
             _thumbnailPath = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Thumbnail));
-            _thumbnail?.Dispose();
             _thumbnail = null;
+
+            // Marshal property-changed notifications and bitmap disposal to the
+            // UI thread. The setter can be called from background threads (e.g.
+            // BackfillMissingThumbnailsAsync runs on Parallel.ForEachAsync).
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                // Already on UI thread — fire directly
+                if (!string.IsNullOrEmpty(oldPath) && SharedThumbnailCache != null)
+                    SharedThumbnailCache.Remove(oldPath);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(Thumbnail));
+                oldThumbnail?.Dispose();
+            }
+            else
+            {
+                // On background thread — marshal to UI thread
+                var capturedPath = oldPath;
+                var capturedBitmap = oldThumbnail;
+                _ = Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!string.IsNullOrEmpty(capturedPath) && SharedThumbnailCache != null)
+                        SharedThumbnailCache.Remove(capturedPath);
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(Thumbnail));
+                    capturedBitmap?.Dispose();
+                });
+            }
         }
     }
 

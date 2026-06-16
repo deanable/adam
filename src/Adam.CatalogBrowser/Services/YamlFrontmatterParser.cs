@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Adam.CatalogBrowser.Services;
 
@@ -6,6 +7,10 @@ namespace Adam.CatalogBrowser.Services;
 /// Minimal YAML frontmatter parser for <c>.design/*.md</c> files.
 /// Extracts the frontmatter block between <c>---</c> markers and parses
 /// top-level scalar values and one level of nested key-value pairs.
+/// <para/>
+/// If no valid frontmatter is found, falls back to scanning the markdown body
+/// for inferred values (H1 heading for name, hex colors with context keywords).
+/// Default values are used for everything the body doesn't supply.
 /// </summary>
 internal static class YamlFrontmatterParser
 {
@@ -23,16 +28,37 @@ internal static class YamlFrontmatterParser
     );
 
     /// <summary>
-    /// Parses the frontmatter from the given markdown file content.
-    /// Returns <c>null</c> if no valid frontmatter is found.
+    /// Parses the frontmatter from the given markdown file.
+    /// Falls back to body inference when no <c>---</c> frontmatter is found.
+    /// Never returns <c>null</c>.
     /// </summary>
-    internal static DesignFrontmatter? Parse(string filePath)
+    internal static DesignFrontmatter Parse(string filePath)
     {
         var content = File.ReadAllText(filePath);
         return ParseContent(Path.GetFileNameWithoutExtension(filePath), content);
     }
 
-    internal static DesignFrontmatter? ParseContent(string fileName, string content)
+    /// <summary>
+    /// Parses the frontmatter from the given markdown content.
+    /// Falls back to body inference when no <c>---</c> frontmatter is found.
+    /// Never returns <c>null</c>.
+    /// </summary>
+    internal static DesignFrontmatter ParseContent(string fileName, string content)
+    {
+        // First try: parse YAML frontmatter (existing behavior)
+        var fm = TryParseFrontmatter(fileName, content);
+        if (fm != null)
+            return fm;
+
+        // Fallback: scan body for inferred values
+        return InferFromBody(fileName, content);
+    }
+
+    /// <summary>
+    /// Attempts to extract a structured frontmatter block between <c>---</c> markers.
+    /// Returns <c>null</c> if no valid frontmatter is found.
+    /// </summary>
+    private static DesignFrontmatter? TryParseFrontmatter(string fileName, string content)
     {
         // Extract frontmatter between --- markers
         const string sep = "---";
@@ -125,6 +151,163 @@ internal static class YamlFrontmatterParser
             Rounded: rounded,
             Spacing: spacing
         );
+    }
+
+    /// <summary>
+    /// Infers a <see cref="DesignFrontmatter"/> from the markdown body when no
+    /// YAML frontmatter is present. Extracts what it can (H1 heading, hex colors
+    /// near context keywords) and uses defaults for the rest.
+    /// </summary>
+    internal static DesignFrontmatter InferFromBody(string fileName, string content)
+    {
+        var name = InferName(fileName, content);
+        var colors = InferColors(content);
+
+        return new DesignFrontmatter(
+            FileName: fileName,
+            Name: name,
+            Description: string.Empty,
+            Version: string.Empty,
+            Colors: colors,
+            Rounded: new Dictionary<string, string>(),
+            Spacing: new Dictionary<string, string>()
+        );
+    }
+
+    /// <summary>
+    /// Extracts a display name from the first H1 heading, or falls back to the filename.
+    /// </summary>
+    private static string InferName(string fileName, string content)
+    {
+        foreach (var line in content.Split('\n', StringSplitOptions.None))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("# ") && trimmed.Length > 2)
+                return trimmed[2..].Trim();
+        }
+        return fileName;
+    }
+
+    /// <summary>
+    /// Keyword-to-token mapping for body color inference, ordered from most
+    /// specific (multi-word phrases) to most generic (single-word hints).
+    /// The first match for each line determines the token for any hex/rgba
+    /// colors found on that line.
+    /// </summary>
+    private static readonly (string Keyword, string[] Tokens)[] BodyColorHints =
+    [
+        // ── Multi-word phrases (most specific, checked first) ──
+        ("navigation text", ["ink"]),
+        ("body text", ["body"]),
+        ("tertiary text", ["mute"]),
+        ("placeholder text", ["ash"]),
+        ("page background", ["canvas"]),
+        ("disabled text", ["ash"]),
+        ("dark surface", ["ink"]),
+        ("alternate surface", ["surface-soft"]),
+
+        // ── Descriptive single words ──
+        ("heading", ["ink"]),
+        ("headline", ["ink"]),
+        ("ink", ["ink"]),
+        ("body", ["body"]),
+        ("charcoal", ["charcoal"]),
+        ("mute", ["mute"]),
+        ("stone", ["stone"]),
+        ("placeholder", ["ash"]),
+        ("disabled", ["ash"]),
+        ("ash", ["ash"]),
+        ("background", ["canvas"]),
+        ("canvas", ["canvas"]),
+        ("surface", ["canvas"]),
+        ("border", ["hairline"]),
+        ("divider", ["hairline"]),
+        ("hairline", ["hairline"]),
+        ("danger", ["danger"]),
+        ("error", ["danger"]),
+        ("destructive", ["danger"]),
+        ("warning", ["warning"]),
+        ("caution", ["warning"]),
+        ("success", ["success"]),
+        ("positive", ["success"]),
+        ("confirm", ["success"]),
+        ("silver", ["stone"]),
+        ("graphite", ["body"]),
+        ("carbon", ["ink"]),
+        ("white", ["canvas"]),
+        ("cream", ["canvas"]),
+        ("transparent", ["canvas"]),
+
+        // ── Generic brand/interaction terms (checked last) ──
+        ("primary", ["primary"]),
+        ("accent", ["accent"]),
+        ("brand", ["primary"]),
+        ("cta", ["primary"]),
+    ];
+
+    private static readonly Regex HexColorPattern = new(
+        @"(?:^|[^#\w])#([0-9a-fA-F]{3,8})(?=[\s\),;:\]\.`]|$)",
+        RegexOptions.Compiled | RegexOptions.Multiline);
+
+    private static readonly Regex RgbaColorPattern = new(
+        @"rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Scans the markdown body for hex color values and rgba() values, then
+    /// maps them to design tokens based on keyword context on the same line.
+    /// Only the first useful token per line is assigned.
+    /// </summary>
+    private static Dictionary<string, string> InferColors(string content)
+    {
+        var colors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var lines = content.Split('\n', StringSplitOptions.None);
+
+        foreach (var line in lines)
+        {
+            // Collect all hex and rgba color values on this line
+            var hexMatches = HexColorPattern.Matches(line);
+            var rgbaMatches = RgbaColorPattern.Matches(line);
+
+            if (hexMatches.Count == 0 && rgbaMatches.Count == 0)
+                continue;
+
+            // Find the best token hint from keywords on this line
+            var matchedTokens = FindBestTokenHint(line);
+            if (matchedTokens.Length == 0)
+                continue; // no keyword context — skip this line's colors
+
+            // Assign colors to the first available token slot
+            var targetToken = matchedTokens[0];
+            foreach (Match match in hexMatches)
+            {
+                if (!colors.ContainsKey(targetToken))
+                    colors[targetToken] = "#" + match.Groups[1].Value;
+            }
+            foreach (Match match in rgbaMatches)
+            {
+                if (!colors.ContainsKey(targetToken))
+                    colors[targetToken] = match.Groups[0].Value;
+            }
+        }
+
+        return colors;
+    }
+
+    /// <summary>
+    /// Finds the best token hint for a line by scanning against
+    /// <see cref="BodyColorHints"/> in order (most specific first).
+    /// Returns the token array from the first matching hint, or an empty array.
+    /// </summary>
+    private static string[] FindBestTokenHint(string line)
+    {
+        var lineLower = line.ToLowerInvariant();
+        foreach (var (keyword, tokens) in BodyColorHints)
+        {
+            if (lineLower.Contains(keyword, StringComparison.Ordinal))
+                return tokens;
+        }
+        return [];
     }
 
     /// <summary>

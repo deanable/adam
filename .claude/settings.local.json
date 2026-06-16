@@ -54,7 +54,16 @@
       "Skill(deep-research)",
       "WebFetch(domain:www.cmswire.com)",
       "Bash(xargs grep -l -i \"iptc\\\\|xmp\\\\|exif\\\\|MetadataProfile\\\\|MetadataEditor\")",
-      "Bash(awk '/## v2|V2|v2 Requirements/{f=1} f' .planning/REQUIREMENTS.md)"
+      "Bash(awk '/## v2|V2|v2 Requirements/{f=1} f' .planning/REQUIREMENTS.md)",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.tsx\" -Path \"src\")",
+      "Bash(Select-Object -First 20 FullName)",
+      "Bash(powershell -Command \"Start-Process -FilePath 'src/Adam.CatalogBrowser/bin/Debug/net10.0/Adam.CatalogBrowser.exe' -NoNewWindow\")",
+      "Bash(Start-Sleep *)",
+      "Bash(powershell *)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(./Adam.CatalogBrowser.exe)"
     ]
   }
 }
