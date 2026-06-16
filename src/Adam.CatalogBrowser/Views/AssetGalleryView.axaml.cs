@@ -276,6 +276,7 @@ public partial class AssetGalleryView : UserControl
 
         flyout.Items.Add(new MenuItem { Header = "Cycle Label", Command = vm.SetLabelCommand });
         flyout.Items.Add(new MenuItem { Header = "Cycle Flag", Command = vm.SetFlagCommand });
+        flyout.Items.Add(new MenuItem { Header = "↔ Compare", Command = vm.AssetGallery.CompareSelectedCommand });
         flyout.Items.Add(new Separator());
         flyout.Items.Add(new MenuItem { Header = "AI Tag", Command = vm.AiTagSelectedCommand });
         flyout.Items.Add(new MenuItem { Header = "Export...", Command = vm.ExportCommand });
