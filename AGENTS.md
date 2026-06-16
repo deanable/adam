@@ -29,9 +29,9 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 - `/gsd-verify-work` — Validate completed features against requirements
 - `/gsd-code-review 7` — Review code changes in Phase 7
 
-**Current Phase:** 7 — Client RBAC & Hardening
-**Milestone:** v1.2 — Client Polish (Phases 7-8)
-**Tests:** 383 passing (2 Docker-dependent skipped)
+**Current Phase:** 20 — Client Experience Polish
+**Milestone:** v3.x — Client Polish (Phases 14-20)
+**Tests:** 1,232 passing (2 Docker-dependent skipped)
 
 ## Project-Specific Guidance
 
@@ -112,6 +112,84 @@ dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
 ```
 7 unit tests cover image-only guard, keyword/category merge, description fill, cancellation, batch progress, and analyze-only path.
 
+### Collection Sort Order (Phase 20)
+
+**DigitalAsset.SortOrder** (`Adam.Shared.Models.DigitalAsset`) is an `int` field that controls custom ordering within a collection. Sorted ascending by default.
+
+**Broker Messages:**
+| Contract | Opcode | Direction |
+|----------|--------|-----------|
+| `ReorderCollectionAssetsRequest` | `MessageTypeCode.ReorderCollectionAssetsRequest = 37` | Client → Broker |
+| `ReorderCollectionAssetsResponse` | `MessageTypeCode.ReorderCollectionAssetsResponse = 38` | Broker → Client |
+
+**Handler:** `CollectionHandler.ReorderCollectionAssetsAsync()` — Reorders assets in a collection by updating `SortOrder` for each asset in the collection-scoped order. Assets not in the reorder list keep their existing sort order (they sort after reordered items).
+
+**Gallery reorder trigger:** Double-tap/Enter on an asset opens the Loupe View. (Full drag-reorder UI is planned for a future phase.)
+
+### Loupe View (Phase 20)
+
+The Loupe View provides full-resolution image viewing with pan/zoom and filmstrip navigation for assets within the current gallery selection.
+
+**Components:**
+- **ZoomBorder** (`Adam.CatalogBrowser.Controls.ZoomBorder`) — Custom `ContentControl` with:
+  - Mouse wheel zoom (configurable `MinZoom`/`MaxZoom`, defaults 0.1–20.0)
+  - Click-drag pan
+  - Double-click to fit to window
+  - `ZoomChanged`/`PanChanged` events for synchronization
+  - `BeginBatchUpdate()`/`EndBatchUpdate()` to suppress sync events during programmatic updates
+- **LoupeViewModel** (`Adam.CatalogBrowser.ViewModels.LoupeViewModel`) — State management for:
+  - Current asset (full-res image via `Bitmap`)
+  - Filmstrip navigation through `AllAssets` (←/→/↑/↓ keys)
+  - Info overlay: camera, lens, ISO, aperture, shutter speed, dimensions, file name
+  - Multi-user mode: metadata comes from `AssetListItem` properties; standalone mode loads metadata from DB
+- **LoupeView** (`Adam.CatalogBrowser.Views.LoupeView`) — XAML view with:
+  - ZoomBorder for pan/zoom
+  - Filmstrip strip at bottom with selection highlight
+  - Info overlay panel (auto-hides when no data)
+  - Keyboard shortcuts: ← → ↑ ↓ (navigate), Esc (close)
+
+**Navigation:** Set `LoupeViewModel.CurrentAsset = asset` via `OpenAssetRequested` event raised from `AssetGalleryViewModel.RequestOpenAsset()`. The ViewModel computes `_currentIndex` from `AllAssets.IndexOf` by `Id`.
+
+**Wiring:** Two new `DataTemplate`s in `MainWindow.axaml` map `LoupeViewModel` → `LoupeView` and `CompareViewModel` → `CompareView`. Gallery double-tap/Enter fires `OpenAssetRequested` on the ViewModel.
+
+### Compare View (Phase 20)
+
+The Compare View places two assets side-by-side (or overlaid) with synchronized zoom/pan and a metadata difference table.
+
+**Components:**
+- **CompareViewModel** (`Adam.CatalogBrowser.ViewModels.CompareViewModel`) — Manages:
+  - Left/right `AssetListItem` and `Bitmap`
+  - `CompareViewMode` — `SideBySide` (default) or `Overlay` (right image composited over left with opacity slider)
+  - `ZoomSyncState` shared between left/right `ZoomBorder` instances
+  - `IsSyncEnabled` toggle for independent vs linked zoom/pan
+  - `MetadataDiffItem` collection — compares filename, title, dimensions, file size, file type, rating
+  - `SwapAssetsCommand`, `ToggleSyncCommand`, `ToggleViewModeCommand`, `CloseCommand`
+  - Async image loading with `IsLoadingLeft`/`IsLoadingRight` states
+- **CompareView** (`Adam.CatalogBrowser.Views.CompareView`) — XAML with:
+  - Toolbar: Swap, Sync toggle, View mode toggle (Side-by-side/Overlay)
+  - Two `ZoomBorder` panels with loading overlays
+  - Overlay mode: composited images with `Slider` for opacity
+  - Metadata diff bar at bottom (scrollable `ItemsControl` with field/value diff icons)
+
+**Converters** (`Adam.CatalogBrowser.Converters.SharedConverters`):
+- `NullToBoolConverter` — Returns `true` when value is not null
+- `BoolToFilmstripBorderConverter` — Highlights selected filmstrip item
+- `BoolToVisibilityConverter` — Converts `bool` to visibility
+- `CompareViewModeToButtonTextConverter` — Toggle button label: overlay → "Side by Side", side-by-side → "Overlay"
+- `DiffStatusToIconConverter` — Returns `"✓"` or `"✗"` based on `IsDifferent`
+- `DiffStatusToColorConverter` — Returns `"#4CAF50"` (green) or `"#FF5252"` (red)
+
+### Design Templates (Phase 20)
+
+`.design_templates/` — 5 markdown files providing UI design guidance for new features:
+- `README.md` — Overview and usage guide
+- `design_token_reference.md` — Color palette, typography, spacing, elevation tokens
+- `component_style_guide.md` — Reusable component patterns (buttons, inputs, cards, badges, etc.)
+- `layout_patterns.md` — Common layout grids and panel patterns
+- `accent_palettes.md` — Alternative accent color palettes (teal, amber, rose, violet, emerald)
+
+Use these templates as a reference when building new UI components to maintain visual consistency across the application.
+
 ### File Streaming
 - **GetFileRequest** / **GetFileResponse** — Protobuf contracts for retrieving file bytes from BrokerService
 - **AssetHandler.GetFileAsync** — Looks up asset in DB, verifies `StoragePath` exists on disk, reads all bytes, returns metadata (filename, extension, MIME type, size, checksum) + content as `ByteString`
@@ -150,7 +228,7 @@ Run AI Tagging tests:
 dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
 ```
 
-**Total: 383 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
+**Total: 1,232 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
 
 ### Testing ServiceManager ViewModels
 

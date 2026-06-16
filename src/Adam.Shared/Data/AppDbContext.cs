@@ -74,6 +74,14 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.FileSize);
             e.HasIndex(x => x.FileName);
             e.HasIndex(x => new { x.Type, x.CreatedAt });
+            e.HasIndex(x => new { x.Type, x.CreatedAt, x.Id });
+            e.HasIndex(x => new { x.Rating, x.CreatedAt });
+            e.HasIndex(x => new { x.Rating, x.CreatedAt, x.Id });
+            e.HasIndex(x => new { x.MimeType, x.FileName });
+            e.HasIndex(x => new { x.MimeType, x.CreatedAt });
+            e.HasIndex(x => new { x.FileName, x.CreatedAt, x.Id });
+            e.HasIndex(x => new { x.CreatedAt, x.Id });
+            e.HasIndex(x => new { x.FileSize, x.Id });
             e.HasIndex(x => x.SortOrder);
             e.HasIndex(x => new { x.CollectionId, x.SortOrder });
             e.HasOne(x => x.Collection).WithMany(c => c.Assets).HasForeignKey(x => x.CollectionId);

@@ -100,6 +100,10 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
         _loadCts = null;
     }
 
+    /// <summary>
+    /// T21.3: Loads a thumbnail asynchronously with cancellation and memory cache.
+    /// Uses async file I/O to avoid blocking thread pool threads on disk reads.
+    /// </summary>
     public async Task LoadThumbnailAsync(int decodeWidth = 256)
     {
         if (_thumbnail != null || string.IsNullOrEmpty(_thumbnailPath))
@@ -110,7 +114,7 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
 
-        await Task.Run(() =>
+        await Task.Run(async () =>
         {
             ct.ThrowIfCancellationRequested();
 
@@ -125,13 +129,22 @@ public class AssetListItem : INotifyPropertyChanged, IDisposable
                     return;
                 }
 
-                var exists = File.Exists(_thumbnailPath);
+                // T21.3: Async file existence check
+                var exists = await Task.Run(() => File.Exists(_thumbnailPath), ct);
                 if (!exists)
                     return;
 
                 ct.ThrowIfCancellationRequested();
 
-                using var stream = File.OpenRead(_thumbnailPath);
+                // T21.3: Async file read — open stream asynchronously
+                await using var stream = new FileStream(
+                    _thumbnailPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 4096,
+                    useAsync: true);
+
                 var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth, BitmapInterpolationMode.LowQuality);
                 Thumbnail = bitmap;
 

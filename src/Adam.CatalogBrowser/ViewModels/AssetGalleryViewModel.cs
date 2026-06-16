@@ -27,6 +27,12 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     private readonly IFtsService? _ftsService;
     private CancellationTokenSource? _backfillCts;
     private CancellationTokenSource? _searchCts;
+
+    // T21.1: Viewport tracking for visibility-based thumbnail loading
+    private double _viewportTop;
+    private double _viewportHeight;
+    private const double ViewportOverscanPercent = 0.5; // Load thumbnails 50% beyond viewport
+    private CancellationTokenSource? _thumbnailBatchCts;
     private int _thumbnailSize = 150;
     private string _viewMode = "Grid";
     private string _sortBy = "File Name";
@@ -51,6 +57,15 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     private int _activeRatingFilter;
     private int _activeLabelFilter;
     private int _activeFlagFilter;
+
+    // T21.4: Keyset pagination tracking — stores the last item's sort values
+    // for seek-based pagination on "load more" calls.
+    private string? _lastSeekFileName;
+    private DateTimeOffset _lastSeekCreatedAt;
+    private DateTimeOffset _lastSeekModifiedAt;
+    private string? _lastSeekMimeType;
+    private long _lastSeekFileSize;
+    private Guid _lastSeekId;
     public ICommand SelectAllCommand { get; }
     public ICommand ClearSearchCommand { get; }
     public ICommand ClearSelectionCommand { get; }
@@ -358,9 +373,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                     : $"No results for \"{query}\"";
             });
 
-            // Load thumbnails off the UI thread
-            foreach (var item in newItems)
-                _ = item.LoadThumbnailAsync((int)ThumbnailSize);
+            // T21.1/T21.2: Load visible thumbnails immediately; batch-load remaining
+            LoadVisibleThumbnails(newItems);
+            _ = BatchLoadRemainingThumbnailsAsync(newItems);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -501,8 +516,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                     : $"No semantic results for \"{query}\"";
             });
 
-            foreach (var item in newItems)
-                _ = item.LoadThumbnailAsync((int)ThumbnailSize);
+            // T21.1/T21.2: Load visible thumbnails immediately; batch-load remaining
+            LoadVisibleThumbnails(newItems);
+            _ = BatchLoadRemainingThumbnailsAsync(newItems);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -752,13 +768,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                 var query = ApplyFilters(db.DigitalAssets.AsQueryable());
                 _logger.LogInformation("[LoadPageAsync] Filters applied - activeCategory={Category}, activeFolder={Folder}", _activeCategory, _activeFolderPath);
 
-                if (_page == 0)
+            if (_page == 0)
                 {
                     _totalCount = await query.CountAsync(ct).ConfigureAwait(false);
                     _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
                 }
 
-                query = _sortBy switch
+                IQueryable<DigitalAsset> orderedQuery;
+                orderedQuery = _sortBy switch
                 {
                     "Date Added" => query.OrderByDescending(a => a.CreatedAt).ThenBy(a => a.Id),
                     "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
@@ -767,10 +784,28 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                 };
                 _logger.LogInformation("[LoadPageAsync] Ordering by {SortBy}", _sortBy);
 
-                var assets = await query
-                    .Skip(_page * _pageSize)
+                // T21.4: Keyset pagination — use WHERE instead of SKIP for "load more"
+                // to avoid the OFFSET performance penalty at high page numbers.
+                if (_page > 0)
+                {
+                    orderedQuery = ApplyKeysetPagination(orderedQuery);
+                }
+
+                var assets = await orderedQuery
                     .Take(_pageSize)
                     .ToListAsync(ct).ConfigureAwait(false);
+
+                // T21.4: Store last item's values for next keyset seek
+                if (assets.Count > 0)
+                {
+                    var last = assets[^1];
+                    _lastSeekFileName = last.FileName;
+                    _lastSeekCreatedAt = last.CreatedAt;
+                    _lastSeekModifiedAt = last.ModifiedAt;
+                    _lastSeekMimeType = last.MimeType;
+                    _lastSeekFileSize = last.FileSize;
+                    _lastSeekId = last.Id;
+                }
                 _logger.LogInformation("[LoadPageAsync] Retrieved {Count} assets from database", assets.Count);
 
                 var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
@@ -817,15 +852,21 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                         Assets.Add(item);
                 });
 
-                // Load thumbnails off the UI thread after items are added
-                foreach (var item in newItems)
-                {
-                    _ = item.LoadThumbnailAsync((int)ThumbnailSize);
-                }
+                // T21.1/T21.2: Load visible thumbnails immediately; batch-load remaining
+                LoadVisibleThumbnails(newItems);
+                _ = BatchLoadRemainingThumbnailsAsync(newItems);
 
                 _page++;
                 if (assets.Count < _pageSize)
+                {
                     _hasMore = false;
+                }
+                else if (_page > 0)
+                {
+                    // T21.4: With keyset pagination, we know there are more items
+                    // if we got a full page. No need to check count.
+                    _hasMore = assets.Count >= _pageSize;
+                }
 
                 // T12.2: Backfill thumbnails for assets that don't have them yet
                 _ = BackfillMissingThumbnailsAsync(newItems, thumbnailDir, ct);
@@ -1147,6 +1188,116 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                 Command = new RelayCommand(async _ => await ToggleFlagAssetAsync(assetId, item))
             }
         ];
+    }
+
+    // ──────────────────────────────────────────────
+    //  T21.4: Keyset pagination helper
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Applies keyset (seek) pagination to an ordered query by adding a WHERE clause
+    /// that picks up after the last item from the previous page.
+    /// This avoids the OFFSET performance penalty at high page numbers.
+    /// </summary>
+    private IQueryable<DigitalAsset> ApplyKeysetPagination(IQueryable<DigitalAsset> query)
+    {
+        return _sortBy switch
+        {
+            "Date Added" => query.Where(a =>
+                a.CreatedAt < _lastSeekCreatedAt ||
+                (a.CreatedAt == _lastSeekCreatedAt && a.Id > _lastSeekId)),
+            "File Type" => query.Where(a =>
+                a.MimeType.CompareTo(_lastSeekMimeType) > 0 ||
+                (a.MimeType == _lastSeekMimeType && a.Id > _lastSeekId)),
+            "File Size" => query.Where(a =>
+                a.FileSize > _lastSeekFileSize ||
+                (a.FileSize == _lastSeekFileSize && a.Id > _lastSeekId)),
+            _ => query.Where(a =>
+                a.FileName.CompareTo(_lastSeekFileName) > 0 ||
+                (a.FileName == _lastSeekFileName && a.Id > _lastSeekId))
+        };
+    }
+
+    // ──────────────────────────────────────────────
+    //  T21.1/T21.2: Viewport-based prioritized thumbnail loading
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates the current viewport position. Called from the gallery ScrollViewer's
+    /// ScrollChanged event handler in code-behind.
+    /// </summary>
+    public void UpdateViewport(double scrollOffset, double viewportHeight)
+    {
+        _viewportTop = scrollOffset;
+        _viewportHeight = viewportHeight;
+    }
+
+    /// <summary>
+    /// Calculates which items in the assets list fall within or near the visible viewport
+    /// and loads their thumbnails immediately. Items outside the viewport + overscan area
+    /// are deferred to <see cref="BatchLoadRemainingThumbnailsAsync"/>.
+    /// </summary>
+    private void LoadVisibleThumbnails(IReadOnlyList<AssetListItem> items)
+    {
+        if (items.Count == 0) return;
+
+        // Estimate tile height including margin (~ thumbnail size + 24px for labels)
+        var tileHeight = _thumbnailSize + 24;
+        // Estimate items per row based on viewport width (use a reasonable default)
+        var itemsPerRow = Math.Max(1, (int)(1280.0 / (tileHeight + 8)));
+        var visibleStart = Math.Max(0, (int)((_viewportTop - _viewportHeight * ViewportOverscanPercent) / tileHeight) * itemsPerRow);
+        var visibleEnd = Math.Min(items.Count, (int)((_viewportTop + _viewportHeight * (1 + ViewportOverscanPercent)) / tileHeight + 1) * itemsPerRow);
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (i >= visibleStart && i < visibleEnd)
+            {
+                // In or near viewport — load immediately
+                _ = items[i].LoadThumbnailAsync((int)ThumbnailSize);
+            }
+            else
+            {
+                // Outside viewport — cancel any pending load to avoid wasting work
+                items[i].CancelPendingLoad();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Loads thumbnails for items not yet loaded, processing them in small batches
+    /// with a short delay between batches to avoid CPU/IO bursts.
+    /// </summary>
+    private async Task BatchLoadRemainingThumbnailsAsync(IReadOnlyList<AssetListItem> items)
+    {
+        // Cancel any previous batch operation
+        _thumbnailBatchCts?.Cancel();
+        _thumbnailBatchCts?.Dispose();
+        _thumbnailBatchCts = new CancellationTokenSource();
+        var ct = _thumbnailBatchCts.Token;
+
+        try
+        {
+            const int batchSize = 8;
+            const int delayBetweenBatchesMs = 50;
+
+            for (int i = 0; i < items.Count; i += batchSize)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var batch = items.Skip(i).Take(batchSize).ToList();
+                var tasks = batch.Select(item => item.LoadThumbnailAsync((int)ThumbnailSize));
+                await Task.WhenAll(tasks);
+
+                if (i + batchSize < items.Count)
+                {
+                    await Task.Delay(delayBetweenBatchesMs, ct);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Batch cancelled — new page load or filter change
+        }
     }
 
     // ──────────────────────────────────────────────
