@@ -12,22 +12,18 @@ namespace Adam.Shared.Services;
 /// Creates a full-text catalog and index on DigitalAssets.
 /// Uses CONTAINSTABLE for ranked results.
 /// </summary>
-public sealed class SqlServerFtsService : IFtsService
+public sealed class SqlServerFtsService : FtsServiceBase, IFtsService
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory;
-    private readonly ILogger<SqlServerFtsService> _logger;
-
     private const string FtCatalog = "AdamFtCatalog";
 
     public SqlServerFtsService(IDbContextFactory<AppDbContext> dbFactory, ILogger<SqlServerFtsService> logger)
+        : base(dbFactory, logger)
     {
-        _dbFactory = dbFactory;
-        _logger = logger;
     }
 
     public async Task EnsureReadyAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -50,7 +46,7 @@ public sealed class SqlServerFtsService : IFtsService
                 ON {FtCatalog}
                 WITH CHANGE_TRACKING AUTO;", ct);
 
-        _logger.LogDebug("[FTS] SQL Server full-text index ensured");
+        Logger.LogDebug("[FTS] SQL Server full-text index ensured");
     }
 
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(
@@ -64,7 +60,7 @@ public sealed class SqlServerFtsService : IFtsService
 
         var containsQuery = BuildContainsQuery(query);
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -161,7 +157,7 @@ public sealed class SqlServerFtsService : IFtsService
         if (!await IsAvailableAsync(ct))
             return [];
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -190,10 +186,9 @@ public sealed class SqlServerFtsService : IFtsService
     public async Task<bool> IsAvailableAsync(CancellationToken ct = default)
     {
         try
-        {
-            await using var db = await _dbFactory.CreateDbContextAsync(ct);
-            var conn = db.Database.GetDbConnection();
-            await conn.OpenAsync(ct);
+        {        await using var db = await DbFactory.CreateDbContextAsync(ct);
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
@@ -204,14 +199,14 @@ public sealed class SqlServerFtsService : IFtsService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[FTS] SQL Server full-text availability check failed");
+            Logger.LogWarning(ex, "[FTS] SQL Server full-text availability check failed");
             return false;
         }
     }
 
     public async Task RebuildIndexAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -219,7 +214,7 @@ public sealed class SqlServerFtsService : IFtsService
             ALTER FULLTEXT INDEX ON DigitalAssets
             START UPDATE POPULATION", ct);
 
-        _logger.LogInformation("[FTS] SQL Server full-text index rebuild started");
+        Logger.LogInformation("[FTS] SQL Server full-text index rebuild started");
     }
 
     #region Private Helpers
@@ -273,28 +268,6 @@ public sealed class SqlServerFtsService : IFtsService
 
     private static string EscapeContainsTerm(string term)
         => Regex.Replace(term, @"[""\\]", @"$&");
-
-    private static bool MatchesAny(string? text, string[] terms)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        var lower = text.ToLowerInvariant();
-        return terms.Any(t => lower.Contains(t.ToLowerInvariant()));
-    }
-
-    private static void AddParam(DbCommand cmd, string name, object value)
-    {
-        var p = cmd.CreateParameter();
-        p.ParameterName = name;
-        p.Value = value;
-        cmd.Parameters.Add(p);
-    }
-
-    private static async Task ExecAsync(DbConnection conn, string sql, CancellationToken ct)
-    {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
 
     #endregion
 }

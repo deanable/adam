@@ -7,38 +7,22 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class AuditLogHandler
+public sealed class AuditLogHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<AuditLogHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
-
     public AuditLogHandler(IServiceProvider serviceProvider, ILogger<AuditLogHandler> logger, AuthorizationMiddleware authz)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
     }
 
     public async Task<Envelope> ListAuditLogsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "audit:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "audit:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        ListAuditLogsRequest filterReq;
-        try
-        {
-            filterReq = ProtoHelper.Deserialize<ListAuditLogsRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<ListAuditLogsRequest>(request, out var filterReq);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var query = db.AccessLogs
@@ -84,14 +68,5 @@ public sealed class AuditLogHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

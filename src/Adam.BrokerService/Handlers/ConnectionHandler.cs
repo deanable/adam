@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Microsoft.Extensions.Logging;
@@ -7,20 +6,7 @@ namespace Adam.BrokerService.Handlers;
 
 public sealed class ConnectionHandler : IConnectionHandler
 {
-    private readonly AuthHandler _authHandler;
-    private readonly AssetHandler _assetHandler;
-    private readonly CollectionHandler _collectionHandler;
-    private readonly ChangeHandler _changeHandler;
-    private readonly UserHandler _userHandler;
-    private readonly AuditLogHandler _auditLogHandler;
-    private readonly StatusHandler _statusHandler;
-    private readonly SidebarHandler _sidebarHandler;
-    private readonly WatchedFolderHandler _watchedFolderHandler;
-    private readonly CommentHandler _commentHandler;
-    private readonly SavedSearchHandler _savedSearchHandler;
-    private readonly SearchHistoryHandler _searchHistoryHandler;
-    private readonly SemanticSearchHandler _semanticSearchHandler;
-    private readonly ILogger<ConnectionHandler> _logger;
+    private readonly MessageDispatcher _dispatcher;
 
     public ConnectionHandler(
         AuthHandler authHandler,
@@ -38,236 +24,99 @@ public sealed class ConnectionHandler : IConnectionHandler
         SemanticSearchHandler semanticSearchHandler,
         ILogger<ConnectionHandler> logger)
     {
-        _authHandler = authHandler;
-        _assetHandler = assetHandler;
-        _collectionHandler = collectionHandler;
-        _changeHandler = changeHandler;
-        _userHandler = userHandler;
-        _auditLogHandler = auditLogHandler;
-        _statusHandler = statusHandler;
-        _sidebarHandler = sidebarHandler;
-        _watchedFolderHandler = watchedFolderHandler;
-        _commentHandler = commentHandler;
-        _savedSearchHandler = savedSearchHandler;
-        _searchHistoryHandler = searchHistoryHandler;
-        _semanticSearchHandler = semanticSearchHandler;
-        _logger = logger;
-    }
-
-    public async Task<Envelope> HandleAsync(Envelope request, CancellationToken ct = default)
-    {
-        if (request == null)
-        {
-            _logger.LogWarning("Received null request envelope");
-            return CreateErrorResponse(new Envelope(), ErrorCode.BadRequest, "Null request envelope");
-        }
-
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            Envelope response;
-            switch (request.MessageType)
+        _dispatcher = new MessageDispatcher(
+            new Dictionary<MessageTypeCode, Func<Envelope, CancellationToken, Task<Envelope>>>
             {
-                case MessageTypeCode.LoginRequest:
-                    response = await _authHandler.LoginAsync(request, ct);
-                    break;
-                case MessageTypeCode.ValidateTokenRequest:
-                    response = _authHandler.ValidateToken(request);
-                    break;
-                case MessageTypeCode.ListAssetsRequest:
-                    response = await _assetHandler.ListAssetsAsync(request, ct);
-                    break;
-                case MessageTypeCode.GetFileRequest:
-                    response = await _assetHandler.GetFileAsync(request, ct);
-                    break;
-                case MessageTypeCode.GetFileChunkRequest:
-                    response = await _assetHandler.GetFileChunkAsync(request, ct);
-                    break;
-                case MessageTypeCode.GetAssetRequest:
-                    response = await _assetHandler.GetAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateAssetRequest:
-                    response = await _assetHandler.CreateAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateAssetRequest:
-                    response = await _assetHandler.UpdateAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteAssetRequest:
-                    response = await _assetHandler.DeleteAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.RestoreAssetRequest:
-                    response = await _assetHandler.RestoreAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListDeletedAssetsRequest:
-                    response = await _assetHandler.ListDeletedAssetsAsync(request, ct);
-                    break;
-                case MessageTypeCode.PermanentDeleteAssetRequest:
-                    response = await _assetHandler.PermanentDeleteAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.BulkPermanentDeleteAssetRequest:
-                    response = await _assetHandler.BulkPermanentDeleteAssetAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateCollectionRequest:
-                    response = await _collectionHandler.CreateCollectionAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListCollectionsRequest:
-                    response = await _collectionHandler.ListCollectionsAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateCollectionRequest:
-                    response = await _collectionHandler.UpdateCollectionAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteCollectionRequest:
-                    response = await _collectionHandler.DeleteCollectionAsync(request, ct);
-                    break;
-                case MessageTypeCode.ReorderCollectionAssetsRequest:
-                    response = await _collectionHandler.ReorderCollectionAssetsAsync(request, ct);
-                    break;
-                case MessageTypeCode.RefreshSmartCollectionRequest:
-                    response = await _collectionHandler.RefreshSmartCollectionAsync(request, ct);
-                    break;
-                case MessageTypeCode.GetChangesRequest:
-                    response = await _changeHandler.GetChangesAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListUsersRequest:
-                    response = await _userHandler.ListUsersAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListRolesRequest:
-                    response = await _userHandler.ListRolesAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateUserRequest:
-                    response = await _userHandler.CreateUserAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateUserRequest:
-                    response = await _userHandler.UpdateUserAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteUserRequest:
-                    response = await _userHandler.DeleteUserAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListAuditLogsRequest:
-                    response = await _auditLogHandler.ListAuditLogsAsync(request, ct);
-                    break;
-                case MessageTypeCode.GetServiceStatusRequest:
-                    response = await _statusHandler.GetStatusAsync(request, ct);
-                    break;
-                case MessageTypeCode.StartServiceRequest:
-                    response = await _statusHandler.StartServiceAsync(request, ct);
-                    break;
-                case MessageTypeCode.StopServiceRequest:
-                    response = await _statusHandler.StopServiceAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListFoldersRequest:
-                    response = await _sidebarHandler.ListFoldersAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListKeywordsRequest:
-                    response = await _sidebarHandler.ListKeywordsAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateKeywordRequest:
-                    response = await _sidebarHandler.CreateKeywordAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateKeywordRequest:
-                    response = await _sidebarHandler.UpdateKeywordAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteKeywordRequest:
-                    response = await _sidebarHandler.DeleteKeywordAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateCategoryRequest:
-                    response = await _sidebarHandler.CreateCategoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateCategoryRequest:
-                    response = await _sidebarHandler.UpdateCategoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteCategoryRequest:
-                    response = await _sidebarHandler.DeleteCategoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListMediaFormatCountsRequest:
-                    response = await _sidebarHandler.ListMediaFormatCountsAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListMetadataCategoriesRequest:
-                    response = await _sidebarHandler.ListMetadataCategoriesAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListDateTakenTreeRequest:
-                    response = await _sidebarHandler.ListDateTakenTreeAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListWatchedFoldersRequest:
-                    response = await _watchedFolderHandler.ListAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateWatchedFolderRequest:
-                    response = await _watchedFolderHandler.CreateAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateWatchedFolderRequest:
-                    response = await _watchedFolderHandler.UpdateAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteWatchedFolderRequest:
-                    response = await _watchedFolderHandler.DeleteAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListCommentsRequest:
-                    response = await _commentHandler.ListCommentsAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateCommentRequest:
-                    response = await _commentHandler.CreateCommentAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateCommentRequest:
-                    response = await _commentHandler.UpdateCommentAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteCommentRequest:
-                    response = await _commentHandler.DeleteCommentAsync(request, ct);
-                    break;
-                case MessageTypeCode.CreateSavedSearchRequest:
-                    response = await _savedSearchHandler.CreateSavedSearchAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListSavedSearchesRequest:
-                    response = await _savedSearchHandler.ListSavedSearchesAsync(request, ct);
-                    break;
-                case MessageTypeCode.UpdateSavedSearchRequest:
-                    response = await _savedSearchHandler.UpdateSavedSearchAsync(request, ct);
-                    break;
-                case MessageTypeCode.DeleteSavedSearchRequest:
-                    response = await _savedSearchHandler.DeleteSavedSearchAsync(request, ct);
-                    break;
-                case MessageTypeCode.PinSavedSearchRequest:
-                    response = await _savedSearchHandler.PinSavedSearchAsync(request, ct);
-                    break;
-                case MessageTypeCode.RecordSearchHistoryRequest:
-                    response = await _searchHistoryHandler.RecordSearchHistoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.ListSearchHistoryRequest:
-                    response = await _searchHistoryHandler.ListSearchHistoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.ClearSearchHistoryRequest:
-                    response = await _searchHistoryHandler.ClearSearchHistoryAsync(request, ct);
-                    break;
-                case MessageTypeCode.SemanticSearchRequest:
-                    response = await _semanticSearchHandler.SearchByTextAsync(request, ct);
-                    break;
-                case MessageTypeCode.FindSimilarRequest:
-                    response = await _semanticSearchHandler.FindSimilarAsync(request, ct);
-                    break;
-                case MessageTypeCode.RecomputeEmbeddingsRequest:
-                    response = await _semanticSearchHandler.RecomputeEmbeddingsAsync(request, ct);
-                    break;
-                default:
-                    _logger.LogWarning("Unknown message type: {MessageType} from conn={ConnectionId}", request.MessageType, request.ConnectionId);
-                    return CreateErrorResponse(request, ErrorCode.UnknownMessageType, $"Unknown message type: {request.MessageType}");
-            }
+                // ── Auth ──────────────────────────────────────────────
+                [MessageTypeCode.LoginRequest] = (req, ct) => authHandler.LoginAsync(req, ct),
+                [MessageTypeCode.ValidateTokenRequest] = (req, _) => Task.FromResult(authHandler.ValidateToken(req)),
 
-            return response;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling {MessageType} from conn={ConnectionId} after {ElapsedMs:F0}ms",
-                request.MessageType, request.ConnectionId, sw.Elapsed.TotalMilliseconds);
-            return CreateErrorResponse(request, ErrorCode.InternalError, "Internal server error");
-        }
+                // ── Asset CRUD ────────────────────────────────────────
+                [MessageTypeCode.ListAssetsRequest] = (req, ct) => assetHandler.ListAssetsAsync(req, ct),
+                [MessageTypeCode.GetAssetRequest] = (req, ct) => assetHandler.GetAssetAsync(req, ct),
+                [MessageTypeCode.CreateAssetRequest] = (req, ct) => assetHandler.CreateAssetAsync(req, ct),
+                [MessageTypeCode.UpdateAssetRequest] = (req, ct) => assetHandler.UpdateAssetAsync(req, ct),
+                [MessageTypeCode.DeleteAssetRequest] = (req, ct) => assetHandler.DeleteAssetAsync(req, ct),
+                [MessageTypeCode.RestoreAssetRequest] = (req, ct) => assetHandler.RestoreAssetAsync(req, ct),
+                [MessageTypeCode.ListDeletedAssetsRequest] = (req, ct) => assetHandler.ListDeletedAssetsAsync(req, ct),
+                [MessageTypeCode.PermanentDeleteAssetRequest] = (req, ct) => assetHandler.PermanentDeleteAssetAsync(req, ct),
+                [MessageTypeCode.BulkPermanentDeleteAssetRequest] = (req, ct) => assetHandler.BulkPermanentDeleteAssetAsync(req, ct),
+
+                // ── File streaming ────────────────────────────────────
+                [MessageTypeCode.GetFileRequest] = (req, ct) => assetHandler.GetFileAsync(req, ct),
+                [MessageTypeCode.GetFileChunkRequest] = (req, ct) => assetHandler.GetFileChunkAsync(req, ct),
+
+                // ── Collections ───────────────────────────────────────
+                [MessageTypeCode.CreateCollectionRequest] = (req, ct) => collectionHandler.CreateCollectionAsync(req, ct),
+                [MessageTypeCode.ListCollectionsRequest] = (req, ct) => collectionHandler.ListCollectionsAsync(req, ct),
+                [MessageTypeCode.UpdateCollectionRequest] = (req, ct) => collectionHandler.UpdateCollectionAsync(req, ct),
+                [MessageTypeCode.DeleteCollectionRequest] = (req, ct) => collectionHandler.DeleteCollectionAsync(req, ct),
+                [MessageTypeCode.ReorderCollectionAssetsRequest] = (req, ct) => collectionHandler.ReorderCollectionAssetsAsync(req, ct),
+                [MessageTypeCode.RefreshSmartCollectionRequest] = (req, ct) => collectionHandler.RefreshSmartCollectionAsync(req, ct),
+
+                // ── Change tracking ───────────────────────────────────
+                [MessageTypeCode.GetChangesRequest] = (req, ct) => changeHandler.GetChangesAsync(req, ct),
+
+                // ── User management ───────────────────────────────────
+                [MessageTypeCode.ListUsersRequest] = (req, ct) => userHandler.ListUsersAsync(req, ct),
+                [MessageTypeCode.ListRolesRequest] = (req, ct) => userHandler.ListRolesAsync(req, ct),
+                [MessageTypeCode.CreateUserRequest] = (req, ct) => userHandler.CreateUserAsync(req, ct),
+                [MessageTypeCode.UpdateUserRequest] = (req, ct) => userHandler.UpdateUserAsync(req, ct),
+                [MessageTypeCode.DeleteUserRequest] = (req, ct) => userHandler.DeleteUserAsync(req, ct),
+
+                // ── Audit log ─────────────────────────────────────────
+                [MessageTypeCode.ListAuditLogsRequest] = (req, ct) => auditLogHandler.ListAuditLogsAsync(req, ct),
+
+                // ── Service status ────────────────────────────────────
+                [MessageTypeCode.GetServiceStatusRequest] = (req, ct) => statusHandler.GetStatusAsync(req, ct),
+                [MessageTypeCode.StartServiceRequest] = (req, ct) => statusHandler.StartServiceAsync(req, ct),
+                [MessageTypeCode.StopServiceRequest] = (req, ct) => statusHandler.StopServiceAsync(req, ct),
+
+                // ── Sidebar / keywords / categories / folders ─────────
+                [MessageTypeCode.ListFoldersRequest] = (req, ct) => sidebarHandler.ListFoldersAsync(req, ct),
+                [MessageTypeCode.ListKeywordsRequest] = (req, ct) => sidebarHandler.ListKeywordsAsync(req, ct),
+                [MessageTypeCode.CreateKeywordRequest] = (req, ct) => sidebarHandler.CreateKeywordAsync(req, ct),
+                [MessageTypeCode.UpdateKeywordRequest] = (req, ct) => sidebarHandler.UpdateKeywordAsync(req, ct),
+                [MessageTypeCode.DeleteKeywordRequest] = (req, ct) => sidebarHandler.DeleteKeywordAsync(req, ct),
+                [MessageTypeCode.CreateCategoryRequest] = (req, ct) => sidebarHandler.CreateCategoryAsync(req, ct),
+                [MessageTypeCode.UpdateCategoryRequest] = (req, ct) => sidebarHandler.UpdateCategoryAsync(req, ct),
+                [MessageTypeCode.DeleteCategoryRequest] = (req, ct) => sidebarHandler.DeleteCategoryAsync(req, ct),
+                [MessageTypeCode.ListMediaFormatCountsRequest] = (req, ct) => sidebarHandler.ListMediaFormatCountsAsync(req, ct),
+                [MessageTypeCode.ListMetadataCategoriesRequest] = (req, ct) => sidebarHandler.ListMetadataCategoriesAsync(req, ct),
+                [MessageTypeCode.ListDateTakenTreeRequest] = (req, ct) => sidebarHandler.ListDateTakenTreeAsync(req, ct),
+
+                // ── Watched folders ───────────────────────────────────
+                [MessageTypeCode.ListWatchedFoldersRequest] = (req, ct) => watchedFolderHandler.ListAsync(req, ct),
+                [MessageTypeCode.CreateWatchedFolderRequest] = (req, ct) => watchedFolderHandler.CreateAsync(req, ct),
+                [MessageTypeCode.UpdateWatchedFolderRequest] = (req, ct) => watchedFolderHandler.UpdateAsync(req, ct),
+                [MessageTypeCode.DeleteWatchedFolderRequest] = (req, ct) => watchedFolderHandler.DeleteAsync(req, ct),
+
+                // ── Comments ──────────────────────────────────────────
+                [MessageTypeCode.ListCommentsRequest] = (req, ct) => commentHandler.ListCommentsAsync(req, ct),
+                [MessageTypeCode.CreateCommentRequest] = (req, ct) => commentHandler.CreateCommentAsync(req, ct),
+                [MessageTypeCode.UpdateCommentRequest] = (req, ct) => commentHandler.UpdateCommentAsync(req, ct),
+                [MessageTypeCode.DeleteCommentRequest] = (req, ct) => commentHandler.DeleteCommentAsync(req, ct),
+
+                // ── Saved searches ────────────────────────────────────
+                [MessageTypeCode.CreateSavedSearchRequest] = (req, ct) => savedSearchHandler.CreateSavedSearchAsync(req, ct),
+                [MessageTypeCode.ListSavedSearchesRequest] = (req, ct) => savedSearchHandler.ListSavedSearchesAsync(req, ct),
+                [MessageTypeCode.UpdateSavedSearchRequest] = (req, ct) => savedSearchHandler.UpdateSavedSearchAsync(req, ct),
+                [MessageTypeCode.DeleteSavedSearchRequest] = (req, ct) => savedSearchHandler.DeleteSavedSearchAsync(req, ct),
+                [MessageTypeCode.PinSavedSearchRequest] = (req, ct) => savedSearchHandler.PinSavedSearchAsync(req, ct),
+
+                // ── Search history ────────────────────────────────────
+                [MessageTypeCode.RecordSearchHistoryRequest] = (req, ct) => searchHistoryHandler.RecordSearchHistoryAsync(req, ct),
+                [MessageTypeCode.ListSearchHistoryRequest] = (req, ct) => searchHistoryHandler.ListSearchHistoryAsync(req, ct),
+                [MessageTypeCode.ClearSearchHistoryRequest] = (req, ct) => searchHistoryHandler.ClearSearchHistoryAsync(req, ct),
+
+                // ── Semantic search ───────────────────────────────────
+                [MessageTypeCode.SemanticSearchRequest] = (req, ct) => semanticSearchHandler.SearchByTextAsync(req, ct),
+                [MessageTypeCode.FindSimilarRequest] = (req, ct) => semanticSearchHandler.FindSimilarAsync(req, ct),
+                [MessageTypeCode.RecomputeEmbeddingsRequest] = (req, ct) => semanticSearchHandler.RecomputeEmbeddingsAsync(req, ct),
+            },
+            logger);
     }
 
-    private static Envelope CreateErrorResponse(Envelope request, int statusCode, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = statusCode,
-            ErrorMessage = message
-        };
-    }
+    public Task<Envelope> HandleAsync(Envelope request, CancellationToken ct = default)
+        => _dispatcher.DispatchAsync(request, ct);
 }

@@ -9,11 +9,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class SavedSearchHandler
+public sealed class SavedSearchHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<SavedSearchHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly AuthHandler _authHandler;
 
     public SavedSearchHandler(
@@ -21,31 +18,18 @@ public sealed class SavedSearchHandler
         ILogger<SavedSearchHandler> logger,
         AuthorizationMiddleware authz,
         AuthHandler authHandler)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _authHandler = authHandler;
     }
 
     public async Task<Envelope> CreateSavedSearchAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        CreateSavedSearchRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateSavedSearchRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<CreateSavedSearchRequest>(request, out var req);
+        if (error != null) return error;
 
         if (string.IsNullOrWhiteSpace(req.Name))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Name cannot be empty");
@@ -53,7 +37,7 @@ public sealed class SavedSearchHandler
         var userId = _authHandler.GetUserId(request);
         Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         // Check for duplicate name per user
@@ -95,13 +79,13 @@ public sealed class SavedSearchHandler
 
     public async Task<Envelope> ListSavedSearchesAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         var userId = _authHandler.GetUserId(request);
         Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var items = await db.SavedSearches
@@ -137,39 +121,28 @@ public sealed class SavedSearchHandler
 
     public async Task<Envelope> UpdateSavedSearchAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+        var updateError = DeserializePayload<UpdateSavedSearchRequest>(request, out var updateReq);
+        if (updateError != null) return updateError;
 
-        UpdateSavedSearchRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateSavedSearchRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
-
-        if (!Guid.TryParse(req.Id, out var id))
+        if (!Guid.TryParse(updateReq.Id, out var id))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid ID");
 
-        if (string.IsNullOrWhiteSpace(req.Name))
+        if (string.IsNullOrWhiteSpace(updateReq.Name))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Name cannot be empty");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (saved == null)
             return ErrorResponse(request, ErrorCode.NotFound, "Saved search not found");
 
-        saved.Name = req.Name.Trim();
-        saved.QueryText = string.IsNullOrWhiteSpace(req.QueryText) ? null : req.QueryText.Trim();
-        saved.FiltersJson = req.FiltersJson;
+        saved.Name = updateReq.Name.Trim();
+        saved.QueryText = string.IsNullOrWhiteSpace(updateReq.QueryText) ? null : updateReq.QueryText.Trim();
+        saved.FiltersJson = updateReq.FiltersJson;
         saved.ModifiedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -190,27 +163,16 @@ public sealed class SavedSearchHandler
 
     public async Task<Envelope> DeleteSavedSearchAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+        var deleteError = DeserializePayload<DeleteSavedSearchRequest>(request, out var deleteReq);
+        if (deleteError != null) return deleteError;
 
-        DeleteSavedSearchRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteSavedSearchRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
-
-        if (!Guid.TryParse(req.Id, out var id))
+        if (!Guid.TryParse(deleteReq.Id, out var id))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -230,34 +192,23 @@ public sealed class SavedSearchHandler
 
     public async Task<Envelope> PinSavedSearchAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
+        var pinError = DeserializePayload<PinSavedSearchRequest>(request, out var pinReq);
+        if (pinError != null) return pinError;
 
-        PinSavedSearchRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<PinSavedSearchRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
-
-        if (!Guid.TryParse(req.Id, out var id))
+        if (!Guid.TryParse(pinReq.Id, out var id))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (saved == null)
             return ErrorResponse(request, ErrorCode.NotFound, "Saved search not found");
 
-        saved.IsPinned = req.IsPinned;
+        saved.IsPinned = pinReq.IsPinned;
         saved.ModifiedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
@@ -269,14 +220,5 @@ public sealed class SavedSearchHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

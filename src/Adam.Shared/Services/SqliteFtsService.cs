@@ -13,11 +13,8 @@ namespace Adam.Shared.Services;
 /// Triggers on DigitalAssets and AssetKeywords keep the FTS index in sync.
 /// Uses bm25() for relevance ranking.
 /// </summary>
-public sealed class SqliteFtsService : IFtsService
+public sealed class SqliteFtsService : FtsServiceBase, IFtsService
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory;
-    private readonly ILogger<SqliteFtsService> _logger;
-
     /// <summary>FTS5 virtual table storing indexed text content.</summary>
     private const string FtsTable = "digital_assets_fts";
 
@@ -25,9 +22,8 @@ public sealed class SqliteFtsService : IFtsService
     private const string MapTable = "digital_assets_fts_map";
 
     public SqliteFtsService(IDbContextFactory<AppDbContext> dbFactory, ILogger<SqliteFtsService> logger)
+        : base(dbFactory, logger)
     {
-        _dbFactory = dbFactory;
-        _logger = logger;
     }
 
     /// <summary>
@@ -36,14 +32,14 @@ public sealed class SqliteFtsService : IFtsService
     /// </summary>
     public async Task EnsureFtsReadyAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
         // RISK-001: Check FTS5 is compiled into SQLite before creating tables
         if (!await IsFts5CompiledAsync(conn, ct))
         {
-            _logger.LogWarning("[FTS] FTS5 not compiled into this SQLite build — search will use LIKE fallback");
+            Logger.LogWarning("[FTS] FTS5 not compiled into this SQLite build — search will use LIKE fallback");
             return;
         }
 
@@ -70,7 +66,7 @@ public sealed class SqliteFtsService : IFtsService
         // T11.5: Populate FTS index if empty
         await PopulateIfEmptyAsync(conn, ct);
 
-        _logger.LogDebug("[FTS] SQLite FTS5 tables and triggers ensured");
+        Logger.LogDebug("[FTS] SQLite FTS5 tables and triggers ensured");
     }
 
     // ── IFtsService ──────────────────────────────────────────────
@@ -89,7 +85,7 @@ public sealed class SqliteFtsService : IFtsService
 
         var ftsQuery = BuildFtsQuery(query);
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -182,7 +178,7 @@ public sealed class SqliteFtsService : IFtsService
         if (!await IsAvailableAsync(ct))
             return [];
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -214,7 +210,7 @@ public sealed class SqliteFtsService : IFtsService
     {
         try
         {
-            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var db = await DbFactory.CreateDbContextAsync(ct);
             var conn = db.Database.GetDbConnection();
             await conn.OpenAsync(ct);
 
@@ -226,21 +222,21 @@ public sealed class SqliteFtsService : IFtsService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[FTS] FTS5 availability check failed");
+            Logger.LogWarning(ex, "[FTS] FTS5 availability check failed");
             return false;
         }
     }
 
     public async Task RebuildIndexAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
         await ExecAsync(conn, $"DELETE FROM {FtsTable}", ct);
         await ExecAsync(conn, $"DELETE FROM {MapTable}", ct);
         await PopulateIfEmptyAsync(conn, ct);
-        _logger.LogInformation("[FTS] Index rebuilt");
+        Logger.LogInformation("[FTS] Index rebuilt");
     }
 
     // ── Trigger creation ─────────────────────────────────────────
@@ -355,7 +351,7 @@ public sealed class SqliteFtsService : IFtsService
 
         if (count == 0)
         {
-            _logger.LogInformation("[FTS] Populating FTS index from DigitalAssets...");
+            Logger.LogInformation("[FTS] Populating FTS index from DigitalAssets...");
             await ExecAsync(conn, $@"
                 INSERT INTO {MapTable}(asset_id)
                 SELECT Id FROM DigitalAssets WHERE Id NOT IN (SELECT asset_id FROM {MapTable});", ct);
@@ -374,7 +370,7 @@ public sealed class SqliteFtsService : IFtsService
                 FROM DigitalAssets da
                 JOIN {MapTable} m ON m.asset_id = da.Id;", ct);
 
-            _logger.LogInformation("[FTS] Initial population complete");
+            Logger.LogInformation("[FTS] Initial population complete");
         }
     }
 
@@ -410,25 +406,5 @@ public sealed class SqliteFtsService : IFtsService
     private static string EscapeTerm(string term)
         => Regex.Replace(term, @"[""*\\\-\+\(\):]", @"\$&");
 
-    private static bool MatchesAny(string? text, string[] terms)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        var lower = text.ToLowerInvariant();
-        return terms.Any(t => lower.Contains(t.ToLowerInvariant()));
-    }
-
-    private static void AddParam(DbCommand cmd, string name, object value)
-    {
-        var p = cmd.CreateParameter();
-        p.ParameterName = name;
-        p.Value = value;
-        cmd.Parameters.Add(p);
-    }
-
-    private static async Task ExecAsync(DbConnection conn, string sql, CancellationToken ct)
-    {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
 }
+

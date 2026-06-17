@@ -9,11 +9,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class CommentHandler
+public sealed class CommentHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<CommentHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly AuthHandler _authHandler;
     private readonly ChangeNotificationService _notificationService;
 
@@ -23,37 +20,24 @@ public sealed class CommentHandler
         AuthorizationMiddleware authz,
         AuthHandler authHandler,
         ChangeNotificationService notificationService)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _authHandler = authHandler;
         _notificationService = notificationService;
     }
 
     public async Task<Envelope> ListCommentsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        ListCommentsRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<ListCommentsRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<ListCommentsRequest>(request, out var req);
+        if (error != null) return error;
 
         if (!Guid.TryParse(req.AssetId, out var assetId))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid asset ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var comments = await db.Comments
@@ -93,22 +77,11 @@ public sealed class CommentHandler
 
     public async Task<Envelope> CreateCommentAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        CreateCommentRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateCommentRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<CreateCommentRequest>(request, out var req);
+        if (error != null) return error;
 
         if (string.IsNullOrWhiteSpace(req.Body))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Comment body cannot be empty");
@@ -128,7 +101,7 @@ public sealed class CommentHandler
         if (!Guid.TryParse(userId, out var userGuid))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid user ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         // Verify asset exists
@@ -172,22 +145,11 @@ public sealed class CommentHandler
 
     public async Task<Envelope> UpdateCommentAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        UpdateCommentRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateCommentRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<UpdateCommentRequest>(request, out var req);
+        if (error != null) return error;
 
         if (string.IsNullOrWhiteSpace(req.Body))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Comment body cannot be empty");
@@ -199,7 +161,7 @@ public sealed class CommentHandler
         if (!Guid.TryParse(userId, out var userGuid))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid user ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var comment = await db.Comments.FirstOrDefaultAsync(c => c.Id == commentId, ct);
@@ -237,22 +199,11 @@ public sealed class CommentHandler
 
     public async Task<Envelope> DeleteCommentAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        DeleteCommentRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteCommentRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<DeleteCommentRequest>(request, out var req);
+        if (error != null) return error;
 
         if (!Guid.TryParse(req.CommentId, out var commentId))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid comment ID");
@@ -261,7 +212,7 @@ public sealed class CommentHandler
         if (!Guid.TryParse(userId, out var userGuid))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid user ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var comment = await db.Comments.FirstOrDefaultAsync(c => c.Id == commentId, ct);
@@ -341,18 +292,9 @@ public sealed class CommentHandler
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to broadcast comment notification");
+            Logger.LogWarning(ex, "Failed to broadcast comment notification");
         }
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

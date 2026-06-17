@@ -9,20 +9,15 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class AssetHandler
+public sealed class AssetHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<AssetHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly ChangeNotificationService _notificationService;
     private readonly AuthHandler _authHandler;
     private readonly MetadataWritebackService _writeback;
 
     public AssetHandler(IServiceProvider serviceProvider, ILogger<AssetHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler, MetadataWritebackService writeback)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _notificationService = notificationService;
         _authHandler = authHandler;
         _writeback = writeback;
@@ -30,23 +25,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> ListAssetsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        ListAssetsRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<ListAssetsRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<ListAssetsRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var query = db.DigitalAssets
@@ -149,23 +134,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> GetAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        GetAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<GetAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<GetAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -232,23 +207,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> UpdateAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<UpdateAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -336,11 +301,11 @@ public sealed class AssetHandler
         }
         catch (MetadataWritebackService.ReadOnlyFileException ex)
         {
-            _logger.LogWarning(ex, "Read-only file prevented metadata write-back for asset {AssetId}", asset.Id);
+            Logger.LogWarning(ex, "Read-only file prevented metadata write-back for asset {AssetId}", asset.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
+            Logger.LogWarning(ex, "Metadata write-back failed for asset {AssetId}", asset.Id);
         }
 
         // Broadcast change to all other connected clients
@@ -366,23 +331,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> CreateAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:create", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:create", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<CreateAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = new Adam.Shared.Models.DigitalAsset
@@ -424,7 +379,7 @@ public sealed class AssetHandler
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Metadata write-back failed for newly created asset {AssetId}", asset.Id);
+            Logger.LogWarning(ex, "Metadata write-back failed for newly created asset {AssetId}", asset.Id);
         }
 
         var userId = _authHandler.GetUserId(request);
@@ -447,23 +402,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> GetFileAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        GetFileRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<GetFileRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<GetFileRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -499,7 +444,7 @@ public sealed class AssetHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to read file {StoragePath} for asset {AssetId}", asset.StoragePath, asset.Id);
+            Logger.LogError(ex, "Failed to read file {StoragePath} for asset {AssetId}", asset.StoragePath, asset.Id);
             return new Envelope
             {
                 CorrelationId = request.CorrelationId,
@@ -530,23 +475,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> RestoreAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        RestoreAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<RestoreAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<RestoreAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -573,23 +508,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> ListDeletedAssetsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        ListDeletedAssetsRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<ListDeletedAssetsRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<ListDeletedAssetsRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var query = db.DigitalAssets
@@ -651,23 +576,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> DeleteAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<DeleteAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == Guid.Parse(req.Id), ct);
@@ -691,23 +606,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> GetFileChunkAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        GetFileChunkRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<GetFileChunkRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<GetFileChunkRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -794,7 +699,7 @@ public sealed class AssetHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to read chunk for file {StoragePath} (asset {AssetId})", asset.StoragePath, asset.Id);
+            Logger.LogError(ex, "Failed to read chunk for file {StoragePath} (asset {AssetId})", asset.StoragePath, asset.Id);
             return new Envelope
             {
                 CorrelationId = request.CorrelationId,
@@ -828,23 +733,13 @@ public sealed class AssetHandler
 
     public async Task<Envelope> PermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        PermanentDeleteAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<PermanentDeleteAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<PermanentDeleteAssetRequest>(request, out var req);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var asset = await db.DigitalAssets
@@ -870,21 +765,11 @@ public sealed class AssetHandler
 
     public async Task<Envelope> BulkPermanentDeleteAssetAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        BulkPermanentDeleteAssetRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<BulkPermanentDeleteAssetRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<BulkPermanentDeleteAssetRequest>(request, out var req);
+        if (error != null) return error;
 
         if (req.Ids.Count == 0)
             return ErrorResponse(request, ErrorCode.InvalidArgument, "No asset IDs provided");
@@ -897,7 +782,7 @@ public sealed class AssetHandler
             parsedIds.Add(guid);
         }
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var assets = await db.DigitalAssets
@@ -929,14 +814,5 @@ public sealed class AssetHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

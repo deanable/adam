@@ -10,42 +10,27 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class CollectionHandler
+public sealed class CollectionHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<CollectionHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly ChangeNotificationService _notificationService;
     private readonly AuthHandler _authHandler;
 
     public CollectionHandler(IServiceProvider serviceProvider, ILogger<CollectionHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _notificationService = notificationService;
         _authHandler = authHandler;
     }
 
     public async Task<Envelope> CreateCollectionAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:create", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:create", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateCollectionRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateCollectionRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var payloadError = DeserializePayload<CreateCollectionRequest>(request, out var req);
+        if (payloadError != null) return payloadError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var now = DateTimeOffset.UtcNow;
@@ -84,10 +69,10 @@ public sealed class CollectionHandler
 
     public async Task<Envelope> ListCollectionsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var collections = await db.Collections
@@ -116,23 +101,13 @@ public sealed class CollectionHandler
 
     public async Task<Envelope> UpdateCollectionAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateCollectionRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateCollectionRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var updateError = DeserializePayload<UpdateCollectionRequest>(request, out var req);
+        if (updateError != null) return updateError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
@@ -166,23 +141,13 @@ public sealed class CollectionHandler
 
     public async Task<Envelope> DeleteCollectionAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteCollectionRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteCollectionRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var deleteError = DeserializePayload<DeleteCollectionRequest>(request, out var req);
+        if (deleteError != null) return deleteError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
@@ -257,27 +222,16 @@ public sealed class CollectionHandler
 
     public async Task<Envelope> RefreshSmartCollectionAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        RefreshSmartCollectionRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<RefreshSmartCollectionRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var refreshError = DeserializePayload<RefreshSmartCollectionRequest>(request, out var req);
+        if (refreshError != null) return refreshError;
 
         if (!Guid.TryParse(req.Id, out var id))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid collection ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == id, ct);
@@ -345,7 +299,7 @@ public sealed class CollectionHandler
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Failed to parse smart query JSON: {SmartQueryJson}", smartQueryJson[..Math.Min(smartQueryJson.Length, 200)]);
+            Logger.LogWarning(ex, "Failed to parse smart query JSON: {SmartQueryJson}", smartQueryJson[..Math.Min(smartQueryJson.Length, 200)]);
             return [];
         }
 
@@ -354,27 +308,16 @@ public sealed class CollectionHandler
 
     public async Task<Envelope> ReorderCollectionAssetsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "collection:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "collection:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        ReorderCollectionAssetsRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<ReorderCollectionAssetsRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var reorderError = DeserializePayload<ReorderCollectionAssetsRequest>(request, out var req);
+        if (reorderError != null) return reorderError;
 
         if (!Guid.TryParse(req.CollectionId, out var collectionId))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid collection ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var collection = await db.Collections.FirstOrDefaultAsync(c => c.Id == collectionId, ct);
@@ -408,14 +351,5 @@ public sealed class CollectionHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

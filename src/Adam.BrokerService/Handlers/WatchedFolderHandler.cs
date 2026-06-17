@@ -7,25 +7,19 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class WatchedFolderHandler
+public sealed class WatchedFolderHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<WatchedFolderHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
-
     public WatchedFolderHandler(IServiceProvider serviceProvider, ILogger<WatchedFolderHandler> logger, AuthorizationMiddleware authz)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
     }
 
     public async Task<Envelope> ListAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var folders = await db.WatchedFolders
@@ -55,23 +49,13 @@ public sealed class WatchedFolderHandler
 
     public async Task<Envelope> CreateAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:create", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:create", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateWatchedFolderRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateWatchedFolderRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var createError = DeserializePayload<CreateWatchedFolderRequest>(request, out var req);
+        if (createError != null) return createError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var folder = new Adam.Shared.Models.WatchedFolder
@@ -86,7 +70,7 @@ public sealed class WatchedFolderHandler
         db.WatchedFolders.Add(folder);
         await db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("SECURITY: Created watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
+        Logger.LogInformation("SECURITY: Created watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
             folder.Id, folder.Path, request.CorrelationId);
 
         var response = new CreateWatchedFolderResponse
@@ -106,36 +90,26 @@ public sealed class WatchedFolderHandler
 
     public async Task<Envelope> UpdateAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateWatchedFolderRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateWatchedFolderRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var updateError = DeserializePayload<UpdateWatchedFolderRequest>(request, out var updateReq);
+        if (updateError != null) return updateError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var id = Guid.Parse(req.Id);
+        var id = Guid.Parse(updateReq.Id);
         var folder = await db.WatchedFolders.FindAsync(new object[] { id }, ct);
         if (folder == null)
             return ErrorResponse(request, ErrorCode.NotFound, "Watched folder not found");
 
-        folder.Path = req.Path;
-        folder.IsEnabled = req.IsEnabled;
+        folder.Path = updateReq.Path;
+        folder.IsEnabled = updateReq.IsEnabled;
         folder.ModifiedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("SECURITY: Updated watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
+        Logger.LogInformation("SECURITY: Updated watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
             folder.Id, folder.Path, request.CorrelationId);
 
         return new Envelope
@@ -148,26 +122,16 @@ public sealed class WatchedFolderHandler
 
     public async Task<Envelope> DeleteAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteWatchedFolderRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteWatchedFolderRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var deleteError = DeserializePayload<DeleteWatchedFolderRequest>(request, out var deleteReq);
+        if (deleteError != null) return deleteError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var id = Guid.Parse(req.Id);
+        var id = Guid.Parse(deleteReq.Id);
         var folder = await db.WatchedFolders.FindAsync(new object[] { id }, ct);
         if (folder == null)
             return ErrorResponse(request, ErrorCode.NotFound, "Watched folder not found");
@@ -175,7 +139,7 @@ public sealed class WatchedFolderHandler
         db.WatchedFolders.Remove(folder);
         await db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("SECURITY: Deleted watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
+        Logger.LogInformation("SECURITY: Deleted watched folder {FolderId} at {Path}. CorrelationId: {CorrelationId}",
             folder.Id, folder.Path, request.CorrelationId);
 
         var response = new DeleteWatchedFolderResponse { Success = true };
@@ -188,14 +152,5 @@ public sealed class WatchedFolderHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int statusCode, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = statusCode,
-            ErrorMessage = message
-        };
-    }
+
 }

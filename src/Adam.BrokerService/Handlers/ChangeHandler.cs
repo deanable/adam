@@ -7,39 +7,23 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class ChangeHandler
+public sealed class ChangeHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<ChangeHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
-
     public ChangeHandler(IServiceProvider serviceProvider, ILogger<ChangeHandler> logger, AuthorizationMiddleware authz)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
     }
 
     public async Task<Envelope> GetChangesAsync(Envelope request, CancellationToken ct = default)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        GetChangesRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<GetChangesRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<GetChangesRequest>(request, out var req);
+        if (error != null) return error;
         var since = DateTimeOffset.FromUnixTimeSeconds(req.SinceTimestamp);
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var changedAssets = await db.DigitalAssets
@@ -69,14 +53,5 @@ public sealed class ChangeHandler
         };
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

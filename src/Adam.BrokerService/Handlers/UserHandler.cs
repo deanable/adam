@@ -10,31 +10,26 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class UserHandler
+public sealed class UserHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<UserHandler> _logger;
     private readonly AuditLogger _auditLogger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly AuthHandler _authHandler;
     private readonly ConnectionRegistry _connectionRegistry;
 
     public UserHandler(IServiceProvider serviceProvider, ILogger<UserHandler> logger, AuditLogger auditLogger, AuthorizationMiddleware authz, AuthHandler authHandler, ConnectionRegistry connectionRegistry)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
         _auditLogger = auditLogger;
-        _authz = authz;
         _authHandler = authHandler;
         _connectionRegistry = connectionRegistry;
     }
 
     public async Task<Envelope> ListUsersAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "user:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "user:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var users = await db.Users.Include(u => u.Role)
@@ -68,10 +63,10 @@ public sealed class UserHandler
 
     public async Task<Envelope> ListRolesAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "role:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "role:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var roles = await db.Roles.Include(r => r.RolePermissions).ToListAsync(ct);
@@ -97,23 +92,13 @@ public sealed class UserHandler
 
     public async Task<Envelope> CreateUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "user:create", ct))
+        if (!await Authz.HasPermissionAsync(request, "user:create", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateUserRequest createReq;
-        try
-        {
-            createReq = ProtoHelper.Deserialize<CreateUserRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<CreateUserRequest>(request, out var createReq);
+        if (error != null) return error;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         if (await db.Users.AnyAsync(u => u.Username == createReq.Username, ct))
@@ -167,24 +152,14 @@ public sealed class UserHandler
 
     public async Task<Envelope> UpdateUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "user:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "user:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateUserRequest updateReq;
-        try
-        {
-            updateReq = ProtoHelper.Deserialize<UpdateUserRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<UpdateUserRequest>(request, out var updateReq);
+        if (error != null) return error;
         var userId = Guid.Parse(updateReq.UserId);
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -246,21 +221,11 @@ public sealed class UserHandler
 
     public async Task<Envelope> DeleteUserAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "user:delete", ct))
+        if (!await Authz.HasPermissionAsync(request, "user:delete", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteUserRequest deleteReq;
-        try
-        {
-            deleteReq = ProtoHelper.Deserialize<DeleteUserRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<DeleteUserRequest>(request, out var deleteReq);
+        if (error != null) return error;
         var userId = Guid.Parse(deleteReq.UserId);
         var callerId = _authHandler.GetUserId(request);
 
@@ -268,7 +233,7 @@ public sealed class UserHandler
         if (userId == Guid.Parse(callerId))
             return ErrorResponse(request, ErrorCode.Forbidden, "Cannot deactivate your own account");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -304,7 +269,7 @@ public sealed class UserHandler
         var connectionIds = _connectionRegistry.GetConnectionIdsByUserId(userId);
         if (connectionIds.Count == 0)
         {
-            _logger.LogDebug("No active connections found for user {UserId} — no invalidation sent", userId);
+            Logger.LogDebug("No active connections found for user {UserId} — no invalidation sent", userId);
             return;
         }
 
@@ -315,7 +280,7 @@ public sealed class UserHandler
             Payload = Google.Protobuf.ByteString.Empty
         };
 
-        _logger.LogInformation("Notifying {Count} connection(s) for user {UserId} of session invalidation", connectionIds.Count, userId);
+        Logger.LogInformation("Notifying {Count} connection(s) for user {UserId} of session invalidation", connectionIds.Count, userId);
 
         foreach (var connId in connectionIds)
         {
@@ -325,19 +290,10 @@ public sealed class UserHandler
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to send session invalidation to connection {ConnectionId}", connId);
+                Logger.LogWarning(ex, "Failed to send session invalidation to connection {ConnectionId}", connId);
             }
         }
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }

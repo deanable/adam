@@ -4,7 +4,6 @@ using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Google.Protobuf;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -14,45 +13,28 @@ namespace Adam.BrokerService.Handlers;
 /// Broker handler for semantic search and visual similarity operations.
 /// Delegates to SemanticSearchService for embedding computation and similarity ranking.
 /// </summary>
-public sealed class SemanticSearchHandler
+public sealed class SemanticSearchHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<SemanticSearchHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
-
     public SemanticSearchHandler(
         IServiceProvider serviceProvider,
         ILogger<SemanticSearchHandler> logger,
         AuthorizationMiddleware authz)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
     }
 
     public async Task<Envelope> SearchByTextAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        SemanticSearchRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<SemanticSearchRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<SemanticSearchRequest>(request, out var req);
+        if (error != null) return error;
 
         if (string.IsNullOrWhiteSpace(req.Query))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Query cannot be empty");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var semanticSearch = scope.ServiceProvider.GetRequiredService<SemanticSearchService>();
         var historyHandler = scope.ServiceProvider.GetService<SearchHistoryHandler>();
 
@@ -101,34 +83,23 @@ public sealed class SemanticSearchHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Semantic search failed for query: {Query}", req.Query);
+            Logger.LogError(ex, "Semantic search failed for query: {Query}", req.Query);
             return ErrorResponse(request, ErrorCode.InternalError, "Semantic search failed");
         }
     }
 
     public async Task<Envelope> FindSimilarAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        FindSimilarRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<FindSimilarRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<FindSimilarRequest>(request, out var req);
+        if (error != null) return error;
 
         if (!Guid.TryParse(req.AssetId, out var assetId))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Invalid asset ID");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var semanticSearch = scope.ServiceProvider.GetRequiredService<SemanticSearchService>();
 
         try
@@ -162,17 +133,17 @@ public sealed class SemanticSearchHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "FindSimilar failed for asset {AssetId}", req.AssetId);
+            Logger.LogError(ex, "FindSimilar failed for asset {AssetId}", req.AssetId);
             return ErrorResponse(request, ErrorCode.InternalError, "FindSimilar failed");
         }
     }
 
     public async Task<Envelope> RecomputeEmbeddingsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:*", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:*", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var embeddingService = scope.ServiceProvider.GetRequiredService<EmbeddingService>();
 
         try
@@ -203,19 +174,8 @@ public sealed class SemanticSearchHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "RecomputeEmbeddings failed");
+            Logger.LogError(ex, "RecomputeEmbeddings failed");
             return ErrorResponse(request, ErrorCode.InternalError, "RecomputeEmbeddings failed");
         }
-    }
-
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
     }
 }

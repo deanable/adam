@@ -9,29 +9,24 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class SidebarHandler
+public sealed class SidebarHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<SidebarHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly ChangeNotificationService _notificationService;
     private readonly AuthHandler _authHandler;
 
     public SidebarHandler(IServiceProvider serviceProvider, ILogger<SidebarHandler> logger, AuthorizationMiddleware authz, ChangeNotificationService notificationService, AuthHandler authHandler)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _notificationService = notificationService;
         _authHandler = authHandler;
     }
 
     public async Task<Envelope> ListFoldersAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var assets = await db.DigitalAssets
@@ -74,10 +69,10 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> ListKeywordsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var keywords = await db.Keywords
@@ -118,10 +113,10 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> ListMediaFormatCountsAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var counts = await db.DigitalAssets
@@ -149,10 +144,10 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> ListMetadataCategoriesAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var categories = await db.Categories
@@ -193,10 +188,10 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> ListDateTakenTreeAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var dateTakenData = await db.MetadataProfiles
@@ -239,23 +234,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> CreateKeywordAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateKeywordRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateKeywordRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var kwError = DeserializePayload<CreateKeywordRequest>(request, out var req);
+        if (kwError != null) return kwError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var keyword = new Keyword
@@ -286,23 +271,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> UpdateKeywordAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateKeywordRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateKeywordRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var kwError = DeserializePayload<UpdateKeywordRequest>(request, out var req);
+        if (kwError != null) return kwError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
@@ -327,23 +302,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> DeleteKeywordAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteKeywordRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteKeywordRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var kwError = DeserializePayload<DeleteKeywordRequest>(request, out var req);
+        if (kwError != null) return kwError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var keyword = await db.Keywords.FirstOrDefaultAsync(k => k.Id == Guid.Parse(req.Id), ct);
@@ -387,23 +352,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> CreateCategoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        CreateCategoryRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<CreateCategoryRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var catError = DeserializePayload<CreateCategoryRequest>(request, out var req);
+        if (catError != null) return catError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var category = new Category
@@ -434,23 +389,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> UpdateCategoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        UpdateCategoryRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<UpdateCategoryRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var catError = DeserializePayload<UpdateCategoryRequest>(request, out var req);
+        if (catError != null) return catError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
@@ -475,23 +420,13 @@ public sealed class SidebarHandler
 
     public async Task<Envelope> DeleteCategoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:update", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:update", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-        DeleteCategoryRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<DeleteCategoryRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var catError = DeserializePayload<DeleteCategoryRequest>(request, out var req);
+        if (catError != null) return catError;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == Guid.Parse(req.Id), ct);
@@ -549,16 +484,7 @@ public sealed class SidebarHandler
         }
     }
 
-    private static Envelope ErrorResponse(Envelope request, int statusCode, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = statusCode,
-            ErrorMessage = message
-        };
-    }
+
 
     // ─── Cascade delete helpers ───
 

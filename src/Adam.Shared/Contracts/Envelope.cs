@@ -30,7 +30,7 @@ public sealed class Envelope : IProtoSerializable
         int size = 0;
         size += ProtoHelper.FieldSize(AuthTokenField, AuthToken);
         size += ProtoHelper.FieldSize(CorrelationIdField, CorrelationId);
-        size += FieldSize(MessageTypeField, (int)MessageType);
+        size += ProtoHelper.FieldSize(MessageTypeField, (int)MessageType);
         size += ProtoHelper.FieldSize(PayloadField, Payload);
         size += ProtoHelper.FieldSize(StatusCodeField, StatusCode);
         size += ProtoHelper.FieldSize(ErrorMessageField, ErrorMessage);
@@ -42,7 +42,7 @@ public sealed class Envelope : IProtoSerializable
     {
         ProtoHelper.WriteField(output, AuthTokenField, AuthToken);
         ProtoHelper.WriteField(output, CorrelationIdField, CorrelationId);
-        WriteField(output, MessageTypeField, (int)MessageType);
+        ProtoHelper.WriteField(output, MessageTypeField, (int)MessageType);
         ProtoHelper.WriteField(output, PayloadField, Payload);
         ProtoHelper.WriteField(output, StatusCodeField, StatusCode);
         ProtoHelper.WriteField(output, ErrorMessageField, ErrorMessage);
@@ -68,17 +68,4 @@ public sealed class Envelope : IProtoSerializable
         }
     }
 
-    private static void WriteField(CodedOutputStream output, int fieldNumber, int value)
-    {
-        if (value == 0) return;
-        output.WriteTag(fieldNumber, WireFormat.WireType.Varint);
-        output.WriteInt32(value);
-    }
-
-    private static int FieldSize(int fieldNumber, int value)
-    {
-        if (value == 0) return 0;
-        var tagSize = CodedOutputStream.ComputeRawVarint32Size(WireFormat.MakeTag(fieldNumber, WireFormat.WireType.Varint));
-        return tagSize + CodedOutputStream.ComputeInt32Size(value);
-    }
 }

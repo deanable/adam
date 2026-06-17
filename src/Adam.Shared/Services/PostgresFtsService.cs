@@ -12,20 +12,16 @@ namespace Adam.Shared.Services;
 /// Adds a generated SearchVector column to DigitalAssets and indexes it with GIN.
 /// Uses ts_rank for relevance ranking.
 /// </summary>
-public sealed class PostgresFtsService : IFtsService
+public sealed class PostgresFtsService : FtsServiceBase, IFtsService
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory;
-    private readonly ILogger<PostgresFtsService> _logger;
-
     public PostgresFtsService(IDbContextFactory<AppDbContext> dbFactory, ILogger<PostgresFtsService> logger)
+        : base(dbFactory, logger)
     {
-        _dbFactory = dbFactory;
-        _logger = logger;
     }
 
     public async Task EnsureReadyAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -56,7 +52,7 @@ public sealed class PostgresFtsService : IFtsService
         // Add Keywords to search vector via trigger (keywords are in a join table)
         await CreateKeywordSyncTriggerAsync(conn, ct);
 
-        _logger.LogDebug("[FTS] PostgreSQL tsvector/tsquery index ensured");
+        Logger.LogDebug("[FTS] PostgreSQL tsvector/tsquery index ensured");
     }
 
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(
@@ -70,7 +66,7 @@ public sealed class PostgresFtsService : IFtsService
 
         var tsQuery = BuildTsQuery(query);
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -152,7 +148,7 @@ public sealed class PostgresFtsService : IFtsService
         if (!await IsAvailableAsync(ct))
             return [];
 
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -184,10 +180,9 @@ public sealed class PostgresFtsService : IFtsService
     public async Task<bool> IsAvailableAsync(CancellationToken ct = default)
     {
         try
-        {
-            await using var db = await _dbFactory.CreateDbContextAsync(ct);
-            var conn = db.Database.GetDbConnection();
-            await conn.OpenAsync(ct);
+        {        await using var db = await DbFactory.CreateDbContextAsync(ct);
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync(ct);
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
@@ -198,14 +193,14 @@ public sealed class PostgresFtsService : IFtsService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[FTS] PostgreSQL FTS availability check failed");
+            Logger.LogWarning(ex, "[FTS] PostgreSQL FTS availability check failed");
             return false;
         }
     }
 
     public async Task RebuildIndexAsync(CancellationToken ct = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var db = await DbFactory.CreateDbContextAsync(ct);
         var conn = db.Database.GetDbConnection();
         await conn.OpenAsync(ct);
 
@@ -215,7 +210,7 @@ public sealed class PostgresFtsService : IFtsService
             CREATE INDEX IX_DigitalAssets_SearchVector
             ON ""DigitalAssets"" USING GIN(""SearchVector"")", ct);
 
-        _logger.LogInformation("[FTS] PostgreSQL GIN index rebuilt");
+        Logger.LogInformation("[FTS] PostgreSQL GIN index rebuilt");
     }
 
     #region Private Helpers
@@ -264,28 +259,6 @@ public sealed class PostgresFtsService : IFtsService
 
     private static string EscapeTsTerm(string term)
         => Regex.Replace(term, @"['&|!():*]", @"\$&");
-
-    private static bool MatchesAny(string? text, string[] terms)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        var lower = text.ToLowerInvariant();
-        return terms.Any(t => lower.Contains(t.ToLowerInvariant()));
-    }
-
-    private static void AddParam(DbCommand cmd, string name, object value)
-    {
-        var p = cmd.CreateParameter();
-        p.ParameterName = name;
-        p.Value = value;
-        cmd.Parameters.Add(p);
-    }
-
-    private static async Task ExecAsync(DbConnection conn, string sql, CancellationToken ct)
-    {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
 
     #endregion
 }

@@ -9,11 +9,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Adam.BrokerService.Handlers;
 
-public sealed class SearchHistoryHandler
+public sealed class SearchHistoryHandler : HandlerBase
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<SearchHistoryHandler> _logger;
-    private readonly AuthorizationMiddleware _authz;
     private readonly AuthHandler _authHandler;
 
     public SearchHistoryHandler(
@@ -21,31 +18,18 @@ public sealed class SearchHistoryHandler
         ILogger<SearchHistoryHandler> logger,
         AuthorizationMiddleware authz,
         AuthHandler authHandler)
+        : base(serviceProvider, logger, authz)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _authz = authz;
         _authHandler = authHandler;
     }
 
     public async Task<Envelope> RecordSearchHistoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
-        if (request.Payload == null)
-            return ErrorResponse(request, ErrorCode.BadRequest, "Null payload");
-
-        RecordSearchHistoryRequest req;
-        try
-        {
-            req = ProtoHelper.Deserialize<RecordSearchHistoryRequest>(request.Payload.ToByteArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize {MessageType}", request.MessageType);
-            return ErrorResponse(request, ErrorCode.BadRequest, "Malformed request payload");
-        }
+        var error = DeserializePayload<RecordSearchHistoryRequest>(request, out var req);
+        if (error != null) return error;
 
         if (string.IsNullOrWhiteSpace(req.QueryText))
             return ErrorResponse(request, ErrorCode.InvalidArgument, "Query text cannot be empty");
@@ -53,7 +37,7 @@ public sealed class SearchHistoryHandler
         var userId = _authHandler.GetUserId(request);
         Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var entry = new SearchHistoryEntry
@@ -89,7 +73,7 @@ public sealed class SearchHistoryHandler
 
     public async Task<Envelope> ListSearchHistoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         // Parse optional maxResults from payload
@@ -103,14 +87,14 @@ public sealed class SearchHistoryHandler
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to deserialize ListSearchHistoryRequest payload — using defaults");
+                Logger.LogWarning(ex, "Failed to deserialize ListSearchHistoryRequest payload — using defaults");
             }
         }
 
         var userId = _authHandler.GetUserId(request);
         Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var items = await db.SearchHistoryEntries
@@ -144,13 +128,13 @@ public sealed class SearchHistoryHandler
 
     public async Task<Envelope> ClearSearchHistoryAsync(Envelope request, CancellationToken ct)
     {
-        if (!await _authz.HasPermissionAsync(request, "asset:read", ct))
+        if (!await Authz.HasPermissionAsync(request, "asset:read", ct))
             return ErrorResponse(request, ErrorCode.Forbidden, "Forbidden");
 
         var userId = _authHandler.GetUserId(request);
         Guid? userGuid = Guid.TryParse(userId, out var uid) ? uid : null;
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var entries = await db.SearchHistoryEntries
@@ -183,14 +167,5 @@ public sealed class SearchHistoryHandler
             db.SearchHistoryEntries.RemoveRange(toDelete);
     }
 
-    private static Envelope ErrorResponse(Envelope request, int code, string message)
-    {
-        return new Envelope
-        {
-            CorrelationId = request.CorrelationId,
-            MessageType = request.MessageType,
-            StatusCode = code,
-            ErrorMessage = message
-        };
-    }
+
 }
