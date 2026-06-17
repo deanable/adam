@@ -63,7 +63,16 @@
       "Bash(git add *)",
       "Bash(git restore *)",
       "Bash(git commit -m ' *)",
-      "Bash(./Adam.CatalogBrowser.exe)"
+      "Bash(./Adam.CatalogBrowser.exe)",
+      "PowerShell(head *)",
+      "Skill(gsd-discuss-phase)",
+      "PowerShell(gsd-discuss-phase 19 *)",
+      "PowerShell(ls -la \"$HOME\\\\.claude\\\\skills\")",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(gsd-plan-phase 19 *)",
+      "Skill(gsd-execute-phase)",
+      "PowerShell(gsd-execute-phase 19 *)",
+      "PowerShell(gsd execute-phase *)"
     ]
   }
 }
