@@ -51,8 +51,12 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<SavedSearchHandler>();
         services.AddSingleton<SearchHistoryHandler>();
         services.AddSingleton<SemanticSearchHandler>();
+        services.AddSingleton<SearchRankingHandler>();
         services.AddSingleton<EmbeddingService>();
         services.AddSingleton<SemanticSearchService>();
+        services.AddSingleton<SearchRankingService>();
+        services.AddSingleton<NearDuplicateService>();
+        services.AddSingleton<EmbeddingClusterService>();
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();

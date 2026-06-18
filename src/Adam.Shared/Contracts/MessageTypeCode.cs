@@ -155,5 +155,11 @@ public enum MessageTypeCode : ushort
     BulkPermanentDeleteAssetRequest = 100,
     BulkPermanentDeleteAssetResponse = 101,
     NoData = 98,
-    GeneralError = 99
+    GeneralError = 99,
+
+    // Smart Search Ranking (170-173)
+    LogSearchClickRequest = 170,
+    LogSearchClickResponse = 171,
+    ReRankRequest = 172,
+    ReRankResponse = 173
 }

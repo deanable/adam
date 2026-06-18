@@ -30,6 +30,12 @@
     <DataTemplate DataType="{x:Type vm:CompareViewModel}">
       <views:CompareView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DuplicateReviewViewModel}">
+      <views:DuplicateReviewView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AutoAlbumViewModel}">
+      <views:AutoAlbumDialog />
+    </DataTemplate>
 
   </Window.DataTemplates>
 
@@ -96,6 +102,14 @@
                   Classes="NavButton" IsEnabled="{Binding CanAudit}" ToolTip.Tip="{Binding AuditPermissionTooltip}" FontSize="12" />
           <Button Content="Activity" Command="{Binding ShowActivityFeedCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
                   FontSize="12" />
+
+          <!-- Phase 22: AI-powered features -->
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center" />
+          <Button Content="📀 Albums" Command="{Binding GenerateAlbumsCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  ToolTip.Tip="Auto-generate smart albums from visual similarity clusters" FontSize="12" />
+          <Button Content="🔍 Duplicates" Command="{Binding DetectDuplicatesCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  ToolTip.Tip="Scan all assets for near-duplicate images" FontSize="12" />
+
           <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center"
                      IsVisible="{Binding CanAdminister}" />
           <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"

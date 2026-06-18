@@ -22,6 +22,7 @@ public sealed class ConnectionHandler : IConnectionHandler
         SavedSearchHandler savedSearchHandler,
         SearchHistoryHandler searchHistoryHandler,
         SemanticSearchHandler semanticSearchHandler,
+        SearchRankingHandler searchRankingHandler,
         ILogger<ConnectionHandler> logger)
     {
         _dispatcher = new MessageDispatcher(
@@ -113,6 +114,10 @@ public sealed class ConnectionHandler : IConnectionHandler
                 [MessageTypeCode.SemanticSearchRequest] = (req, ct) => semanticSearchHandler.SearchByTextAsync(req, ct),
                 [MessageTypeCode.FindSimilarRequest] = (req, ct) => semanticSearchHandler.FindSimilarAsync(req, ct),
                 [MessageTypeCode.RecomputeEmbeddingsRequest] = (req, ct) => semanticSearchHandler.RecomputeEmbeddingsAsync(req, ct),
+
+                // ── Smart Search Ranking ────────────────────────────────
+                [MessageTypeCode.LogSearchClickRequest] = (req, ct) => searchRankingHandler.LogClickAsync(req, ct),
+                [MessageTypeCode.ReRankRequest] = (req, ct) => searchRankingHandler.ReRankAsync(req, ct),
             },
             logger);
     }

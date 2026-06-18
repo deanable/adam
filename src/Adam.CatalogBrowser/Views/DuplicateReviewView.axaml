@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.DuplicateReviewView"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="16">
+
+    <!-- Header -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+      <TextBlock Text="Near-Duplicate Review" Classes="Title"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
+      <Button Grid.Column="1" Content="✕" Command="{Binding CloseCommand}"
+              FontSize="14" Padding="6,2" Background="Transparent"
+              BorderThickness="0" Cursor="Hand" />
+    </Grid>
+
+    <!-- Group progress + scan indicator -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,4,0,8">
+      <TextBlock Text="{Binding GroupProgressText}" Classes="Subheading"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 IsVisible="{Binding HasGroups}" />
+      <TextBlock Text="{Binding ProgressText}" Classes="Body"
+                 Foreground="{DynamicResource TextTertiaryBrush}"
+                 IsVisible="{Binding IsScanning}" />
+    </StackPanel>
+
+    <!-- Group thumbnail display -->
+    <Grid Grid.Row="2" IsVisible="{Binding HasCurrentGroup}">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Group type label -->
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceDisabledBrush}"
+                CornerRadius="4" Padding="6,2" Margin="0,0,0,8"
+                HorizontalAlignment="Left">
+          <TextBlock Text="{Binding CurrentGroup.GroupType}" Classes="Caption"
+                     Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" />
+        </Border>
+
+        <!-- Placeholder for thumbnails area -->
+        <TextBlock Grid.Row="1" Text="Thumbnail preview area"
+                   Classes="Body" Foreground="{DynamicResource TextTertiaryBrush}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+        <!-- Action buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
+                    HorizontalAlignment="Center" Margin="0,8,0,0">
+          <Button Content="✦ Keep Primary" Command="{Binding KeepPrimaryCommand}"
+                  FontSize="12" Padding="10,4"
+                  Background="{DynamicResource SuccessHoverBrush}" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="🗑 Trash All Duplicates" Command="{Binding TrashAllDuplicatesCommand}"
+                  FontSize="12" Padding="10,4"
+                  Background="{DynamicResource DangerBrush}" Foreground="White"
+                  BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+          <Button Content="Skip" Command="{Binding SkipGroupCommand}"
+                  FontSize="12" Padding="10,4"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                  CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <!-- Empty state -->
+    <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center"
+                IsVisible="{Binding HasGroups, Converter={x:Static views:InverseBoolConverter.Instance}}">
+      <TextBlock Text="No duplicate groups found" Classes="Subheading"
+                 Foreground="{DynamicResource TextEmptyBrush}"
+                 HorizontalAlignment="Center" />
+      <TextBlock Text="All assets appear to be unique" Classes="Body"
+                 Foreground="{DynamicResource TextEmptySecondaryBrush}"
+                 HorizontalAlignment="Center" />
+    </StackPanel>
+
+    <!-- Navigation -->
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4"
+                HorizontalAlignment="Center" Margin="0,8,0,0"
+                IsVisible="{Binding HasGroups}">
+      <Button Content="◀ Previous" Command="{Binding PreviousGroupCommand}"
+              FontSize="11" Padding="8,2"
+              Background="{DynamicResource SurfaceLightBrush}"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              CornerRadius="4" Cursor="Hand" />
+      <Button Content="Next ▶" Command="{Binding NextGroupCommand}"
+              FontSize="11" Padding="8,2"
+              Background="{DynamicResource SurfaceLightBrush}"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              CornerRadius="4" Cursor="Hand" />
+    </StackPanel>
+
+    <!-- Stats footer -->
+    <TextBlock Grid.Row="4" Text="{Binding PotentialSavingsText}"
+               Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}"
+               HorizontalAlignment="Center" Margin="0,8,0,0"
+               IsVisible="{Binding HasGroups}" />
+  </Grid>
+</UserControl>

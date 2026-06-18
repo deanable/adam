@@ -112,37 +112,85 @@
                      FontSize="11" />
         </StackPanel>
 
-        <!-- AI Tag Selected button (Trigger C) — Phase 7: gated by permission with tooltip -->
-        <Button Grid.Column="3"
-                Content="🤖 AI Tag"
-                Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
-                IsEnabled="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
-                ToolTip.Tip="{Binding DataContext.AiTagPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
-                Classes="AiTagButton"
-                FontSize="11"
-                Padding="6,2"
-                Background="{DynamicResource AiTagBrush}"
-                Foreground="White"
-                BorderThickness="0"
-                CornerRadius="4"
-                VerticalAlignment="Center"
-                Cursor="Hand">
-          <Button.Styles>
-            <Style Selector="Button:disabled">
-              <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
-              <Setter Property="Foreground" Value="{DynamicResource TextPlaceholderBrush}" />
-            </Style>
-            <Style Selector="Button.AiTagButton:disabled">
-              <Setter Property="Opacity" Value="0.35" />
-            </Style>
-            <Style Selector="Button:pointerover:not(:disabled)">
-              <Setter Property="Background" Value="{DynamicResource AiTagHoverBrush}" />
-            </Style>
-            <Style Selector="Button:pressed:not(:disabled)">
-              <Setter Property="Background" Value="{DynamicResource AiTagPressedBrush}" />
-            </Style>
-          </Button.Styles>
-        </Button>
+        <!-- Phase 22: AI-powered toolbar buttons -->
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+
+          <!-- AI Tag Selected button (Trigger C) — Phase 7: gated by permission with tooltip -->
+          <Button Content="🤖 AI Tag"
+                  Command="{Binding DataContext.AiTagSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                  IsEnabled="{Binding DataContext.CanAiTag, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                  ToolTip.Tip="{Binding DataContext.AiTagPermissionTooltip, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                  Classes="AiTagButton"
+                  FontSize="11"
+                  Padding="6,2"
+                  Background="{DynamicResource AiTagBrush}"
+                  Foreground="White"
+                  BorderThickness="0"
+                  CornerRadius="4"
+                  VerticalAlignment="Center"
+                  Cursor="Hand">
+            <Button.Styles>
+              <Style Selector="Button:disabled">
+                <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPlaceholderBrush}" />
+              </Style>
+              <Style Selector="Button.AiTagButton:disabled">
+                <Setter Property="Opacity" Value="0.35" />
+              </Style>
+              <Style Selector="Button:pointerover:not(:disabled)">
+                <Setter Property="Background" Value="{DynamicResource AiTagHoverBrush}" />
+              </Style>
+              <Style Selector="Button:pressed:not(:disabled)">
+                <Setter Property="Background" Value="{DynamicResource AiTagPressedBrush}" />
+              </Style>
+            </Button.Styles>
+          </Button>
+
+          <!-- Phase 22: Generate smart albums from embedding clusters -->
+          <Button Content="🎵 Generate Albums"
+                  Command="{Binding DataContext.GenerateAlbumsCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                  FontSize="11"
+                  Padding="6,2"
+                  Background="{DynamicResource PrimaryBrush}"
+                  Foreground="White"
+                  BorderThickness="0"
+                  CornerRadius="4"
+                  VerticalAlignment="Center"
+                  Cursor="Hand"
+                  ToolTip.Tip="Auto-generate smart albums from visual similarity clusters">
+            <Button.Styles>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+              </Style>
+              <Style Selector="Button:pressed">
+                <Setter Property="Background" Value="{DynamicResource PrimaryPressedBrush}" />
+              </Style>
+            </Button.Styles>
+          </Button>
+
+          <!-- Phase 22: Find near-duplicate assets across the catalog -->
+          <Button Content="🔍 Find Duplicates"
+                  Command="{Binding DataContext.DetectDuplicatesCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                  FontSize="11"
+                  Padding="6,2"
+                  Background="{DynamicResource WarningBrush}"
+                  Foreground="White"
+                  BorderThickness="0"
+                  CornerRadius="4"
+                  VerticalAlignment="Center"
+                  Cursor="Hand"
+                  ToolTip.Tip="Scan all assets for near-duplicate images">
+            <Button.Styles>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="{DynamicResource WarningHoverBrush}" />
+              </Style>
+              <Style Selector="Button:pressed">
+                <Setter Property="Background" Value="#E65100" />
+              </Style>
+            </Button.Styles>
+          </Button>
+
+        </StackPanel>
       </Grid>
     </Border>
 

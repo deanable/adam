@@ -177,10 +177,27 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // T8.21: F2 = Rename asset title
         RenameAssetCommand = new RelayCommand(async _ => await RenameAssetAsync(), _ => AssetGallery.SelectedAssets.Count == 1 && CanEditMetadata);
 
-        // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
-        FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
+        // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)            FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
 
-        // T20.2: Loupe view — open on double-click
+            // Phase 22: Generate albums command
+            GenerateAlbumsCommand = new RelayCommand(async _ => await ShowAutoAlbumDialogAsync());
+
+            // Phase 22: Find duplicates commands
+            FindDuplicatesCommand = new RelayCommand(async _ => await FindDuplicatesForSelectionAsync(),
+                _ => AssetGallery.SelectedAssets.Count > 0);
+            DetectDuplicatesCommand = new RelayCommand(async _ => await DetectDuplicatesAsync());
+
+            // Re-evaluate duplicate commands when selection changes
+            assetGallery.MultiSelectionChanged += _ =>
+            {
+                (FindDuplicatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            };
+            assetGallery.SelectionChanged += _ =>
+            {
+                (FindDuplicatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            };
+
+            // T20.2: Loupe view — open on double-click
         assetGallery.OpenAssetRequested += async asset =>
         {
             var loupe = new LoupeViewModel(_modeManager);
@@ -539,6 +556,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand RenameAssetCommand { get; }
     public ICommand FocusSearchCommand { get; }
     public ICommand SaveCurrentSearchCommand { get; }
+    public ICommand GenerateAlbumsCommand { get; }
+    public ICommand FindDuplicatesCommand { get; }
+    public ICommand DetectDuplicatesCommand { get; }
 
     /// <summary>
     /// Event fired when the user presses Ctrl+F. MainWindow code-behind
@@ -830,6 +850,72 @@ public class MainWindowViewModel : INotifyPropertyChanged
             cfg.Save();
         }
         return loginResult == true;
+    }
+
+    /// <summary>
+    /// Phase 22: Shows the auto-album generation dialog.
+    /// </summary>
+    private async Task ShowAutoAlbumDialogAsync()
+    {
+        var clusterService = App.ServiceProvider?.GetService<EmbeddingClusterService>();
+        if (clusterService == null) return;
+
+        var vm = new AutoAlbumViewModel(clusterService, _modeManager);
+        vm.AlbumsCreated += async count =>
+        {
+            ToastService.Show($"Created {count} smart album(s)", Adam.CatalogBrowser.Services.ToastLevel.Success);
+            await Sidebar.LoadAsync();
+            await AssetGallery.LoadAssetsAsync();
+        };
+        vm.CloseRequested += () =>
+        {
+            CurrentView = AssetGallery;
+        };
+        CurrentView = vm;
+
+        // Auto-compute preview when dialog opens
+        await vm.ComputePreviewAsync();
+    }
+
+    /// <summary>
+    /// Phase 22: Finds duplicates for the currently selected asset.
+    /// </summary>
+    private async Task FindDuplicatesForSelectionAsync()
+    {
+        var dupService = App.ServiceProvider?.GetService<NearDuplicateService>();
+        var deleteService = App.ServiceProvider?.GetService<Services.DeleteService>();
+        if (dupService == null) return;
+
+        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+        if (asset == null) return;
+
+        var vm = new DuplicateReviewViewModel(dupService, deleteService);
+        vm.CloseRequested += () =>
+        {
+            CurrentView = AssetGallery;
+        };
+        CurrentView = vm;
+
+        await vm.FindForAssetAsync(asset.Id);
+    }
+
+    /// <summary>
+    /// Phase 22: Scans all assets for near-duplicates.
+    /// </summary>
+    private async Task DetectDuplicatesAsync()
+    {
+        var dupService = App.ServiceProvider?.GetService<NearDuplicateService>();
+        var deleteService = App.ServiceProvider?.GetService<Services.DeleteService>();
+        if (dupService == null) return;
+
+        var vm = new DuplicateReviewViewModel(dupService, deleteService);
+        vm.CloseRequested += () =>
+        {
+            CurrentView = AssetGallery;
+        };
+        CurrentView = vm;
+
+        await vm.ScanAllAsync();
     }
 
     /// <summary>

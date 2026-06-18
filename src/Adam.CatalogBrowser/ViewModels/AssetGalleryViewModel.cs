@@ -25,6 +25,7 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     private readonly ILogger<AssetGalleryViewModel> _logger;
     private readonly ThumbnailCache _thumbnailCache = new();
     private readonly IFtsService? _ftsService;
+    private readonly SearchRankingService? _rankingService;
     private CancellationTokenSource? _backfillCts;
     private CancellationTokenSource? _searchCts;
 
@@ -71,11 +72,12 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     public ICommand ClearSearchCommand { get; }
     public ICommand ClearSelectionCommand { get; }
 
-    public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger, IFtsService? ftsService = null)
+    public AssetGalleryViewModel(ModeManager modeManager, ILogger<AssetGalleryViewModel> logger, IFtsService? ftsService = null, SearchRankingService? rankingService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
         _ftsService = ftsService;
+        _rankingService = rankingService;
 
         SelectAllCommand = new RelayCommand(_ => SelectAll());
         ClearSearchCommand = new RelayCommand(_ => ClearSearch());
@@ -203,6 +205,90 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
+
+    // ── Phase 22: Smart search ranking mode ───────────────────
+
+    private string _rankMode = "Smart";
+    private bool _isSmartRankingEnabled = true;
+    private DateTime? _dwellTimerStart;
+
+    /// <summary>
+    /// Current ranking mode for semantic search results.
+    /// Options: Relevance (cosine-only), Smart (boosted), Date, Rating.
+    /// </summary>
+    public string RankMode
+    {
+        get => _rankMode;
+        set
+        {
+            if (_rankMode != value)
+            {
+                _rankMode = value;
+                OnPropertyChanged();
+                // Re-rank if search is active
+                if (_isSearchActive && !string.IsNullOrWhiteSpace(_searchText) && _isSemanticSearch)
+                {
+                    _ = OnSearchTextChangedAsync();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Available ranking modes for the dropdown selector.
+    /// </summary>
+    public ObservableCollection<string> RankModes { get; } = new() { "Relevance", "Smart", "Date", "Rating" };
+
+    /// <summary>
+    /// Whether smart ranking (click-history-aware) is enabled.
+    /// </summary>
+    public bool IsSmartRankingEnabled
+    {
+        get => _isSmartRankingEnabled;
+        set
+        {
+            if (_isSmartRankingEnabled != value)
+            {
+                _isSmartRankingEnabled = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called when user clicks on a search result to track dwell time.
+    /// </summary>
+    public void OnSearchResultClicked()
+    {
+        _dwellTimerStart = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Called when user navigates away from a search result.
+    /// Logs the click event with dwell time if ranking service is available.
+    /// </summary>
+    public async Task OnSearchResultNavigatedAwayAsync(Guid assetId, string query, int rankPosition)
+    {
+        if (_rankingService == null || !_isSmartRankingEnabled) return;
+
+        var dwellTimeMs = 0;
+        if (_dwellTimerStart.HasValue)
+        {
+            dwellTimeMs = (int)(DateTime.UtcNow - _dwellTimerStart.Value).TotalMilliseconds;
+            _dwellTimerStart = null;
+        }
+
+        try
+        {
+            await _rankingService.LogClickAsync(assetId, query, rankPosition, dwellTimeMs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to log search click for asset {AssetId}", assetId);
+        }
+    }
+
+    // ── Ranking mode display properties ───────────────────────
 
     /// <summary>
     /// Display icon for the current search mode: 🔍 (FTS) or ✦ (semantic).

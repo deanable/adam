@@ -249,6 +249,15 @@ public partial class AssetGalleryView : UserControl
             }
         }
 
+        // Phase 22: Log search result click when right-clicking on a result
+        if (clickedItem is AssetListItem clickedAsset &&
+            vm.AssetGallery is AssetGalleryViewModel galleryVm &&
+            galleryVm.IsSearchActive && galleryVm.IsSemanticSearch)
+        {
+            var rankPosition = galleryVm.Assets.IndexOf(clickedAsset);
+            _ = galleryVm.OnSearchResultNavigatedAwayAsync(clickedAsset.Id, galleryVm.SearchText, rankPosition);
+        }
+
         var flyout = BuildContextMenu(vm);
         flyout.ShowAt(listBoxItem);
         e.Handled = true;
@@ -302,14 +311,23 @@ public partial class AssetGalleryView : UserControl
     /// <summary>
     /// T20.2: Opens the loupe view when an asset is double-clicked.
     /// </summary>
-    private void OnGalleryDoubleTapped(object? sender, TappedEventArgs e)
+    private async void OnGalleryDoubleTapped(object? sender, TappedEventArgs e)
     {
         var source = e.Source as Control;
         var listBoxItem = source?.FindAncestorOfType<ListBoxItem>();
         if (listBoxItem?.DataContext is not AssetListItem asset) return;
 
         if (DataContext is AssetGalleryViewModel vm)
+        {
+            // Phase 22: Log search result click with dwell time before opening loupe
+            if (vm.IsSearchActive && vm.IsSemanticSearch)
+            {
+                var rankPosition = vm.Assets.IndexOf(asset);
+                await vm.OnSearchResultNavigatedAwayAsync(asset.Id, vm.SearchText, rankPosition);
+            }
+
             vm.RequestOpenAsset(asset);
+        }
     }
 
     private void OnGallerySelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -319,6 +337,12 @@ public partial class AssetGalleryView : UserControl
 
         var items = listBox.SelectedItems ?? Array.Empty<object?>();
         vm.UpdateSelection(items.Cast<object?>().ToList());
+
+        // Phase 22: Start dwell timer when user selects a search result item
+        if (vm.IsSearchActive && vm.IsSemanticSearch && e.AddedItems.Count > 0)
+        {
+            vm.OnSearchResultClicked();
+        }
     }
 }
 

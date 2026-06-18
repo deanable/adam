@@ -206,3 +206,44 @@ public sealed partial class RecomputeEmbeddingsResponse : IProtoSerializable
 {
     [ProtoField(1)] public int TotalProcessed { get; set; }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  Smart Search Ranking — Click Logging & Re-Ranking
+// ═══════════════════════════════════════════════════════════════
+
+public sealed partial class LogSearchClickRequest : IProtoSerializable
+{
+    [ProtoField(1)] public string AssetId { get; set; } = string.Empty;
+    [ProtoField(2)] public string QueryText { get; set; } = string.Empty;
+    [ProtoField(3)] public int RankPosition { get; set; }
+    [ProtoField(4)] public int DwellTimeMs { get; set; }
+}
+
+public sealed partial class LogSearchClickResponse : IProtoSerializable
+{
+    [ProtoField(1)] public string Id { get; set; } = string.Empty;
+}
+
+public sealed partial class ReRankRequest : IProtoSerializable
+{
+    [ProtoField(1)] public string Query { get; set; } = string.Empty;
+    [ProtoField(2)] public List<RankedAssetWire> Results { get; } = [];
+}
+
+public sealed partial class RankedAssetWire : IProtoSerializable
+{
+    [ProtoField(1)] public string AssetId { get; set; } = string.Empty;
+    [ProtoField(2)] public float OriginalScore { get; set; }
+}
+
+public sealed partial class ReRankResponse : IProtoSerializable
+{
+    [ProtoField(1)] public List<RankedResultWire> Results { get; } = [];
+}
+
+public sealed partial class RankedResultWire : IProtoSerializable
+{
+    [ProtoField(1)] public string AssetId { get; set; } = string.Empty;
+    [ProtoField(2)] public float CombinedScore { get; set; }
+    [ProtoField(3)] public float ClickBoost { get; set; }
+}

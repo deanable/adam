@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Adam.CatalogBrowser.Views"
+             x:Class="Adam.CatalogBrowser.Views.AutoAlbumDialog"
+             x:CompileBindings="False">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="16">
+
+    <!-- Header -->
+    <TextBlock Grid.Row="0" Text="Generate Smart Albums" Classes="Title"
+               Foreground="{DynamicResource TextPrimaryBrush}" />
+
+    <!-- Configuration panel -->
+    <Border Grid.Row="1" Background="{DynamicResource SurfaceSubtleBrush}"
+            CornerRadius="6" Padding="12" Margin="0,8">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*"
+            RowSpacing="8" ColumnSpacing="8">
+
+        <!-- Source scope -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Source:"
+                   Classes="Body" VerticalAlignment="Center" />
+        <ComboBox Grid.Row="0" Grid.Column="1"
+                  ItemsSource="{Binding SourceOptions}"
+                  SelectedIndex="{Binding SelectedSourceIndex}"
+                  FontSize="11" Padding="4,2" />
+
+        <!-- Sensitivity slider -->
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Sensitivity:"
+                   Classes="Body" VerticalAlignment="Center" />
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+          <TextBlock Text="More" Classes="Caption" VerticalAlignment="Center" />
+          <Slider Minimum="0.6" Maximum="0.95" SmallChange="0.05"
+                  Value="{Binding Sensitivity}"
+                  Width="120" VerticalAlignment="Center" />
+          <TextBlock Text="Less" Classes="Caption" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Min cluster size -->
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Min album size:"
+                   Classes="Body" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Row="2" Grid.Column="1"
+                       Value="{Binding MinClusterSize}"
+                       Minimum="2" Maximum="20" Increment="1"
+                       Width="60" FontSize="11" />
+
+        <!-- Max clusters -->
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Max albums:"
+                   Classes="Body" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Row="3" Grid.Column="1"
+                       Value="{Binding MaxClusters}"
+                       Minimum="5" Maximum="50" Increment="5"
+                       Width="60" FontSize="11" />
+      </Grid>
+    </Border>
+
+    <!-- Mode radio buttons -->
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0,4">
+      <RadioButton Content="Images only (visual similarity)" GroupName="ClusterMode" />
+      <RadioButton Content="All assets (text + metadata)" GroupName="ClusterMode" />
+    </StackPanel>
+
+    <!-- Preview clusters -->
+    <ScrollViewer Grid.Row="3" Margin="0,8">
+      <StackPanel Spacing="4">
+        <!-- Computed clusters list -->
+        <ItemsControl ItemsSource="{Binding PreviewClusters}"
+                      IsVisible="{Binding HasClusters}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="{DynamicResource SurfaceSubtleBrush}"
+                      CornerRadius="6" Padding="10" Margin="0,2">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <TextBlock Grid.Column="0" Text="📁" FontSize="16"
+                             VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding SuggestedName}" Classes="Subheading"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Classes="Caption"
+                               Foreground="{DynamicResource TextTertiaryBrush}">
+                      <Run Text="{Binding Assets.Count}" />
+                      <Run Text=" photos" />
+                    </TextBlock>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding CentroidSimilarity}"
+                             Classes="Body" Foreground="{DynamicResource PrimaryBrush}"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Status text (visible when no clusters) -->
+        <TextBlock Text="{Binding StatusText}" Classes="Body"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   HorizontalAlignment="Center"
+                   IsVisible="{Binding HasClusters, Converter={x:Static views:InverseBoolConverter.Instance}}" />
+
+        <!-- Progress -->
+        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center"
+                    IsVisible="{Binding IsComputing}">
+          <TextBlock Text="{Binding ProgressText}" Classes="Body"
+                     Foreground="{DynamicResource TextTertiaryBrush}" />
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Action buttons -->
+    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6"
+                HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button Content="Compute Preview" Command="{Binding ComputePreviewCommand}"
+              FontSize="12" Padding="10,4"
+              Background="{DynamicResource PrimaryBrush}" Foreground="White"
+              BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+      <Button Content="Create Albums" Command="{Binding CreateAlbumsCommand}"
+              FontSize="12" Padding="10,4"
+              Background="{DynamicResource SuccessHoverBrush}" Foreground="White"
+              BorderThickness="0" CornerRadius="4" Cursor="Hand" />
+      <Button Content="Cancel" Command="{Binding CloseCommand}"
+              FontSize="12" Padding="10,4"
+              Background="{DynamicResource SurfaceLightBrush}"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+              CornerRadius="4" Cursor="Hand" />
+    </StackPanel>
+  </Grid>
+</UserControl>

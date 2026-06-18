@@ -43,6 +43,7 @@ public class AppDbContext : DbContext
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<SearchHistoryEntry> SearchHistoryEntries => Set<SearchHistoryEntry>();
     public DbSet<AssetEmbedding> AssetEmbeddings => Set<AssetEmbedding>();
+    public DbSet<SearchClickLog> SearchClickLogs => Set<SearchClickLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -264,6 +265,17 @@ public class AppDbContext : DbContext
             e.Property(x => x.ModelVersion).IsRequired().HasMaxLength(100);
             e.HasOne(x => x.Asset).WithOne().HasForeignKey<AssetEmbedding>(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.AssetId).IsUnique();
+        });
+
+        modelBuilder.Entity<SearchClickLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.QueryText).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.NormalizedQuery).HasMaxLength(2000);
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.NormalizedQuery, x.ClickedAt });
+            e.HasIndex(x => new { x.AssetId, x.NormalizedQuery });
         });
 
         SeedData(modelBuilder);

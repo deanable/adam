@@ -132,13 +132,19 @@ public partial class App : Application
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<SemanticSearchService>();
 
+            // Phase 22: AI-Native DAM features
+            services.AddSingleton<SearchRankingService>();
+            services.AddSingleton<NearDuplicateService>();
+            services.AddSingleton<EmbeddingClusterService>();
+
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>(sp =>
                 new AssetGalleryViewModel(
                     sp.GetRequiredService<ModeManager>(),
                     sp.GetRequiredService<ILogger<AssetGalleryViewModel>>(),
-                    sp.GetRequiredService<IFtsService>()));
+                    sp.GetRequiredService<IFtsService>(),
+                    sp.GetService<SearchRankingService>()));
             services.AddTransient<IngestionViewModel>();
             services.AddTransient<MetadataEditorViewModel>();
             services.AddTransient<AuditLogViewModel>();
