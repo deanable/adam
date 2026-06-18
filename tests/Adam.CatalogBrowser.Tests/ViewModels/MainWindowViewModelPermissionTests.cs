@@ -451,7 +451,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 
         // Standalone mode grants all permissions → no tooltips needed
         vm.IngestPermissionTooltip.Should().BeNull();
-        vm.MetadataPermissionTooltip.Should().BeNull();
         vm.AuditPermissionTooltip.Should().BeNull();
         vm.AdminPermissionTooltip.Should().BeNull();
     }
@@ -465,7 +464,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
         // No auth session → not logged in
 
         vm.IngestPermissionTooltip.Should().Be("Sign in to ingest assets");
-        vm.MetadataPermissionTooltip.Should().Be("Sign in to edit metadata");
         vm.AuditPermissionTooltip.Should().Be("Sign in to view audit log");
         vm.AdminPermissionTooltip.Should().Be("Sign in to manage server");
     }
@@ -487,13 +485,12 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 
         // Administrator has all permissions → no tooltips
         vm.IngestPermissionTooltip.Should().BeNull();
-        vm.MetadataPermissionTooltip.Should().BeNull();
         vm.AuditPermissionTooltip.Should().BeNull();
         vm.AdminPermissionTooltip.Should().BeNull();
     }
 
     [Fact]
-    public async Task NavTooltips_Editor_IngestAndMetadataNull_AuditAndAdminShowRequiresAdmin()
+    public async Task NavTooltips_Editor_IngestNull_AuditAndAdminShowRequiresAdmin()
     {
         var vm = await CreateVmAsync();
 
@@ -507,9 +504,8 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
         });
         SetTokenExpiresAt(_auth, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400);
 
-        // Editor has asset:create and asset:update → Ingest/Metadata tooltips are null
+        // Editor has asset:create → Ingest tooltip is null
         vm.IngestPermissionTooltip.Should().BeNull("Editor has asset:create");
-        vm.MetadataPermissionTooltip.Should().BeNull("Editor has asset:update");
 
         // Editor does NOT have audit:read or user:* → Audit/Admin show requirement
         vm.AuditPermissionTooltip.Should().Be("Requires Administrator role");
@@ -517,7 +513,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task NavTooltips_Viewer_AllShowRoleRequirement()
+    public async Task NavTooltips_Viewer_IngestAuditAdminShowRequirement()
     {
         var vm = await CreateVmAsync();
 
@@ -533,7 +529,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 
         // Viewer lacks all non-read permissions
         vm.IngestPermissionTooltip.Should().Be("Requires Editor or Administrator role");
-        vm.MetadataPermissionTooltip.Should().Be("Requires Editor or Administrator role");
         vm.AuditPermissionTooltip.Should().Be("Requires Administrator role");
         vm.AdminPermissionTooltip.Should().Be("Requires Administrator role");
     }
@@ -556,7 +551,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 
         // Expired token disables all permissions → all tooltips show expired message
         vm.IngestPermissionTooltip.Should().Be("Session expired — re-login required to ingest assets");
-        vm.MetadataPermissionTooltip.Should().Be("Session expired — re-login required to edit metadata");
         vm.AuditPermissionTooltip.Should().Be("Session expired — re-login required to view audit log");
         vm.AdminPermissionTooltip.Should().Be("Session expired — re-login required to manage server");
     }
@@ -591,7 +585,6 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
 
         // Values should reflect new role immediately
         vm.IngestPermissionTooltip.Should().BeNull("Administrator has all permissions");
-        vm.MetadataPermissionTooltip.Should().BeNull();
         vm.AuditPermissionTooltip.Should().BeNull();
         vm.AdminPermissionTooltip.Should().BeNull();
     }

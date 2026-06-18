@@ -93,9 +93,9 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-### Current State (v3.0)
+### Current State (v4.x)
 
-**16 of 18 phases complete.** All **1,097 tests passing** (0 failed). v3.0 milestone archived.
+**All 21 phases complete.** All **1,244 tests passing** (2 Docker-dependent skipped). v4.x milestone archived.
 
 | Version | Status | Details |
 |---------|--------|---------|
@@ -104,13 +104,14 @@ This document evolves at phase transitions and milestone boundaries.
 | v1.2 (Phases 7-8) | 🏁 Archived | Client RBAC + polish & ship |
 | v2.0 (Phases 9-12) | 🏁 Archived | AI tagging, sidebar CRUD, FTS5, perf |
 | v2.x (Phases 13-14) | 🏁 Archived | Hardening, feature growth |
-| **v3.0 (Phases 15-16)** | **🏁 Archived** | **Quality, provenance, trust** |
-| **v3.1 (Phase 17)** | **🔜 Next** | Collaboration — comment threads |
-| v3.2 (Phase 18) | 📋 Planned | Plugin system for metadata extractors |
+| v3.0 (Phases 15-16) | 🏁 Archived | Quality, provenance, trust |
+| v3.1 (Phase 17) | 🏁 Archived | Collaboration — comment threads |
+| v3.2 (Phase 18) | 🏁 Archived | Integration — plugin system for metadata extractors |
+| **v4.0/v4.x (Phases 19-21)** | **🏁 Archived** | **Advanced search, UX modernization, gallery perf optimization** |
 
 ### Next Milestone Goals
 
-- **v3.1 — Collaboration** (Phase 17): Threaded comment threads on assets (COLL-V2-02)
+- **v5.0 — Next major milestone** — to be determined
 
 ---
-*Last updated: 2026-06-15 after v3.0 milestone archive*
+*Last updated: 2026-06-17 after v4.x milestone archive*

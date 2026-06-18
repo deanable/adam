@@ -2,17 +2,17 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 🔜 Phase 19 — Advanced Search & Discovery (Planning)
-**Current Milestone:** 🔜 v4.0 — Advanced Discovery & Experience (Planning)
+**Current Phase:** 🔜 Phase 22 — AI-Native DAM Features (Planning)
+**Current Milestone:** 🔜 v5.0 — AI-Native DAM (Planning)
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Status:** All 18 phases complete (v1.0–v3.2). v4.0 now in planning with Phases 19-20.
+**Status:** All 21 phases complete (v1.0–v4.x).
 
-All milestones (v1.0 through v3.2) 🏁 archived. **v4.0 — Advanced Discovery & Experience** — now in planning with Phase 19 (Advanced Search & Discovery) and Phase 20 (UX Modernization).
+All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phase 22 (AI-Native DAM).
 
 ## Phase Progress
 
@@ -36,8 +36,11 @@ All milestones (v1.0 through v3.2) 🏁 archived. **v4.0 — Advanced Discovery 
 | **16** | ✅ Complete | 1/1 | 100% | Provenance & Trust: AiGenerated flag, wire protocol, UI badge, review dialog |
 | **17** | ✅ Complete | 1/1 | 100% | Collaboration: Comment threads (COLL-V2-02) |
 | **18** | ✅ Complete | 1/1 | 100% | Integration: Plugin system for metadata extractors (INTG-V2-01) |
-| **19** | 🔜 **Planned** | — | — | Advanced Search & Discovery: saved searches, smart collections, search history, semantic search, visual similarity |
-| **20** | 🔜 **Planned** | — | — | UX Modernization: theme engine, loupe view, compare view, drag-reorder, design templates |
+| **19** | ✅ Complete | 1/1 | 100% | Advanced Search & Discovery: saved searches, search history, smart collections, semantic search, visual similarity |
+| **20** | ✅ Complete | 1/1 | 100% | UX Modernization: theme engine, loupe view, compare view, drag-reorder collections, design templates |
+| **21** | ✅ Complete | 1/1 | 100% | Virtualized Gallery & DB Optimization: async thumbnails, keyset pagination, composite indexes, non-blocking I/O |
+| **22** | 🔜 **Planned** | `.planning/plans/phase-22/22-PLAN.md` | 100% | AI-Native DAM: smart search ranking, auto-album generation, near-duplicate detection |
+| **23** | 🔜 **Planned** | `.planning/plans/phase-23/23-PLAN.md` | 100% | Facial Recognition: YuNet + ArcFace ONNX pipeline, HDBSCAN clustering, person management |
 
 ## Milestone Archives
 
@@ -51,14 +54,16 @@ All milestones (v1.0 through v3.2) 🏁 archived. **v4.0 — Advanced Discovery 
 | v3.0 — Provenance & Trust (Phases 15-16) | `.planning/milestones/v3.0-release.md` | 🏁 Archived |
 | v3.1 — Collaboration (Phase 17) | `.planning/milestones/v3.1-release.md` | 🏁 Archived |
 | v3.2 — Integration (Phase 18) | `.planning/milestones/v3.2-release.md` | 🏁 Archived |
-| **v4.0 — Advanced Discovery & Experience (Phases 19-20)** | **`.planning/milestones/v4.0-release.md`** | **🔜 In Planning** |
+| **v4.0 — Advanced Discovery & Experience (Phases 19-20)** | **`.planning/milestones/v4.0-release.md`** | **🏁 Archived** |
+| **v4.x — Performance & UX (Phases 20-21)** | **`.planning/milestones/v4.0-release.md`** | **🏁 Archived** |
+| **v5.0 — AI-Native DAM (Phases 22+)** | **`.planning/plans/phase-22/22-PLAN.md`** | **🔜 In Planning** |
 
 ## Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| **Total phases** | 18 complete, 2 planned (19-20 for v4.0) |
-| **Total tests** | 1,159 passing (2 skipped Docker-dependent) |
+| **Total phases** | 21 complete, 1 planned (22 for v5.0) |
+| **Total tests** | 1,244 passing (2 skipped Docker-dependent) |
 | **Projects** | Adam.CatalogBrowser, Adam.ServiceManager, Adam.BrokerService, Adam.Shared |
 | **Phase 13 plan** | `.planning/plans/phase-13/13-PLAN.md` |
 | **Phase 14 plan** | `.planning/plans/phase-14/14-PLAN.md` |
@@ -66,6 +71,8 @@ All milestones (v1.0 through v3.2) 🏁 archived. **v4.0 — Advanced Discovery 
 | **Failing tests** | 0 ✅ |
 | **Phase 19 plan** | `.planning/plans/phase-19/19-PLAN.md` |
 | **Phase 20 plan** | `.planning/plans/phase-20/20-PLAN.md` |
+| **Phase 21 UAT** | `.planning/plans/phase-21/21-UAT.md` |
+| **Phase 22 plan** | `.planning/plans/phase-22/22-PLAN.md` |
 | **Blockers** | None |
 
 ## Active Decisions
@@ -82,12 +89,19 @@ All milestones (v1.0 through v3.2) 🏁 archived. **v4.0 — Advanced Discovery 
 
 ## Next Actions
 
-1. ✅ **Phase 18 — Integration** archived to `.planning/milestones/v3.2-release.md`
-2. ✅ **Phase 19 plan** created at `.planning/plans/phase-19/19-PLAN.md`
-3. ✅ **Phase 20 plan** created at `.planning/plans/phase-20/20-PLAN.md`
-4. ✅ **v4.0 milestone** created at `.planning/milestones/v4.0-release.md`
-5. 🔜 **Discuss Phase 19** — run `/gsd-discuss-phase 19` to begin execution
+1. ✅ **Phase 19** — Advanced Search & Discovery committed as `d489c83`
+2. ✅ **Phase 20** — UX Modernization committed as `b1bc667`
+3. ✅ **Phase 21** — Virtualized Gallery & DB Optimization committed as `bcdfd82`
+4. ✅ **Phase 21 UAT** — all checks passed (`.planning/plans/phase-21/21-UAT.md`)
+5. ✅ **v4.0/v4.x milestone** archived — all 21 phases complete
+6. ✅ **Phase 22 discussion** — decisions locked in `22-CONTEXT.md`
+7. ✅ **Phase 22 plan** created at `.planning/plans/phase-22/22-PLAN.md`
+8. ✅ **Phase 22 wave allocation** — 6 waves with precise sub-tasks, file paths, LOC estimates, and dependency graph
+9. ✅ **Phase 23 discussion** — decisions locked in `23-CONTEXT.md`
+10. ✅ **Phase 23 model research** — ArcFace (`garavv/arcface-onnx`), YuNet (`opencv/face_detection_yunet`), SCRFD evaluated
+11. ✅ **Phase 23 plan** created at `.planning/plans/phase-23/23-PLAN.md`
+12. 🔜 **Execute Phase 22** — run `/gsd-execute-phase 22` to begin implementation (start with Wave 1)
 
 ---
-*State updated: 2026-06-17 — v4.0 in planning (Phases 19-20). All 18 prior phases complete. 1,159 tests passing (2 Docker-dependent skipped).*
+*State updated: 2026-06-18 — Phase 22 (planned) + Phase 23 (planned). 6-wave execution plan ready for facial recognition. ~1,800 new LOC, 35+ files, 8 new test files.*
 

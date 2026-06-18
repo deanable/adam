@@ -133,13 +133,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             await ingestion.LoadIngestedFoldersAsync();
         }, _ => CanIngest);
 
-        ShowMetadataEditorCommand = new RelayCommand(async _ =>
-        {
-            if (PropertyInspector.SelectedAsset != null)
-                await metadataEditor.LoadAssetAsync(PropertyInspector.SelectedAsset.Id);
-            CurrentView = metadataEditor;
-        }, _ => CanEditMetadata);
-
         ShowAuditLogCommand = new RelayCommand(_ => CurrentView = auditLog, _ => CanAudit);
         ShowServiceManagerCommand = new RelayCommand(_ => LaunchServiceManager(), _ => CanAdminister);
 
@@ -517,7 +510,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public ICommand ShowGalleryCommand { get; }
     public ICommand ShowIngestionCommand { get; }
-    public ICommand ShowMetadataEditorCommand { get; }
     public ICommand ShowAuditLogCommand { get; }
     public ICommand ShowActivityFeedCommand { get; }
     public ICommand ShowServiceManagerCommand { get; }
@@ -1550,12 +1542,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         => !_modeManager.IsStandalone && !EvaluatePermission("asset:create") ? GetNavTooltipText("ingest assets", "Requires Editor or Administrator role") : null;
 
     /// <summary>
-    /// Tooltip for the Metadata navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
-    /// </summary>
-    public string? MetadataPermissionTooltip
-        => !_modeManager.IsStandalone && !EvaluatePermission("asset:update") ? GetNavTooltipText("edit metadata", "Requires Editor or Administrator role") : null;
-
-    /// <summary>
     /// Tooltip for the Audit navigation button. Returns <c>null</c> in standalone mode or when permission is granted.
     /// </summary>
     public string? AuditPermissionTooltip
@@ -1624,7 +1610,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(SessionStatusText));
             OnPropertyChanged(nameof(EditPermissionTooltip));
             OnPropertyChanged(nameof(IngestPermissionTooltip));
-            OnPropertyChanged(nameof(MetadataPermissionTooltip));
             OnPropertyChanged(nameof(AuditPermissionTooltip));
             OnPropertyChanged(nameof(AdminPermissionTooltip));
             OnPropertyChanged(nameof(AiTagPermissionTooltip));
@@ -1645,7 +1630,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
             // Re-evaluate command CanExecute for permission-gated commands
             (ShowIngestionCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (ShowMetadataEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ShowAuditLogCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ShowServiceManagerCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ExportCommand as RelayCommand)?.RaiseCanExecuteChanged();

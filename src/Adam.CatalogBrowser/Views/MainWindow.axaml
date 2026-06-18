@@ -14,9 +14,7 @@
     <DataTemplate DataType="{x:Type vm:IngestionViewModel}">
       <views:IngestionView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:MetadataEditorViewModel}">
-      <views:MetadataEditorView />
-    </DataTemplate>
+
     <DataTemplate DataType="{x:Type vm:AuditLogViewModel}">
       <views:AuditLogView />
     </DataTemplate>
@@ -93,8 +91,7 @@
           <Button Content="Gallery" Command="{Binding ShowGalleryCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="12" />
           <Button Content="Ingest" Command="{Binding ShowIngestionCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
                   Classes="NavButton" IsEnabled="{Binding CanIngest}" ToolTip.Tip="{Binding IngestPermissionTooltip}" FontSize="12" />
-          <Button Content="Metadata" Command="{Binding ShowMetadataEditorCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                  Classes="NavButton" IsEnabled="{Binding CanEditMetadata}" ToolTip.Tip="{Binding MetadataPermissionTooltip}" FontSize="12" />
+
           <Button Content="Audit" Command="{Binding ShowAuditLogCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
                   Classes="NavButton" IsEnabled="{Binding CanAudit}" ToolTip.Tip="{Binding AuditPermissionTooltip}" FontSize="12" />
           <Button Content="Activity" Command="{Binding ShowActivityFeedCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"

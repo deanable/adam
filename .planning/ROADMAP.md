@@ -3,7 +3,7 @@
 **Project:** adam — Digital Asset Management System  
 **Updated:** 2026-06-17
 **Granularity:** Standard  
-**Phases:** 20 (18 complete, 19-20 planned for v4.0)
+**Phases:** 21 complete, 1 planned (22 for v5.0)
 
 ## Overview
 
@@ -27,8 +27,10 @@
 | 16 | Provenance & Trust | AiGenerated provenance flag, wire protocol, UI badge | PROV-01 to PROV-03 | ✅ Complete |
 | 17 | Collaboration | Comment threads on assets | COLL-V2-02 | ✅ Complete |
 | 18 | Integration | Plugin system for third-party metadata extractors | INTG-V2-01 | ✅ Complete |
-| **19** | **Advanced Search & Discovery** | **Saved searches, smart collections, search history, semantic search, visual similarity** | **CATA-05, CATA-06** | **🔜 Planned** |
-| **20** | **UX Modernization** | **Theme engine, loupe view, compare view, drag-reorder collections** | **CATA-05, CATA-06** | **🔜 Planned** |
+| **19** | **Advanced Search & Discovery** | **Saved searches, smart collections, search history, semantic search, visual similarity** | **CATA-05, CATA-06** | **✅ Complete** |
+| **20** | **UX Modernization** | **Theme engine, loupe view, compare view, drag-reorder collections** | **CATA-05, CATA-06** | **✅ Complete** |
+| **21** | **Virtualized Gallery & DB Optimization** | **Viewport-based virtualization, async I/O, batch loading, composite indexes, keyset pagination** | **PERF-02 to PERF-05** | **✅ Complete** |
+| **22** | **AI-Native DAM Features** | **Smart search ranking, auto-album generation, near-duplicate detection, facial recognition** | **AI-V2-01 to AI-V2-04** | **🔜 Planned** |
 
 ## Phase Details
 
@@ -216,61 +218,73 @@ AI tagging (Phase 9), sidebar tree CRUD (Phase 10), FTS5 full-text search (Phase
 **Status:** 🏁 Archived to `.planning/milestones/v3.2-release.md`
 **Goal:** Fulfill INTG-V2-01 with plugin system for third-party metadata extractors.
 
-### Phase 19: Advanced Search & Discovery 🔜
+### Phase 19: Advanced Search & Discovery ✅
 **Goal:** Extend search with persistent saved searches, smart collections, search history, semantic search via ONNX embeddings, and visual similarity.
 
-**Depends on:** Phase 18 (Integration)
+**Committed:** `d489c83` — 2026-06-17
 
 **Deliverables:**
-1. **SavedSearch entity + CRUD** — Named, persistable filter+query combinations; pinning; standalone + broker
-2. **Smart Collections** — Dynamic collections populated from saved search criteria; ✦ indicator; auto-refresh
-3. **Search History** — Persistent per-user history (last 200 entries); auto-purge; autocomplete integration
-4. **Semantic Search (Text)** — `all-MiniLM-L6-v2` ONNX text embedding model (384-dim); cosine similarity in-process
-5. **Visual Similarity** — "Find Similar" via LFM2-VL vision encoder (4096-dim); similarity score badges
-
-**Success Criteria:**
-- ✅ Saved searches persist across sessions and sync in multi-user mode
-- ✅ Smart collections auto-populate from their saved query
-- ✅ Natural language search produces relevant results
-- ✅ "Find Similar" returns visually similar images ranked by similarity
-- ✅ All existing tests still pass; 20+ new tests pass
+1. ✅ **SavedSearch entity + CRUD** — Named, persistable filter+query combinations; pinning; standalone + broker
+2. ✅ **Smart Collections** — Dynamic collections populated from saved search criteria; ✦ indicator; auto-refresh
+3. ✅ **Search History** — Persistent per-user history (last 200 entries); auto-purge; autocomplete integration
+4. ✅ **Semantic Search (Text)** — `all-MiniLM-L6-v2` ONNX text embedding model (384-dim); cosine similarity in-process
+5. ✅ **Visual Similarity** — "Find Similar" via LFM2-VL vision encoder (4096-dim); similarity score badges
 
 ---
 
-### Phase 20: UX Modernization 🔜
+### Phase 20: UX Modernization ✅
 **Goal:** Modernize the user experience with a theme engine, full-resolution viewing, asset comparison, and drag-reorder collections.
 
-**Depends on:** Phase 19
+**Committed:** `b1bc667` — 2026-06-17
 
 **Deliverables:**
-1. **Theme Engine** — Dark mode, 5 accent color presets (Blue/Green/Purple/Orange/Teal), `ThemeService`, settings dialog, persisted to `settings.json`
-2. **Full-Resolution Loupe View** — Dedicated full-window mode; `ZoomBorder` control (mouse wheel zoom, click-drag pan); asynchronous image loading; filmstrip navigation; info overlay
-3. **Compare View** — Side-by-side with synchronized pan/zoom; overlay/swipe mode; metadata diff table
-4. **Drag-Reorder Collections** — `SortOrder` field; broker handler; gallery drag-drop with insertion line feedback
-5. **Design Templates** — `.design_templates/` with design token reference, component style guide, layout patterns, accent palettes
+1. ✅ **Theme Engine** — Dark mode, 5 accent color presets (Blue/Green/Purple/Orange/Teal), `ThemeService`, settings dialog, persisted to `settings.json`
+2. ✅ **Full-Resolution Loupe View** — Dedicated full-window mode; `ZoomBorder` control (mouse wheel zoom, click-drag pan); asynchronous image loading; filmstrip navigation; info overlay
+3. ✅ **Compare View** — Side-by-side with synchronized pan/zoom; overlay/swipe mode; metadata diff table
+4. ✅ **Drag-Reorder Collections** — `SortOrder` field; broker handler; gallery drag-drop with insertion line feedback
+5. ✅ **Design Templates** — `.design_templates/` with design token reference, component style guide, layout patterns, accent palettes
 
-**Success Criteria:**
-- ✅ Dark theme renders correctly across all views
-- ✅ Accent color persists and applies immediately
-- ✅ Loupe opens from double-click/Enter; full-res loads asynchronously; wheel zoom + drag pan work
-- ✅ Compare shows two assets with synchronized zoom and metadata diff
-- ✅ Drag-reorder updates SortOrder in DB with visual feedback
-- ✅ All existing tests still pass; 20+ new tests pass
+---
+
+### Phase 21: Virtualized Gallery & DB Optimization ✅
+**Goal:** Optimize gallery performance with viewport-based virtualization, async thumbnail I/O, prioritized batch loading, composite DB indexes, and keyset pagination.
+
+**Committed:** `bcdfd82` / `0ce32ef` — 2026-06-16
+**UAT:** All checks passed (`.planning/plans/phase-21/21-UAT.md`)
+
+**Deliverables:**
+1. ✅ **Viewport-Based Virtualization** — `LoadVisibleThumbnails()` calculates visible range with 50% overscan; cancels pending loads for off-screen items
+2. ✅ **Prioritized Batch Loading** — `BatchLoadRemainingThumbnailsAsync()` loads deferred thumbnails in batches of 8 with 50ms spacing
+3. ✅ **Async Thumbnail I/O** — `FileStream(useAsync: true)` for non-blocking disk reads; LRU memory cache (256 MB)
+4. ✅ **Composite DB Indexes** — 7 composite indexes on `DigitalAsset` for common filter+sort patterns
+5. ✅ **Keyset Pagination** — `ApplyKeysetPagination()` replaces `Skip/TAKE` with seek-based WHERE clause
 
 ---
 
 ## Milestones
 
-### v4.0 — Advanced Discovery & Experience (Phases 19-20) 🔜
-**Goal:** Extend search with AI-powered semantic search and modernize the UI with theming, loupe, and compare views.
+### v4.0 / v4.x — Advanced Discovery & Performance (Phases 19-21) 🏁
+**Goal:** Extend search with AI-powered semantic search, modernize the UI with theming/loupe/compare, and optimize gallery performance.
 
 | Phase | Theme | Effort | Status |
 |-------|-------|--------|--------|
-| 19 | Advanced Search & Discovery | Medium-Large | 🔜 Planned |
-| 20 | UX Modernization | Medium | 🔜 Planned |
+| 19 | Advanced Search & Discovery | Medium-Large | ✅ Complete |
+| 20 | UX Modernization | Medium | ✅ Complete |
+| 21 | Virtualized Gallery & DB Optimization | Medium | ✅ Complete |
 
-**Status:** 🔜 Planning — both phase plans complete.
+**Status:** 🏁 Archived — all 3 phases complete. 1,244 tests passing.
 
 ---
-*Roadmap updated: 2026-06-17 — v3.2 complete. v4.0 in planning with Phases 19-20.*
+
+### v5.0 — AI-Native DAM (Phases 22+) 🔜
+**Goal:** Deliver AI-native DAM features building on the Phase 9 (AI tagging) and Phase 19 (semantic search) infrastructure — smart search ranking from click behavior, auto-album generation via embedding clustering, near-duplicate detection, and facial recognition with local ONNX models (YuNet + ArcFace).
+
+| Phase | Theme | Effort | Status |
+|-------|-------|--------|--------|
+| 22 | AI-Native DAM Features | Large | 🔜 Planned |
+
+**Status:** 🔜 Planning — phase 22 PLAN.md updated for AI-native features.
+
+---
+*Roadmap updated: 2026-06-17 — Phase 22 (AI-Native DAM) planned. All 21 prior phases complete. v5.0 in planning.*
 
