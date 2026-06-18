@@ -66,7 +66,13 @@ public sealed class BrokerServiceIntegrationTests : IAsyncLifetime
         services.AddSingleton<SavedSearchHandler>();
         services.AddSingleton<SearchHistoryHandler>();
         services.AddSingleton<SemanticSearchHandler>();
+        services.AddSingleton<SearchRankingHandler>();
+        services.AddSingleton<SearchRankingService>();
         services.AddSingleton<EmbeddingService>();
+        services.AddSingleton<FaceHandler>();
+        services.AddSingleton<PersonHandler>();
+        services.AddSingleton<PreferenceHandler>();
+        services.AddSingleton<FaceDetectionPipelineService>();
         services.AddSingleton<SemanticSearchService>();
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
