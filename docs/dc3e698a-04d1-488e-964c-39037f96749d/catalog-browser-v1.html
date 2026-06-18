@@ -1,0 +1,427 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adam Catalog Browser (v1)</title>
+  <style>
+    /* Tech / Utility Direction */
+    :root {
+      --bg:      oklch(98% 0.005 250);     /* Light almost-white background */
+      --surface: oklch(100% 0 0);           /* Pure white for cards/panels */
+      --fg:      oklch(22% 0.02 240);      /* Dark grey for primary text */
+      --muted:   oklch(50% 0.018 240);     /* Lighter grey for secondary text/icons */
+      --border:  oklch(90% 0.008 240);     /* Subtle border grey */
+      --accent:  oklch(58% 0.16 145);      /* Cyan/teal for primary actions/highlights */
+
+      --font-display: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-body:    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    }
+
+    /* Base styles */
+    body {
+      font-family: var(--font-body);
+      color: var(--fg);
+      background-color: var(--bg);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: auto; /* Allow scrolling if window is smaller than app */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Desktop App Window Frame */
+    .app-window {
+      width: 1280px;
+      height: 800px;
+      background-color: var(--surface);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    /* Title Bar */
+    .title-bar {
+      padding: 12px 16px;
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--fg);
+    }
+
+    /* Main App Layout */
+    .app-main {
+      flex-grow: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background-color: var(--bg);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 0 20px;
+    }
+
+    .sidebar-section h3 {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .sidebar-nav a {
+      display: flex;
+      align-items: center;
+      padding: 8px 20px;
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 14px;
+      border-radius: 4px; /* For hover effect */
+      transition: background-color 0.15s ease;
+      margin: 2px 0;
+    }
+
+    .sidebar-nav a:hover {
+      background-color: oklch(95% 0.005 250);
+    }
+
+    .sidebar-nav a.active {
+      background-color: var(--accent);
+      color: white;
+      font-weight: 500;
+    }
+    .sidebar-nav a.active:hover {
+        background-color: var(--accent); /* Keep active state solid on hover */
+    }
+
+    /* Search Bar */
+    .search-input {
+      width: calc(100% - 40px);
+      padding: 8px 12px;
+      margin: 0 20px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      background-color: var(--surface);
+      color: var(--fg);
+    }
+    .search-input::placeholder {
+      color: var(--muted);
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    /* Main Content Area */
+    .content-area {
+      flex-grow: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .content-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .view-controls button {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      margin-left: 8px;
+    }
+
+    .view-controls button:hover {
+      background-color: oklch(95% 0.005 250);
+      border-color: var(--muted);
+    }
+
+    .view-controls button.active {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .view-controls button.active:hover {
+        background-color: var(--accent);
+    }
+
+    /* Catalog Grid */
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      padding-top: 10px;
+    }
+
+    .catalog-item-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .catalog-item-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .item-icon {
+      width: 40px;
+      height: 40px;
+      background-color: var(--accent);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .item-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin: 0;
+      color: var(--fg);
+    }
+
+    .item-version {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: auto;
+      align-self: flex-start;
+      padding: 2px 6px;
+      background-color: oklch(95% 0.005 250);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .item-description {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.4;
+      flex-grow: 1; /* Pushes button to bottom */
+    }
+
+    .item-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px; /* Space from description */
+    }
+
+    .btn {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .btn:hover {
+      background-color: oklch(95% 0.005 250);
+      border-color: var(--muted);
+    }
+
+    .btn.primary {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn.primary:hover {
+      background-color: oklch(50% 0.16 145); /* Slightly darker accent on hover */
+      border-color: oklch(50% 0.16 145);
+    }
+
+    .category-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .category-list li {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-window">
+    <div class="title-bar">Adam Catalog Browser</div>
+    <div class="app-main">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <input type="search" class="search-input" placeholder="Search catalog items..." aria-label="Search catalog items">
+        </div>
+        <div class="sidebar-section">
+          <h3>Categories</h3>
+          <nav class="sidebar-nav">
+            <a href="#" class="active">All Items</a>
+            <a href="#">Installed</a>
+            <a href="#">Available for Update</a>
+            <a href="#">Development Tools</a>
+            <a href="#">Libraries</a>
+            <a href="#">Plugins</a>
+            <a href="#">Utilities</a>
+            <a href="#">Samples</a>
+          </nav>
+        </div>
+        <div class="sidebar-section">
+          <h3>Tags</h3>
+          <nav class="sidebar-nav category-list">
+            <li><a href="#">.NET</a></li>
+            <li><a href="#">Avalonia</a></li>
+            <li><a href="#">UI/UX</a></li>
+            <li><a href="#">Data</a></li>
+            <li><a href="#">Graphics</a></li>
+            <li><a href="#">Testing</a></li>
+          </nav>
+        </div>
+      </aside>
+      <main class="content-area">
+        <div class="content-header">
+          <h2>All Catalog Items</h2>
+          <div class="view-controls">
+            <button class="active">Grid View</button>
+            <button>List View</button>
+          </div>
+        </div>
+        <div class="catalog-grid">
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">📦</div>
+              <h3 class="item-title">Adam.Logger</h3>
+              <span class="item-version">v1.2.0</span>
+            </div>
+            <p class="item-description">A robust logging utility for Avalonia applications, offering flexible output options and real-time log viewing.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn primary">Install</button>
+            </div>
+          </div>
+
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">🎨</div>
+              <h3 class="item-title">Adam.ThemePack.Dark</h3>
+              <span class="item-version">v2.1.1</span>
+            </div>
+            <p class="item-description">Provides a sleek dark theme for Adam applications, enhancing visual comfort in low-light environments.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn primary">Update</button>
+            </div>
+          </div>
+
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">📊</div>
+              <h3 class="item-title">Adam.Charts</h3>
+              <span class="item-version">v0.9.5</span>
+            </div>
+            <p class="item-description">A charting library with interactive components for visualizing data within Adam's Avalonia UI.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn primary">Install</button>
+            </div>
+          </div>
+
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">⚙️</div>
+              <h3 class="item-title">Adam.SettingsManager</h3>
+              <span class="item-version">v3.0.0</span>
+            </div>
+            <p class="item-description">Centralized configuration management for user and application settings, with UI components.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn">Uninstall</button>
+            </div>
+          </div>
+
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">🌐</div>
+              <h3 class="item-title">Adam.Networking</h3>
+              <span class="item-version">v1.0.3</span>
+            </div>
+            <p class="item-description">Basic networking utilities including HTTP client wrappers and socket communication helpers.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn primary">Install</button>
+            </div>
+          </div>
+
+          <div class="catalog-item-card">
+            <div class="item-header">
+              <div class="item-icon">🛠️</div>
+              <h3 class="item-title">Adam.DevTools</h3>
+              <span class="item-version">v1.1.0</span>
+            </div>
+            <p class="item-description">A collection of developer tools and debugging aids integrated into the Adam ecosystem.</p>
+            <div class="item-actions">
+              <button class="btn">Details</button>
+              <button class="btn primary">Install</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

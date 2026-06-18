@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "Adam Catalog Browser UI Redesign (Two-Pane)",
+  "entry": "catalog-browser-v1.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-06-18T10:11:53.576Z",
+  "updatedAt": "2026-06-18T10:11:53.582Z",
+  "metadata": {
+    "identifier": "catalog-browser-v1",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

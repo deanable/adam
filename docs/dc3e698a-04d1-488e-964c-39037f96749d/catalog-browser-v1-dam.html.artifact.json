@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "Adam Catalog Browser UI Redesign (DAM)",
+  "entry": "catalog-browser-v1-dam.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-06-18T10:13:59.493Z",
+  "updatedAt": "2026-06-18T10:13:59.497Z",
+  "metadata": {
+    "identifier": "catalog-browser-v1-dam",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

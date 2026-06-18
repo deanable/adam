@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "Adam Catalog Browser UI Redesign (DAM) with Toolbar",
+  "entry": "catalog-browser-v1-dam-toolbar.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-06-18T10:15:02.452Z",
+  "updatedAt": "2026-06-18T10:15:02.454Z",
+  "metadata": {
+    "identifier": "catalog-browser-v1-dam-toolbar",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}
