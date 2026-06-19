@@ -23,8 +23,8 @@
             <Border Grid.Column="0"
                     Width="{TemplateBinding ThumbnailSize}"
                     Height="{TemplateBinding ThumbnailSize}"
-                    Background="#F5F5F5"
-                    CornerRadius="4"
+                    Background="{DynamicResource SurfaceSubtleBrush}"
+                    CornerRadius="6"
                     Margin="0,0,12,0">
               <Image Source="{TemplateBinding Thumbnail}"
                      Stretch="Uniform"
@@ -39,18 +39,18 @@
                         MaxWidth="320">
               <TextBlock Text="{TemplateBinding FileName}"
                          FontSize="12"
-                         Foreground="#333"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          TextTrimming="CharacterEllipsis" />
               <TextBlock Text="{TemplateBinding FileType}"
                          FontSize="10"
-                         Foreground="#888" />
+                         Foreground="{DynamicResource TextMutedBrush}" />
             </StackPanel>
 
             <!-- ─── Size ─── -->
             <TextBlock Grid.Column="2"
                        Text="{TemplateBinding FileSizeFormatted}"
                        FontSize="11"
-                       Foreground="#666"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        VerticalAlignment="Center"
                        Margin="12,0"
                        MinWidth="60"
@@ -60,7 +60,7 @@
             <TextBlock Grid.Column="3"
                        Text="{TemplateBinding Dimensions}"
                        FontSize="11"
-                       Foreground="#666"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        VerticalAlignment="Center"
                        Margin="12,0"
                        MinWidth="60" />
@@ -69,7 +69,7 @@
             <TextBlock Grid.Column="4"
                        Text="{TemplateBinding CreatedAtFormatted}"
                        FontSize="11"
-                       Foreground="#666"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        VerticalAlignment="Center"
                        Margin="12,0,0,0" />
           </Grid>

@@ -90,7 +90,6 @@ public class MainWindowViewModelTests : IAsyncLifetime
             propertyInspector, connection, statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
-            designThemeService: new DesignThemeService(App.Config),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
@@ -1087,7 +1086,6 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             statusBar,
             new DeleteService(_modeManager), new ToastService(), activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
-            designThemeService: new DesignThemeService(App.Config),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 

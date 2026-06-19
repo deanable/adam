@@ -89,6 +89,50 @@ namespace Adam.Shared.Migrations
                     b.ToTable("AssetEmbeddings");
                 });
 
+            modelBuilder.Entity("Adam.Shared.Models.AssetFace", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BoundingBoxJson")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<float>("DetectionConfidence")
+                        .HasColumnType("REAL");
+
+                    b.Property<byte[]>("FaceEmbedding")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<bool>("IsAutoAssigned")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float>("MatchingConfidence")
+                        .HasColumnType("REAL");
+
+                    b.Property<Guid?>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ThumbnailImage")
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("DetectionConfidence");
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("AssetFaces");
+                });
+
             modelBuilder.Entity("Adam.Shared.Models.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -543,6 +587,47 @@ namespace Adam.Shared.Migrations
                     b.ToTable("ModeConfigurations");
                 });
 
+            modelBuilder.Entity("Adam.Shared.Models.Person", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("CentroidEmbedding")
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EmbeddingModelVersion")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ModifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ThumbnailImage")
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Persons");
+                });
+
             modelBuilder.Entity("Adam.Shared.Models.RatingInfo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -722,6 +807,47 @@ namespace Adam.Shared.Migrations
                     b.ToTable("SavedSearches");
                 });
 
+            modelBuilder.Entity("Adam.Shared.Models.SearchClickLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ClickedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DwellTimeMs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NormalizedQuery")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("QueryText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RankPosition")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("AssetId", "NormalizedQuery");
+
+                    b.HasIndex("NormalizedQuery", "ClickedAt");
+
+                    b.ToTable("SearchClickLogs");
+                });
+
             modelBuilder.Entity("Adam.Shared.Models.SearchHistoryEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -798,6 +924,38 @@ namespace Adam.Shared.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Adam.Shared.Models.UserPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValueJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<uint>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("UserPreferences");
                 });
 
             modelBuilder.Entity("Adam.Shared.Models.WatchedFolder", b =>
@@ -886,6 +1044,24 @@ namespace Adam.Shared.Migrations
                         .IsRequired();
 
                     b.Navigation("Asset");
+                });
+
+            modelBuilder.Entity("Adam.Shared.Models.AssetFace", b =>
+                {
+                    b.HasOne("Adam.Shared.Models.DigitalAsset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Adam.Shared.Models.Person", "Person")
+                        .WithMany("Faces")
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("Person");
                 });
 
             modelBuilder.Entity("Adam.Shared.Models.Category", b =>
@@ -996,6 +1172,24 @@ namespace Adam.Shared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Adam.Shared.Models.SearchClickLog", b =>
+                {
+                    b.HasOne("Adam.Shared.Models.DigitalAsset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Adam.Shared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Adam.Shared.Models.SearchHistoryEntry", b =>
                 {
                     b.HasOne("Adam.Shared.Models.User", "User")
@@ -1072,6 +1266,11 @@ namespace Adam.Shared.Migrations
             modelBuilder.Entity("Adam.Shared.Models.Keyword", b =>
                 {
                     b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("Adam.Shared.Models.Person", b =>
+                {
+                    b.Navigation("Faces");
                 });
 
             modelBuilder.Entity("Adam.Shared.Models.Role", b =>

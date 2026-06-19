@@ -23,6 +23,9 @@ public sealed class ConnectionHandler : IConnectionHandler
         SearchHistoryHandler searchHistoryHandler,
         SemanticSearchHandler semanticSearchHandler,
         SearchRankingHandler searchRankingHandler,
+        FaceHandler faceHandler,
+        PersonHandler personHandler,
+        PreferenceHandler preferenceHandler,
         ILogger<ConnectionHandler> logger)
     {
         _dispatcher = new MessageDispatcher(
@@ -118,6 +121,19 @@ public sealed class ConnectionHandler : IConnectionHandler
                 // ── Smart Search Ranking ────────────────────────────────
                 [MessageTypeCode.LogSearchClickRequest] = (req, ct) => searchRankingHandler.LogClickAsync(req, ct),
                 [MessageTypeCode.ReRankRequest] = (req, ct) => searchRankingHandler.ReRankAsync(req, ct),
+
+                // ── Facial Recognition ────────────────────────────────────
+                [MessageTypeCode.DetectFacesRequest] = (req, ct) => faceHandler.DetectFacesAsync(req, ct),
+                [MessageTypeCode.ListPersonsRequest] = (req, ct) => personHandler.ListPersonsAsync(req, ct),
+                [MessageTypeCode.NamePersonRequest] = (req, ct) => personHandler.NamePersonAsync(req, ct),
+                [MessageTypeCode.MergePersonsRequest] = (req, ct) => personHandler.MergePersonsAsync(req, ct),
+                [MessageTypeCode.DeletePersonRequest] = (req, ct) => personHandler.DeletePersonAsync(req, ct),
+
+                // ── User Preferences ──────────────────────────────────────
+                [MessageTypeCode.GetPreferencesRequest] = (req, ct) => preferenceHandler.GetPreferencesAsync(req, ct),
+                [MessageTypeCode.SetPreferenceRequest] = (req, ct) => preferenceHandler.SetPreferenceAsync(req, ct),
+                [MessageTypeCode.ResetPreferenceRequest] = (req, ct) => preferenceHandler.ResetPreferenceAsync(req, ct),
+                [MessageTypeCode.ResetAllPreferencesRequest] = (req, ct) => preferenceHandler.ResetAllPreferencesAsync(req, ct),
             },
             logger);
     }

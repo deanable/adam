@@ -2,17 +2,17 @@
 
 **Project:** adam — Digital Asset Management System  
 **Initialized:** 2026-05-23  
-**Current Phase:** 🔜 Phase 22 — AI-Native DAM Features (Planning)
-**Current Milestone:** 🔜 v5.0 — AI-Native DAM (Planning)
+**Current Phase:** ✅ Phase 24 — Metadata Panels & Preferences Persistence (Complete)
+**Current Milestone:** ✅ v5.0 — AI-Native DAM (Complete)
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Users can browse, search, and manage digital assets with full metadata round-trip across platforms  
-**Status:** All 21 phases complete (v1.0–v4.x).
+**Status:** All 24 phases complete (v1.0–v5.0).
 
-All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phase 22 (AI-Native DAM).
+All milestones (v1.0 through v4.x) 🏁 archived. v5.0 milestone complete with Phases 22-24 (AI-Native DAM + User Preferences).
 
 ## Phase Progress
 
@@ -39,8 +39,9 @@ All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phas
 | **19** | ✅ Complete | 1/1 | 100% | Advanced Search & Discovery: saved searches, search history, smart collections, semantic search, visual similarity |
 | **20** | ✅ Complete | 1/1 | 100% | UX Modernization: theme engine, loupe view, compare view, drag-reorder collections, design templates |
 | **21** | ✅ Complete | 1/1 | 100% | Virtualized Gallery & DB Optimization: async thumbnails, keyset pagination, composite indexes, non-blocking I/O |
-| **22** | 🔜 **Planned** | `.planning/plans/phase-22/22-PLAN.md` | 100% | AI-Native DAM: smart search ranking, auto-album generation, near-duplicate detection |
-| **23** | 🔜 **Planned** | `.planning/plans/phase-23/23-PLAN.md` | 100% | Facial Recognition: YuNet + ArcFace ONNX pipeline, HDBSCAN clustering, person management |
+| **22** | ✅ **Complete** | `.planning/plans/phase-22/22-PLAN.md` | 100% | AI-Native DAM: smart search ranking, auto-album generation, near-duplicate detection |
+| **23** | ✅ **Complete** | `.planning/plans/phase-23/23-PLAN.md` | 100% | Facial Recognition: YuNet + ArcFace ONNX pipeline, HDBSCAN clustering, person management |
+| **24** | ✅ **Complete** | `.planning/plans/phase-24/24-PLAN.md` | 100% | Metadata panels (§25-B), user preferences (§27), populated Settings tab, panel persistence, EF Core migration, broker prefs |
 
 ## Milestone Archives
 
@@ -56,14 +57,14 @@ All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phas
 | v3.2 — Integration (Phase 18) | `.planning/milestones/v3.2-release.md` | 🏁 Archived |
 | **v4.0 — Advanced Discovery & Experience (Phases 19-20)** | **`.planning/milestones/v4.0-release.md`** | **🏁 Archived** |
 | **v4.x — Performance & UX (Phases 20-21)** | **`.planning/milestones/v4.0-release.md`** | **🏁 Archived** |
-| **v5.0 — AI-Native DAM (Phases 22+)** | **`.planning/plans/phase-22/22-PLAN.md`** | **🔜 In Planning** |
+| **v5.0 — AI-Native DAM (Phases 22-24)** | **`.planning/plans/phase-22/22-PLAN.md`** | **🏁 Complete** |
 
 ## Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| **Total phases** | 21 complete, 1 planned (22 for v5.0) |
-| **Total tests** | 1,244 passing (2 skipped Docker-dependent) |
+| **Total phases** | 24 complete |
+| **Total tests** | 1,335 passing (2 skipped Docker-dependent) |
 | **Projects** | Adam.CatalogBrowser, Adam.ServiceManager, Adam.BrokerService, Adam.Shared |
 | **Phase 13 plan** | `.planning/plans/phase-13/13-PLAN.md` |
 | **Phase 14 plan** | `.planning/plans/phase-14/14-PLAN.md` |
@@ -73,6 +74,8 @@ All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phas
 | **Phase 20 plan** | `.planning/plans/phase-20/20-PLAN.md` |
 | **Phase 21 UAT** | `.planning/plans/phase-21/21-UAT.md` |
 | **Phase 22 plan** | `.planning/plans/phase-22/22-PLAN.md` |
+| **Phase 24 plan** | `.planning/plans/phase-24/24-PLAN.md` |
+| **Phase 24 context** | `.planning/plans/phase-24/24-CONTEXT.md` |
 | **Blockers** | None |
 
 ## Active Decisions
@@ -100,8 +103,13 @@ All milestones (v1.0 through v4.x) 🏁 archived. v5.0 now in planning with Phas
 9. ✅ **Phase 23 discussion** — decisions locked in `23-CONTEXT.md`
 10. ✅ **Phase 23 model research** — ArcFace (`garavv/arcface-onnx`), YuNet (`opencv/face_detection_yunet`), SCRFD evaluated
 11. ✅ **Phase 23 plan** created at `.planning/plans/phase-23/23-PLAN.md`
-12. 🔜 **Execute Phase 22** — run `/gsd-execute-phase 22` to begin implementation (start with Wave 1)
+12. ✅ **Phase 22 executed** — smart search ranking, auto-album generation, near-duplicate detection (already implemented)
+13. ✅ **Phase 23 executed** — facial recognition with YuNet + ArcFace ONNX pipeline
+14. ✅ **Phase 24 discussed** — decisions locked in `24-CONTEXT.md` (Dec 2026-06-18)
+15. ✅ **Phase 24 plan** created at `.planning/plans/phase-24/24-PLAN.md`
+16. ✅ **Phase 24 executed** — 8 collapsible metadata panels, user preferences service, populated Settings tab with 11 categories, panel expand persistence via `metadata.expandedPanels`, EF Core migration, broker PreferenceHandler, 1,335 tests passing
+17. ✅ **v5.0 milestone complete** — Phases 22-24 complete
 
 ---
-*State updated: 2026-06-18 — Phase 22 (planned) + Phase 23 (planned). 6-wave execution plan ready for facial recognition. ~1,800 new LOC, 35+ files, 8 new test files.*
+*State updated: 2026-06-18 — Phases 22-24 complete. v5.0 milestone complete. 1,335 tests passing.*
 

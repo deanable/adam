@@ -6,8 +6,7 @@
              x:CompileBindings="False">
   <Grid>
   <ScrollViewer>
-    <StackPanel Spacing="16" Margin="16">
-      <TextBlock Text="Metadata Editor" Classes="Title" FontWeight="Bold" />
+    <StackPanel Spacing="12" Margin="16">
 
       <!-- No asset state -->
       <Border IsVisible="{Binding HasAsset, Converter={x:Static local:InverseBoolConverter.Instance}}"
@@ -15,138 +14,252 @@
         <TextBlock Text="Select an asset to edit its metadata" Classes="Subheading" Foreground="{DynamicResource TextTertiaryBrush}" />
       </Border>
 
-      <StackPanel IsVisible="{Binding HasAsset}" Spacing="12">
-        <TextBlock Text="{Binding FileName}" Classes="Subheading" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+      <StackPanel IsVisible="{Binding HasAsset}" Spacing="8">
+        <TextBlock Text="{Binding FileName}" Classes="Subheading" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
 
-        <Grid ColumnDefinitions="1*,1*" ColumnSpacing="12">
-          <!-- ═══ Editable fields card — Phase 7: gated by CanEdit ═══ -->
-          <Border Grid.Column="0"
+        <!-- ═══ Panel A — Description & Content (editable) ═══ -->
+        <Expander Header="Description &amp; Content" IsExpanded="{Binding IsPanelADescriptionExpanded}"
                   CornerRadius="6"
                   Background="{DynamicResource SurfaceLightBrush}"
                   BorderBrush="{DynamicResource BorderBrush}"
-                  BorderThickness="1">
-            <StackPanel Spacing="8"
-                        IsEnabled="{Binding CanEdit}"
-                        ToolTip.Tip="{Binding EditPermissionTooltip}">
-              <!-- Section header with accent bar -->
-              <Grid ColumnDefinitions="3,*" Height="32">
-                <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="6,0,0,0" />
-                <TextBlock Grid.Column="1" Text="  Editable Metadata" FontWeight="SemiBold" Classes="Subheading"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-              </Grid>
-              <Separator />
+                  BorderThickness="1"
+                  IsEnabled="{Binding CanEdit}"
+                  ToolTip.Tip="{Binding EditPermissionTooltip}">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" FontSize="11" Padding="4,2" />
 
-              <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8,0,8,8">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Headline:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" VerticalAlignment="Top" Margin="0,4,0,0" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}"
-                         AcceptsReturn="True" MaxHeight="80" />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Description:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description}"
+                       AcceptsReturn="True" MaxHeight="80" FontSize="11" Padding="4,2" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags:" VerticalAlignment="Top" Margin="0,4,0,0" />
-                <controls:TagEditorControl Grid.Row="2" Grid.Column="1"
-                  Tags="{Binding Tags}"
-                  AutoCompleteSource="{Binding AutoCompleteSource}"
-                  AiGeneratedTagNames="{Binding AiGeneratedTagNames}"
-                  PlaceholderText="Add tag..."
-                  Margin="0,2,0,0" />
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Keywords:" VerticalAlignment="Top" FontSize="11" Margin="0,4,0,0" />
+              <controls:TagEditorControl Grid.Row="3" Grid.Column="1"
+                Tags="{Binding Tags}"
+                AutoCompleteSource="{Binding AutoCompleteSource}"
+                AiGeneratedTagNames="{Binding AiGeneratedTagNames}"
+                PlaceholderText="Add tag..." Margin="0,2,0,0" />
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" Margin="0,4,0,0" />
-                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="1" />
-                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="2" />
-                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="3" />
-                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="4" />
-                  <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="5" />
-                  <TextBlock Text="{Binding Rating}" VerticalAlignment="Center" Margin="4,0,0,0" />
-                </StackPanel>
-              </Grid>
-
-              <Separator />
-              <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0,8,8">
-                <Button Content="Save Changes" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
-                <TextBlock Text="{Binding StatusText}" Classes="Body" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
+              <TextBlock Grid.Row="4" Grid.Column="0" Text="Rating:" VerticalAlignment="Center" FontSize="11" Margin="0,4,0,0" />
+              <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="1" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="2" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="3" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="4" />
+                <RepeatButton Content="★" Command="{Binding SetRatingCommand}" CommandParameter="5" />
+                <TextBlock Text="{Binding Rating}" VerticalAlignment="Center" Margin="4,0,0,0" FontSize="11" />
               </StackPanel>
-            </StackPanel>
-          </Border>
+            </Grid>
+          </StackPanel>
+        </Expander>
 
-          <!-- ═══ Read-only EXIF / IPTC / XMP card ═══ -->
-          <Border Grid.Column="1"
+        <!-- ═══ Panel B — Creator & Contact (editable) ═══ -->
+        <Expander Header="Creator &amp; Contact" IsExpanded="{Binding IsPanelBCreatorExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1"
+                  IsEnabled="{Binding CanEdit}"
+                  ToolTip.Tip="{Binding EditPermissionTooltip}">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Creator:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Creator}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Copyright:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Headline:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Contact:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ContactInfo}"
+                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2" />
+            </Grid>
+          </StackPanel>
+        </Expander>
+
+        <!-- ═══ Panel C — Rights & Licensing (editable) ═══ -->
+        <Expander Header="Rights &amp; Licensing" IsExpanded="{Binding IsPanelCRightsExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1"
+                  IsEnabled="{Binding CanEdit}"
+                  ToolTip.Tip="{Binding EditPermissionTooltip}">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Usage Terms:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UsageTerms}"
+                       AcceptsReturn="True" MaxHeight="60" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Copyright:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Orientation:" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReadOnlyOrientation}" FontSize="11" FontWeight="Medium" />
+            </Grid>
+          </StackPanel>
+        </Expander>
+
+        <!-- ═══ Panel D — Location (editable) ═══ -->
+        <Expander Header="Location" IsExpanded="{Binding IsPanelDLocationExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1"
+                  IsEnabled="{Binding CanEdit}"
+                  ToolTip.Tip="{Binding EditPermissionTooltip}">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="City:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding City}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="State/Province:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding State}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Country:" VerticalAlignment="Center" FontSize="11" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Country}" FontSize="11" Padding="4,2" />
+
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Contact Info:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ContactInfo}"
+                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2" />
+            </Grid>
+          </StackPanel>
+        </Expander>
+
+        <!-- ═══ Panel E — Dates (mixed) ═══ -->
+        <Expander Header="Dates" IsExpanded="{Binding IsPanelEDatesExpanded}"
                   CornerRadius="6"
                   Background="{DynamicResource SurfaceLightBrush}"
                   BorderBrush="{DynamicResource BorderBrush}"
                   BorderThickness="1">
-            <StackPanel Spacing="6">
-              <!-- Section header with accent bar -->
-              <Grid ColumnDefinitions="3,*" Height="32">
-                <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="6,0,0,0" />
-                <TextBlock Grid.Column="1" Text="  Camera Data" FontWeight="SemiBold" Classes="Subheading"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-              </Grid>
-              <Separator />
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Date Taken:" VerticalAlignment="Center" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DateTaken}" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
 
-              <!-- Sub-group: Camera -->
-              <TextBlock Text="  Camera" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Margin="8,4,0,0" />
-              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" Margin="8,0,8,0">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Make:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CameraMake}" FontWeight="Medium" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Date Created:" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DateTaken}" FontSize="11" FontWeight="Medium" />
+            </Grid>
+          </StackPanel>
+        </Expander>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CameraModel}" FontWeight="Medium" />
+        <!-- ═══ Panel F — Camera / EXIF (read-only) ═══ -->
+        <Expander Header="Camera / EXIF" IsExpanded="{Binding IsPanelFCameraExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="3">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Make:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CameraMake}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Lens:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LensModel}" FontWeight="Medium" />
-              </Grid>
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CameraModel}" FontSize="11" FontWeight="Medium" />
 
-              <!-- Sub-group: Exposure -->
-              <TextBlock Text="  Exposure" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Margin="8,8,0,0" />
-              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="8,0,8,0">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Focal Length:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FocalLength}" FontWeight="Medium" />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Lens:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LensModel}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Aperture:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Aperture}" FontWeight="Medium" />
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Focal Length:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FocalLength}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Exposure:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ExposureTime}" FontWeight="Medium" />
+              <TextBlock Grid.Row="4" Grid.Column="0" Text="Aperture:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Aperture}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="ISO:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Iso}" FontWeight="Medium" />
+              <TextBlock Grid.Row="5" Grid.Column="0" Text="Exposure:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ExposureTime}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Date Taken:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DateTaken}" FontWeight="Medium" />
+              <TextBlock Grid.Row="6" Grid.Column="0" Text="ISO:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Iso}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Flash:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Flash}" FontWeight="Medium" />
-              </Grid>
+              <TextBlock Grid.Row="7" Grid.Column="0" Text="Flash:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Flash}" FontSize="11" FontWeight="Medium" />
 
-              <!-- Sub-group: Image Info -->
-              <TextBlock Text="  Image Info" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         Margin="8,8,0,0" />
-              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8,0,8,8">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="GPS:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Gps}" FontWeight="Medium" />
+              <TextBlock Grid.Row="8" Grid.Column="0" Text="Orientation:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ReadOnlyOrientation}" FontSize="11" FontWeight="Medium" />
+            </Grid>
+          </StackPanel>
+        </Expander>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Creator:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Creator}" FontWeight="Medium" />
+        <!-- ═══ Panel G — GPS / Map (read-only) ═══ -->
+        <Expander Header="GPS / Map" IsExpanded="{Binding IsPanelGGpsExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1">
+          <StackPanel Spacing="6" Margin="8,8,8,8">
+            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="3">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="GPS:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Gps}" FontSize="11" FontWeight="Medium" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Copyright:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Copyright}" FontWeight="Medium" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Altitude:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GpsAltitude}" FontSize="11" FontWeight="Medium" />
+            </Grid>
+          </StackPanel>
+        </Expander>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Headline:" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Headline}" FontWeight="Medium" />
-              </Grid>
-            </StackPanel>
-          </Border>
-        </Grid>
+        <!-- ═══ Panel H — All Metadata (raw key-value dump) ═══ -->
+        <Expander Header="All Metadata (raw)" IsExpanded="{Binding IsPanelHRawExpanded}"
+                  CornerRadius="6"
+                  Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1">
+          <StackPanel Spacing="4" Margin="8,8,8,8">
+            <TextBlock Text="All extracted EXIF / IPTC / XMP metadata as key→value pairs."
+                       FontSize="10"
+                       Foreground="{DynamicResource TextTertiaryBrush}"
+                       TextWrapping="Wrap" />
+            <Separator Margin="0,2" />
+            <ItemsControl ItemsSource="{Binding RawMetadataItems}"
+                          Background="Transparent"
+                          MaxHeight="400">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="Auto,*" Margin="0,1">
+                    <TextBlock Grid.Column="0" Text="{Binding Namespace}"
+                               FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Margin="0,0,4,0"
+                               FontFamily="Consolas" />
+                    <TextBlock Grid.Column="1" Text="{Binding Value}"
+                               FontSize="10"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               FontFamily="Consolas" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
+
+        <!-- Save button row -->
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0"
+                    IsEnabled="{Binding CanEdit}"
+                    ToolTip.Tip="{Binding EditPermissionTooltip}">
+          <Button Content="Save Changes" Command="{Binding SaveCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="12" />
+          <TextBlock Text="{Binding StatusText}" Classes="Body"
+                     Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
+          <Button Content="Auto-Tag" Command="{Binding AutoTagCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="12" />
+        </StackPanel>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

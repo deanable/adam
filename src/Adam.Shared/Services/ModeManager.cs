@@ -59,19 +59,43 @@ public sealed class ModeManager
         _logger.LogDebug("ModeManager basePath: {BasePath}", _basePath);
 
         await using var db = CreateDbContext();
-        // Use EnsureCreatedAsync during development to auto-generate schema from model
-        // without maintaining EF Core migration files for every schema change.
-        // The BrokerService uses DbMigrationService for production schema management.
-        var wasCreated = await db.Database.EnsureCreatedAsync();
 
-        // If the database already existed (wasCreated == false), EnsureCreatedAsync
-        // does NOT add columns that were added to the model after the DB was created.
-        // Manually add the SortOrder column and its indexes for existing databases.
-        // This is safe to run repeatedly — SQLite's IF NOT EXISTS semantics on ALTER
-        // TABLE ADD COLUMN only exist in custom SQL via PRAGMA or exception handling.
-        if (!wasCreated)
+        // Apply pending EF Core migrations first if the __EFMigrationsHistory table
+        // exists (i.e., a previous run initialized the migration pipeline).
+        // If it doesn't exist yet, fall through to EnsureCreatedAsync which creates
+        // the full schema from the model directly.
+        var migrationHistoryExists = await MigrationHistoryTableExistsAsync(db);
+        if (migrationHistoryExists)
         {
-            await AddMissingColumnsAsync(db);
+            var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+            if (pending.Count > 0)
+            {
+                _logger.LogInformation("Applying {Count} pending EF Core migration(s)...", pending.Count);
+                await db.Database.MigrateAsync();
+            }
+        }
+        else
+        {
+            _logger.LogDebug("No EF Core migration history found — using EnsureCreatedAsync to bootstrap schema.");
+
+            // Use EnsureCreatedAsync during development to auto-generate schema from model
+            // without maintaining EF Core migration files for every schema change.
+            // The BrokerService uses DbMigrationService for production schema management.
+            var wasCreated = await db.Database.EnsureCreatedAsync();
+
+            // If the database already existed (wasCreated == false), EnsureCreatedAsync
+            // does NOT add columns that were added to the model after the DB was created.
+            // Manually add the SortOrder column and its indexes for existing databases.
+            // This is safe to run repeatedly — SQLite's IF NOT EXISTS semantics on ALTER
+            // TABLE ADD COLUMN only exist in custom SQL via PRAGMA or exception handling.
+            if (!wasCreated)
+            {
+                await AddMissingColumnsAsync(db);
+            }
+
+            // Seed the __EFMigrationsHistory table so that future migration-based
+            // deployment (dotnet ef database update) knows the current state.
+            await SeedMigrationHistoryAsync(db);
         }
 
         // T11.5: Initialize FTS5 tables and triggers after schema creation
@@ -131,6 +155,68 @@ public sealed class ModeManager
         catch
         {
             // Index creation failure is non-fatal
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the <c>__EFMigrationsHistory</c> table exists in the database.
+    /// Used to determine whether to use <c>MigrateAsync()</c> (migration-tracked DB)
+    /// or <c>EnsureCreatedAsync()</c> (fresh/bootstrap DB).
+    /// Note: <c>ExecuteSqlRawAsync</c> returns rows *affected* (always -1 for SELECT),
+    /// not the query result, so we rely on catching the "no such table" exception instead.
+    /// </summary>
+    private static async Task<bool> MigrationHistoryTableExistsAsync(AppDbContext db)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "SELECT 1 FROM \"__EFMigrationsHistory\" LIMIT 1");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Seeds the <c>__EFMigrationsHistory</c> table with all migrations known to the
+    /// assembly so that future <c>MigrateAsync()</c> calls only apply new migrations.
+    /// This is needed because <c>EnsureCreatedAsync()</c> creates the schema directly
+    /// without populating the migration history.
+    /// </summary>
+    private static async Task SeedMigrationHistoryAsync(AppDbContext db)
+    {
+        try
+        {
+            var allMigrations = db.Database.GetMigrations().ToList();
+            if (allMigrations.Count == 0)
+                return;
+
+            // Create __EFMigrationsHistory table if it doesn't exist
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (" +
+                "\"MigrationId\" TEXT NOT NULL, " +
+                "\"ProductVersion\" TEXT NOT NULL);");
+
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS \"IX___EFMigrationsHistory_MigrationId\" " +
+                "ON \"__EFMigrationsHistory\" (\"MigrationId\");");
+
+            // Insert each migration as already applied
+            foreach (var migrationId in allMigrations)
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    $"INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") " +
+                    $"VALUES ({{0}}, '10.0.9');",
+                    migrationId);
+            }
+        }
+        catch
+        {
+            // Non-fatal — schema is already correct from EnsureCreatedAsync.
+            // Migration history seeding failure just means future migrations
+            // will need to handle the fallback path.
         }
     }
 

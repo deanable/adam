@@ -29,9 +29,9 @@
     <Setter Property="Template">
       <ControlTemplate>
          <Border Background="White"
-                 BorderBrush="#E0E0E0"
+                 BorderBrush="{DynamicResource BorderBrush}"
                  BorderThickness="1"
-                 CornerRadius="4"
+                 CornerRadius="6"
                  Padding="6"
                  x:Name="TileRoot">
 
@@ -70,8 +70,8 @@
             <!-- ═══════════════════════════════════ -->
             <Border Width="{TemplateBinding ThumbnailSize}"
                     Height="{TemplateBinding ThumbnailSize}"
-                    Background="#F5F5F5"
-                    CornerRadius="2"
+                    Background="{DynamicResource SurfaceSubtleBrush}"
+                    CornerRadius="4"
                     HorizontalAlignment="Center">
               <Image Source="{TemplateBinding Thumbnail}"
                      Stretch="Uniform"
@@ -90,7 +90,7 @@
               <TextBlock Grid.Column="0"
                          Text="{TemplateBinding Rating}"
                          FontSize="11"
-                         Foreground="#888"
+                         Foreground="{DynamicResource TextMutedBrush}"
                          VerticalAlignment="Center"
                          Margin="0,0,6,0" />
 
@@ -110,7 +110,7 @@
                 <!-- Colour label text -->
                 <TextBlock Text="{TemplateBinding ColorLabel}"
                            FontSize="10"
-                           Foreground="#999"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
                            VerticalAlignment="Center" />
               </StackPanel>
 
@@ -138,11 +138,11 @@
             <StackPanel Spacing="1">
               <TextBlock Text="{TemplateBinding TextField1Label}"
                          FontSize="10"
-                         Foreground="#999"
+                         Foreground="{DynamicResource TextTertiaryBrush}"
                          TextTrimming="CharacterEllipsis" />
               <TextBlock Text="{TemplateBinding TextField1}"
                          FontSize="11"
-                         Foreground="#333"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
@@ -150,13 +150,13 @@
             <!--  T11.10: Search highlight badge     -->
             <!-- ═══════════════════════════════════ -->
             <Border IsVisible="{TemplateBinding IsSearchHighlighted}"
-                    Background="#E3F2FD"
-                    CornerRadius="3"
+                    Background="{DynamicResource SelectionBrush}"
+                    CornerRadius="4"
                     Padding="4,1"
                     Margin="0,2,0,0">
               <TextBlock Text="{TemplateBinding MatchedFieldsText}"
                          FontSize="9"
-                         Foreground="#1565C0"
+                         Foreground="{DynamicResource PrimaryHoverBrush}"
                          FontWeight="Medium"
                          HorizontalAlignment="Center"
                          TextTrimming="CharacterEllipsis" />
@@ -168,11 +168,11 @@
             <StackPanel Spacing="1">
               <TextBlock Text="{TemplateBinding TextField2Label}"
                          FontSize="10"
-                         Foreground="#999"
+                         Foreground="{DynamicResource TextTertiaryBrush}"
                          TextTrimming="CharacterEllipsis" />
               <TextBlock Text="{TemplateBinding TextField2}"
                          FontSize="11"
-                         Foreground="#333"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
@@ -182,11 +182,11 @@
             <StackPanel Spacing="1">
               <TextBlock Text="{TemplateBinding TextField3Label}"
                          FontSize="10"
-                         Foreground="#999"
+                         Foreground="{DynamicResource TextTertiaryBrush}"
                          TextTrimming="CharacterEllipsis" />
               <TextBlock Text="{TemplateBinding TextField3}"
                          FontSize="11"
-                         Foreground="#333"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
@@ -198,7 +198,7 @@
 
   <!-- T11.10: Blue border highlight when tile is part of FTS search result -->
   <Style Selector="controls|AssetTileControl:isearchhighlighted">
-    <Setter Property="BorderBrush" Value="#1976D2" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
 </Styles>

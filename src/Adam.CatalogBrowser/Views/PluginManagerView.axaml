@@ -39,16 +39,17 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:PluginItem">
-            <Border BorderBrush="{StaticResource SystemAccentColor}"
+            <Border BorderBrush="{DynamicResource PrimaryBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Padding="12">
               <StackPanel Spacing="4">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <TextBlock Text="{Binding Name}"
-                             FontWeight="SemiBold" />
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource TextPrimaryBrush}" />
                   <TextBlock Text="{Binding Priority, StringFormat='(Priority {0})'}"
-                             Foreground="{StaticResource SystemAccentColor}"
+                             Foreground="{DynamicResource PrimaryBrush}"
                              FontSize="12" />
                   <Border Background="{Binding IsBuiltIn, Converter={x:Static views:InverseBoolConverter.Instance}}"
                           CornerRadius="4"
@@ -60,9 +61,10 @@
                 </StackPanel>
                 <TextBlock Text="{Binding AssemblyName, StringFormat='Assembly: {0}'}"
                            FontSize="12"
-                           Foreground="{StaticResource SystemAccentColor}" />
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
                 <TextBlock Text="{Binding Status}"
-                           FontSize="12" />
+                           FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
               </StackPanel>
             </Border>
           </DataTemplate>

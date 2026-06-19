@@ -1,0 +1,522 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Adam.CatalogBrowser.ViewModels"
+             x:Class="Adam.CatalogBrowser.Views.SettingsView"
+             x:CompileBindings="False">
+  <Grid ColumnDefinitions="220,1,*">
+    <!-- Left: Category rail -->
+    <Border Grid.Column="0"
+            Background="{DynamicResource SurfaceLightBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,0,0,0">
+      <Grid RowDefinitions="Auto,*">
+        <!-- Search box -->
+        <TextBox Grid.Row="0"
+                 Text="{Binding SearchText}"
+                 PlaceholderText="🔍 Search settings…"
+                 Margin="8,8,8,4"
+                 Padding="6,4"
+                 FontSize="12"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource InputBorderBrush}"
+                 CornerRadius="4" />
+
+        <!-- Category list -->
+        <ScrollViewer Grid.Row="1" Margin="0,4,0,0">
+          <ItemsControl ItemsSource="{Binding Categories}" Background="Transparent">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:SettingCategory}">
+                <Border Padding="8,6"
+                        Margin="4,1"
+                        CornerRadius="4"
+                        Background="Transparent"
+                        Cursor="Hand"
+                        PointerPressed="OnCategoryPointerPressed"
+                        Tag="{Binding}">
+                  <Border.Styles>
+                    <Style Selector="Border:pointerover">
+                      <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
+                    </Style>
+                  </Border.Styles>
+                  <TextBlock Text="{Binding Name}"
+                             Classes="Body"
+                             FontSize="12"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             TextTrimming="CharacterEllipsis" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <!-- Divider -->
+    <Rectangle Grid.Column="1" Fill="{DynamicResource BorderBrush}" Width="1" />
+
+    <!-- Right: Content pane -->
+    <ScrollViewer Grid.Column="2" Background="White">
+      <StackPanel Spacing="0" Margin="24,16">
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  General / Appearance                       -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsAppearanceSelected}">
+          <TextBlock Text="General / Appearance" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Theme, accent density, and display preferences" Classes="Body" FontSize="12"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+
+          <Separator Margin="0,4" />
+
+          <!-- Theme -->
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Theme" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding ThemeOptions}"
+                        SelectedIndex="{Binding SelectedThemeIndex}"
+                        FontSize="12" Width="200" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+              <TextBlock Text="Choose Light, Dark, or follow the system theme. Changes apply immediately."
+                         Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <!-- Accent color -->
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Accent Color" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding AccentOptions}"
+                        SelectedIndex="{Binding SelectedAccentIndex}"
+                        FontSize="12" Width="200" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+              <WrapPanel>
+                <WrapPanel.Styles>
+                  <Style Selector="Border">
+                    <Setter Property="Margin" Value="0,0,6,6" />
+                  </Style>
+                </WrapPanel.Styles>
+                <Border Width="24" Height="24" CornerRadius="12" Background="#0D9488"
+                        PointerPressed="OnAccentPointerPressed" Tag="Teal" Cursor="Hand" />
+                <Border Width="24" Height="24" CornerRadius="12" Background="#D97706"
+                        PointerPressed="OnAccentPointerPressed" Tag="Amber" Cursor="Hand" />
+                <Border Width="24" Height="24" CornerRadius="12" Background="#E11D48"
+                        PointerPressed="OnAccentPointerPressed" Tag="Rose" Cursor="Hand" />
+                <Border Width="24" Height="24" CornerRadius="12" Background="#7C3AED"
+                        PointerPressed="OnAccentPointerPressed" Tag="Violet" Cursor="Hand" />
+                <Border Width="24" Height="24" CornerRadius="12" Background="#059669"
+                        PointerPressed="OnAccentPointerPressed" Tag="Emerald" Cursor="Hand" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Density -->
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Layout Density" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding DensityOptions}"
+                        SelectedIndex="{Binding SelectedDensityIndex}"
+                        FontSize="12" Width="200" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+            </StackPanel>
+          </Border>
+
+          <!-- Font scale -->
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Font Scale" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <TextBlock Text="0.5×" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Minimum="0.5" Maximum="2.0" SmallChange="0.1" LargeChange="0.25"
+                        Value="{Binding FontScale}" />
+                <TextBlock Grid.Column="2" Text="2.0×" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Text="Preview: The quick brown fox jumps over the lazy dog"
+                         FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </StackPanel>
+          </Border>
+
+          <!-- Reset -->
+          <Button Content="Reset Appearance Defaults"
+                  Command="{Binding ResetAppearanceCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="11"
+                  Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Catalog & Storage                          -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsCatalogSelected}">
+          <TextBlock Text="Catalog &amp; Storage" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Database location, cache configuration, and backup settings"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Database Location" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="{Binding DbLocation}" Classes="Body" FontSize="12"
+                         Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Cache" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Thumbnail cache is stored alongside the catalog database and managed automatically."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="More cache settings coming in a future update."
+                         Classes="Caption" Foreground="{DynamicResource WarningTextBrush}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Database & Connection                       -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsConnectionSelected}">
+          <TextBlock Text="Database &amp; Connection" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Current mode, broker connection settings, and TLS configuration"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Current Mode" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="{Binding ModeLabel}" Classes="Body" FontSize="12"
+                         Foreground="{DynamicResource TextMutedBrush}" />
+              <TextBlock Text="Switch between Local and Service mode using the buttons in the title bar."
+                         Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Broker Endpoint" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                <TextBlock Text="Host:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBox Grid.Column="1" Text="{Binding Config.ServiceHost}" FontSize="12" Padding="4,2"
+                         BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" />
+                <TextBlock Grid.Row="1" Text="Port:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Config.ServicePort}"
+                               Minimum="1" Maximum="65535" Increment="1" FontSize="12" Width="120" HorizontalAlignment="Left" />
+                <TextBlock Grid.Row="2" Text="TLS:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding Config.UseTls}"
+                          Content="{Binding Config.UseTls, StringFormat={}{}Enabled}" FontSize="12" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Ingestion                                  -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsIngestionSelected}">
+          <TextBlock Text="Ingestion" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Import presets, rename templates, and AI auto-tagging preferences"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="AI Auto-Tag on Import" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                <ToggleSwitch Grid.Column="1" IsChecked="{Binding AiAutoTagEnabled}" />
+              </Grid>
+              <TextBlock Text="When enabled, incoming assets are automatically tagged using the local AI model during ingestion."
+                         Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Watched Folders" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Manage watched folders from the Ingestion tab."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Button Content="Reset Ingestion Settings"
+                  Command="{Binding ResetIngestionCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="11"
+                  Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Metadata & Schemas                         -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsMetadataSelected}">
+          <TextBlock Text="Metadata &amp; Schemas" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Panel order, metadata presets, writeback policy, and controlled vocabularies"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Panels Open by Default" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                <ToggleSwitch Grid.Column="1" IsChecked="{Binding PanelsOpenByDefault}" />
+              </Grid>
+              <TextBlock Text="Controls whether all metadata panels (A-H) expand when the Metadata Editor opens."
+                         Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Writeback Policy" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Metadata writeback to source files is configured in the Metadata Editor. Sidecar (.xmp) export coming in a future update."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Button Content="Reset Metadata Defaults"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="11"
+                  Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="4" Cursor="Hand"
+                  PointerPressed="OnResetMetadataPointerPressed" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  AI / LiquidVision                          -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsAiSelected}">
+          <TextBlock Text="AI / LiquidVision" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Model selection, execution provider, precision, and AI feature configuration"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <TextBlock Text="AI model and execution provider settings are available in the left sidebar panel."
+                       Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="About LiquidVision" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="LiquidVision is the local on-device inference engine for AI-powered image analysis and tagging. All processing happens locally — no data is sent to external servers."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Button Content="Reset AI Settings"
+                  Command="{Binding ResetAiCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="11"
+                  Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Search                                     -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsSearchSelected}">
+          <TextBlock Text="Search" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Full-text search options, default sort order, and display preferences"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Default Sort Order" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding DefaultSortOptions}"
+                        SelectedIndex="{Binding DefaultSortIndex}"
+                        FontSize="12" Width="200" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Results Per Page" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding ResultsPerPageOptions}"
+                        SelectedItem="{Binding ResultsPerPage}"
+                        FontSize="12" Width="120" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Thumbnail Size" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ComboBox ItemsSource="{Binding ThumbnailSizeOptions}"
+                        SelectedItem="{Binding ThumbnailSize}"
+                        FontSize="12" Width="120" HorizontalAlignment="Left"
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+            </StackPanel>
+          </Border>
+
+          <Button Content="Reset Search Defaults"
+                  Command="{Binding ResetSearchCommand}"
+                  HorizontalAlignment="Left" Padding="12,6" FontSize="11"
+                  Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="4" Cursor="Hand" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Keyboard Shortcuts                         -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsKeyboardSelected}">
+          <TextBlock Text="Keyboard Shortcuts" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Built-in keyboard shortcuts for common actions"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Gallery" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
+                <TextBlock Text="← → ↑ ↓" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Text="Navigate gallery / filmstrip" FontSize="12" Grid.Column="1" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="1" Text="Enter" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="1" Grid.Column="1" Text="Open loupe view / reveal in folder" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="2" Text="Esc" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="2" Grid.Column="1" Text="Close loupe/compare/faces view" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="3" Text="Delete" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="3" Grid.Column="1" Text="Delete selected assets" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="4" Text="Ctrl+A" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="4" Grid.Column="1" Text="Select all" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="5" Text="Ctrl+C" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="5" Grid.Column="1" Text="Copy file path" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="6" Text="Ctrl+E" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="6" Grid.Column="1" Text="Export" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="7" Text="Ctrl+F" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="7" Grid.Column="1" Text="Focus search" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Editing" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
+                <TextBlock Text="0-5" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Text="Set rating (0=clear, 1-5=★)" FontSize="12" Grid.Column="1" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="1" Text="P" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="1" Grid.Column="1" Text="Pick flag" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="2" Text="X" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="2" Grid.Column="1" Text="Reject flag" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="3" Text="F2" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="3" Grid.Column="1" Text="Rename asset" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="4" Text="Ctrl+S" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="4" Grid.Column="1" Text="Save metadata tags" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="5" Text="Ctrl+Shift+T" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="5" Grid.Column="1" Text="Open trash" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Grid.Row="6" Text="Ctrl+Shift+S" Classes="Caption" FontFamily="Consolas" Foreground="{DynamicResource PrimaryBrush}" /><TextBlock Grid.Row="6" Grid.Column="1" Text="Save (alternative)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="Keyboard shortcut remapping is planned for a future update."
+                     Classes="Caption" Foreground="{DynamicResource WarningTextBrush}" />
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Security & Session                         -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsSecuritySelected}">
+          <TextBlock Text="Security &amp; Session" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Session timeout, TLS certificate trust, and account security"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Session" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Session tokens expire after 24 hours by default. Use the Logout button in the connection bar to end your session early."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="TLS certificate trust settings are configured through the Service Manager when enabling secure connections."
+                         Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  Audit & Activity                           -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsAuditSelected}">
+          <TextBlock Text="Audit &amp; Activity" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Audit log, access logs, and activity history settings"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Audit Log" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Access the Audit Log from the navigation bar to review user actions, asset changes, and system events."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+              <TextBlock Text="Audit log retention is currently unlimited. A retention policy configuration will be added in a future update."
+                         Classes="Caption" Foreground="{DynamicResource WarningTextBrush}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!--  About & Updates                            -->
+        <!-- ════════════════════════════════════════════ -->
+        <StackPanel Spacing="16" IsVisible="{Binding IsAboutSelected}">
+          <TextBlock Text="About &amp; Updates" Classes="Title" FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="Version information, diagnostics, and update settings"
+                     Classes="Body" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <Separator Margin="0,4" />
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Adam — Digital Asset Manager" FontSize="14" FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="{Binding AppVersion, StringFormat=Version: {0}}" Classes="Body" FontSize="12"
+                         Foreground="{DynamicResource TextMutedBrush}" />
+              <TextBlock Text="{Binding RuntimeVersion, StringFormat=.NET Runtime: {0}}" Classes="Caption" FontSize="11"
+                         Foreground="{DynamicResource TextTertiaryBrush}" />
+              <TextBlock Text="{Binding OsDescription, StringFormat=OS: {0}}" Classes="Caption" FontSize="11"
+                         Foreground="{DynamicResource TextTertiaryBrush}" />
+              <TextBlock Text="{Binding ProcessArch, StringFormat=Architecture: {0}}" Classes="Caption" FontSize="11"
+                         Foreground="{DynamicResource TextTertiaryBrush}" />
+              <TextBlock Text="{Binding WorkingSet, StringFormat=Memory: {0}}" Classes="Caption" FontSize="11"
+                         Foreground="{DynamicResource TextTertiaryBrush}" />
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="6" Background="{DynamicResource SurfaceLightBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Diagnostics" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="Database path and connection details are shown in the Catalog &amp; Storage section."
+                         Classes="Body" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+              <StackPanel Spacing="4" Orientation="Horizontal">
+                <Button Content="Open Log File" Padding="12,6" FontSize="11"
+                        Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="4" Cursor="Hand"
+                        PointerPressed="OnOpenLogPointerPressed" />
+                <Button Content="Open Data Folder" Padding="12,6" FontSize="11"
+                        Background="Transparent" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="4" Cursor="Hand"
+                        PointerPressed="OnOpenDataFolderPointerPressed" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

@@ -52,11 +52,17 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<SearchHistoryHandler>();
         services.AddSingleton<SemanticSearchHandler>();
         services.AddSingleton<SearchRankingHandler>();
+        services.AddSingleton<FaceHandler>();
+        services.AddSingleton<PersonHandler>();
+        services.AddSingleton<PreferenceHandler>();
         services.AddSingleton<EmbeddingService>();
         services.AddSingleton<SemanticSearchService>();
         services.AddSingleton<SearchRankingService>();
         services.AddSingleton<NearDuplicateService>();
         services.AddSingleton<EmbeddingClusterService>();
+        services.AddSingleton<FaceAligner>();
+        services.AddSingleton<FaceMatcherService>();
+        services.AddSingleton<FaceDetectionPipelineService>();
         services.AddSingleton<ConnectionRegistry>();
         services.AddSingleton<ChangeNotificationService>();
         services.AddSingleton<TcpListenerService>();

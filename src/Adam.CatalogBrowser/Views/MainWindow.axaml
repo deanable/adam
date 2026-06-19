@@ -36,6 +36,15 @@
     <DataTemplate DataType="{x:Type vm:AutoAlbumViewModel}">
       <views:AutoAlbumDialog />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:FaceTaggingViewModel}">
+      <views:FaceTaggingView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:PersonManagementViewModel}">
+      <views:PersonManagementView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+      <views:SettingsView />
+    </DataTemplate>
 
   </Window.DataTemplates>
 
@@ -110,6 +119,11 @@
           <Button Content="🔍 Duplicates" Command="{Binding DetectDuplicatesCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
                   ToolTip.Tip="Scan all assets for near-duplicate images" FontSize="12" />
 
+          <!-- Phase 23: Facial Recognition -->
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center" />
+          <Button Content="👤 Faces" Command="{Binding ShowFacesCommand}" Foreground="White" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                  ToolTip.Tip="Browse and manage detected faces" FontSize="12" />
+
           <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="6,0" VerticalAlignment="Center"
                      IsVisible="{Binding CanAdminister}" />
           <Button Content="Server Admin" Command="{Binding ShowServiceManagerCommand}"
@@ -139,25 +153,7 @@
           <Button Content="Service" Command="{Binding Connection.ToggleServiceModeCommand}"
                   Background="{Binding Connection.IsServiceMode, Converter={x:Static views:BoolToModeBgConverter.Instance}}"
                   Foreground="White" BorderThickness="0" FontSize="11" Padding="10,2" CornerRadius="3" Cursor="Hand" />
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource TitleBarSeparatorBrush}" Margin="4,0" VerticalAlignment="Center" />
-          <!-- T20.1: Design theme selector -->
-          <TextBlock Text="Theme:" Classes="Body" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" Margin="4,0,2,0" />
-          <ComboBox x:Name="ThemeSelector"
-                    ItemsSource="{Binding DesignThemeService.AvailableThemes}"
-                    SelectedItem="{Binding DesignThemeService.CurrentTheme, Mode=OneWay}"
-                    DisplayMemberBinding="{Binding Name}"
-                    FontSize="11"
-                    MinWidth="100"
-                    BorderThickness="0"
-                    Background="{DynamicResource TitleBarBrush}"
-                    Foreground="White"
-                    SelectionChanged="OnThemeSelectionChanged">
-            <ComboBox.Styles>
-              <Style Selector="ComboBoxItem">
-                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-              </Style>
-            </ComboBox.Styles>
-          </ComboBox>
+          <!-- T20.1: Accent color indicator removed - using default teal palette -->
         </StackPanel>
 
         <!-- Connection area: compact context-dependent controls -->
@@ -240,7 +236,7 @@
           <StackPanel Spacing="0">
 
             <!-- Folders -->
-            <Expander Header="Folders" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Folders" IsExpanded="{Binding IsSidebarFoldersExpanded}" Padding="8,4" Background="Transparent">
               <TreeView x:Name="FoldersTreeView" ItemsSource="{Binding Sidebar.Folders}" SelectedItem="{Binding Sidebar.SelectedFolder}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
@@ -263,7 +259,7 @@
             </Expander>
 
             <!-- Collections -->
-            <Expander Header="Collections" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Collections" IsExpanded="{Binding IsSidebarCollectionsExpanded}" Padding="8,4" Background="Transparent">
               <TreeView x:Name="CollectionsTreeView"
                         ItemsSource="{Binding Sidebar.Collections}" SelectedItem="{Binding Sidebar.SelectedCollection}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -296,7 +292,7 @@
             </Expander>
 
             <!-- Saved Searches -->
-            <Expander Header="Saved Searches" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Saved Searches" IsExpanded="{Binding IsSidebarSavedSearchesExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.SavedSearches}"
                        SelectedItem="{Binding Sidebar.SelectedSavedSearch}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -330,7 +326,7 @@
             </Expander>
 
             <!-- Recent Searches -->
-            <Expander Header="Recent Searches" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Recent Searches" IsExpanded="{Binding IsSidebarRecentSearchesExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.RecentSearches}"
                        SelectedItem="{Binding Sidebar.SelectedRecentSearch}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -359,7 +355,7 @@
             </Expander>
 
             <!-- Keywords -->
-            <Expander Header="Keywords" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Keywords" IsExpanded="{Binding IsSidebarKeywordsExpanded}" Padding="8,4" Background="Transparent">
               <controls:SearchableTreeView x:Name="KeywordsTreeView"
                 ItemsSource="{Binding Sidebar.Keywords}"
                 SelectedItem="{Binding Sidebar.SelectedKeyword}"
@@ -369,7 +365,7 @@
             </Expander>
 
             <!-- Media Format -->
-            <Expander Header="Media Format" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Media Format" IsExpanded="{Binding IsSidebarMediaFormatExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.MediaFormats}" SelectedItem="{Binding Sidebar.SelectedMediaFormat}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <ListBox.ItemTemplate>
@@ -384,7 +380,7 @@
             </Expander>
 
             <!-- Categories -->
-            <Expander Header="Categories" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Categories" IsExpanded="{Binding IsSidebarCategoriesExpanded}" Padding="8,4" Background="Transparent">
               <controls:SearchableTreeView x:Name="CategoriesTreeView"
                 ItemsSource="{Binding Sidebar.MetadataCategories}"
                 SelectedItem="{Binding Sidebar.SelectedMetadataCategory}"
@@ -394,7 +390,7 @@
             </Expander>
 
             <!-- Date Taken -->
-            <Expander Header="Date Taken" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Date Taken" IsExpanded="{Binding IsSidebarDateTakenExpanded}" Padding="8,4" Background="Transparent">
               <TreeView x:Name="DateTakenTree" ItemsSource="{Binding Sidebar.DateTakenTree}" SelectedItem="{Binding Sidebar.SelectedDateTaken}"
                         Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
                 <TreeView.ItemTemplate>
@@ -417,7 +413,7 @@
             </Expander>
 
             <!-- T14.5: Rating filter -->
-            <Expander Header="Rating" IsExpanded="False" Padding="8,4" Background="Transparent">
+            <Expander Header="Rating" IsExpanded="{Binding IsSidebarRatingExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.RatingFilterOptions}"
                        SelectedIndex="{Binding Sidebar.SelectedRatingFilter}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -437,7 +433,7 @@
             </Expander>
 
             <!-- T14.5: Label filter -->
-            <Expander Header="Label" IsExpanded="False" Padding="8,4" Background="Transparent">
+            <Expander Header="Label" IsExpanded="{Binding IsSidebarLabelExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.LabelFilterOptions}"
                        SelectedIndex="{Binding Sidebar.SelectedLabelFilter}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -452,7 +448,7 @@
             </Expander>
 
             <!-- T14.5: Flag filter -->
-            <Expander Header="Flag" IsExpanded="False" Padding="8,4" Background="Transparent">
+            <Expander Header="Flag" IsExpanded="{Binding IsSidebarFlagExpanded}" Padding="8,4" Background="Transparent">
               <ListBox ItemsSource="{Binding Sidebar.FlagFilterOptions}"
                        SelectedIndex="{Binding Sidebar.SelectedFlagFilter}"
                        Margin="0,4,0,0" Background="Transparent" BorderThickness="0">
@@ -467,7 +463,7 @@
             </Expander>
 
             <!-- AI Model selector -->
-            <Expander Header="AI Model" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="AI Model" IsExpanded="{Binding IsSidebarAiModelExpanded}" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="6">
                 <!-- Model variant dropdown -->
                 <TextBlock Text="Model:" Classes="Caption" Foreground="{DynamicResource TextMutedBrush}" />
@@ -598,7 +594,7 @@
           <StackPanel Spacing="0">
 
             <!-- Metadata (single asset) -->
-            <Expander Header="Metadata" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Metadata" IsExpanded="{Binding IsRightMetadataExpanded}" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0">
                 <ItemsControl ItemsSource="{Binding PropertyInspector.SelectedAssetMetadata}"
                                IsVisible="{Binding PropertyInspector.HasSelectedAsset}"
@@ -619,12 +615,12 @@
             </Expander>
 
             <!-- Comments -->
-            <Expander Header="{Binding CommentPanel.HeaderText}" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="{Binding CommentPanel.HeaderText}" IsExpanded="{Binding IsRightCommentsExpanded}" Padding="8,4" Background="Transparent">
               <views:CommentPanelView DataContext="{Binding CommentPanel}" />
             </Expander>
 
             <!-- Tags (single-asset editing) — Phase 7: gated by CanEditMetadata -->
-            <Expander Header="Tags" IsExpanded="True" Padding="8,4" Background="Transparent">
+            <Expander Header="Tags" IsExpanded="{Binding IsRightTagsExpanded}" Padding="8,4" Background="Transparent">
               <StackPanel Margin="0,4,0,0" Spacing="6"
                           IsEnabled="{Binding CanEditMetadata}"
                           ToolTip.Tip="{Binding EditPermissionTooltip}">

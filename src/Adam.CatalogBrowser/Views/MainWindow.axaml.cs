@@ -8,7 +8,6 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
-using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Services;
 
@@ -22,18 +21,6 @@ public partial class MainWindow : Window
 
         // Wire context menus after the window and its children are ready
         Loaded += OnLoaded;
-    }
-
-    /// <summary>
-    /// Handles theme selection from the title-bar ComboBox.
-    /// Applies the selected theme immediately via DesignThemeService.
-    /// </summary>
-    private void OnThemeSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (e.AddedItems.Count > 0 && e.AddedItems[0] is DesignTheme selected)
-        {
-            VM?.DesignThemeService.ApplyTheme(selected);
-        }
     }
 
     private void OnLoaded(object? sender, EventArgs e)

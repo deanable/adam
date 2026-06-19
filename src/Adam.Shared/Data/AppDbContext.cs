@@ -44,6 +44,9 @@ public class AppDbContext : DbContext
     public DbSet<SearchHistoryEntry> SearchHistoryEntries => Set<SearchHistoryEntry>();
     public DbSet<AssetEmbedding> AssetEmbeddings => Set<AssetEmbedding>();
     public DbSet<SearchClickLog> SearchClickLogs => Set<SearchClickLog>();
+    public DbSet<Person> Persons => Set<Person>();
+    public DbSet<AssetFace> AssetFaces => Set<AssetFace>();
+    public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -276,6 +279,39 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.NormalizedQuery, x.ClickedAt });
             e.HasIndex(x => new { x.AssetId, x.NormalizedQuery });
+        });
+
+        modelBuilder.Entity<Person>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Notes).HasMaxLength(4000);
+            e.Property(x => x.ThumbnailImage);
+            e.Property(x => x.CentroidEmbedding);
+            e.Property(x => x.EmbeddingModelVersion).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<AssetFace>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FaceEmbedding).IsRequired();
+            e.Property(x => x.BoundingBoxJson).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.ThumbnailImage);
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Person).WithMany(p => p.Faces).HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.AssetId);
+            e.HasIndex(x => x.PersonId);
+            e.HasIndex(x => x.DetectionConfidence);
+        });
+
+        modelBuilder.Entity<UserPreference>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Key).IsRequired().HasMaxLength(100);
+            e.Property(x => x.ValueJson).IsRequired();
+            e.HasIndex(x => new { x.UserId, x.Key }).IsUnique();
         });
 
         SeedData(modelBuilder);

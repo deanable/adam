@@ -161,5 +161,27 @@ public enum MessageTypeCode : ushort
     LogSearchClickRequest = 170,
     LogSearchClickResponse = 171,
     ReRankRequest = 172,
-    ReRankResponse = 173
+    ReRankResponse = 173,
+
+    // User Preferences (184-191)
+    GetPreferencesRequest = 184,
+    GetPreferencesResponse = 185,
+    SetPreferenceRequest = 186,
+    SetPreferenceResponse = 187,
+    ResetPreferenceRequest = 188,
+    ResetPreferenceResponse = 189,
+    ResetAllPreferencesRequest = 190,
+    ResetAllPreferencesResponse = 191,
+
+    // Facial Recognition (174-183)
+    DetectFacesRequest = 174,
+    DetectFacesResponse = 175,
+    NamePersonRequest = 176,
+    NamePersonResponse = 177,
+    ListPersonsRequest = 178,
+    ListPersonsResponse = 179,
+    MergePersonsRequest = 180,
+    MergePersonsResponse = 181,
+    DeletePersonRequest = 182,
+    DeletePersonResponse = 183
 }

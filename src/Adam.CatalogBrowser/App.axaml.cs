@@ -81,11 +81,7 @@ public partial class App : Application
             services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
             services.AddSingleton<ChecksumService>();
 
-            // Phase 20: Design theme engine — loads .design/*.md for dynamic styling
-            // DesignThemeService is also populated into MainWindowViewModel.DesignThemeService
-            // during constructor resolution, giving the title-bar ComboBox access to available themes.
-            services.AddSingleton<DesignThemeService>();
-            // Register AdamConfig for DI consumers (DesignThemeService, etc.)
+            // Register AdamConfig for DI consumers
             services.AddSingleton(Config);
             services.AddSingleton<DuplicateDetector>();
             services.AddSingleton<DeleteService>();
@@ -137,6 +133,17 @@ public partial class App : Application
             services.AddSingleton<NearDuplicateService>();
             services.AddSingleton<EmbeddingClusterService>();
 
+            // Phase 23: Facial Recognition
+            services.AddSingleton<FaceAligner>();
+            services.AddSingleton<FaceMatcherService>();
+            services.AddSingleton<FaceDetectionPipelineService>();
+
+            // Phase 24: User Preferences + Settings
+            services.AddSingleton<IUserPreferenceService>(sp =>
+                new UserPreferenceService(
+                    sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
+                    sp.GetRequiredService<ILogger<UserPreferenceService>>()));
+
             services.AddTransient<SidebarViewModel>();
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<AssetGalleryViewModel>(sp =>
@@ -156,16 +163,34 @@ public partial class App : Application
             services.AddTransient<CommentPanelViewModel>();
             services.AddTransient<PluginManagerViewModel>();
 
+            services.AddTransient<FaceTaggingViewModel>();
+            services.AddTransient<PersonManagementViewModel>();
+            services.AddTransient<SettingsViewModel>(sp =>
+                new SettingsViewModel(
+                    sp.GetRequiredService<IUserPreferenceService>(),
+                    Config,
+                    sp.GetRequiredService<ModeManager>(),
+                    sp.GetRequiredService<ILogger<SettingsViewModel>>()));
+
             var provider = services.BuildServiceProvider();
+
+            // Load cached preferences into the in-memory cache on startup
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var prefs = provider.GetRequiredService<IUserPreferenceService>();
+                    await prefs.LoadAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Settings] Failed to load preferences: {ex.Message}");
+                }
+            });
             ServiceProvider = provider;
 
             // T11.8: Wire FTS service into ModeManager for startup initialization
             modeManager.FtsService = provider.GetRequiredService<IFtsService>();
-
-            // Phase 20: Load design themes and apply the saved or first available theme
-            var themeService = provider.GetRequiredService<DesignThemeService>();
-            themeService.LoadThemes();
-            themeService.ApplyTheme(themeService.CurrentTheme);
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow = new MainWindow
