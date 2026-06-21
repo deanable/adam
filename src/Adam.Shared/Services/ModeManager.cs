@@ -136,6 +136,31 @@ public sealed class ModeManager
             // Column already exists — no action needed
         }
 
+        // Create the UserPreferences table if it doesn't exist.
+        // This table was added in a later migration after the initial
+        // EnsureCreatedAsync() bootstrap.
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS ""UserPreferences"" (
+    ""Id"" TEXT NOT NULL,
+    ""UserId"" TEXT NULL,
+    ""Key"" TEXT NOT NULL,
+    ""ValueJson"" TEXT NOT NULL,
+    ""UpdatedAt"" TEXT NOT NULL,
+    ""Version"" INTEGER NOT NULL,
+    PRIMARY KEY (""Id"")
+);");
+            await db.Database.ExecuteSqlRawAsync(@"
+CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
+    ON ""UserPreferences"" (""UserId"", ""Key"");");
+        }
+        catch
+        {
+            // Table creation failure is non-fatal
+        }
+
+
         // Create indexes for SortOrder (IF NOT EXISTS syntax works for CREATE INDEX)
         try
         {

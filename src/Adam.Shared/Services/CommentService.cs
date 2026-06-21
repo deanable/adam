@@ -40,7 +40,7 @@ public sealed class CommentService
                 .ToListAsync(ct);
 
             return comments
-                .OrderBy(c => c.CreatedAt)
+                .OrderBy(c => c.CreatedAt.UtcDateTime)
                 .Select(c => MapToDto(c, c.User.Username, canEdit: true, canDelete: true))
                 .ToList();
         }

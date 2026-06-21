@@ -31,7 +31,7 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 
 **Current Phase:** 21 — Virtualized Gallery & DB Optimization
 **Milestone:** v4.x — Performance & UX (Phases 20-21)
-**Tests:** 1,232 passing (2 Docker-dependent skipped)
+**Tests:** 1,371 passing (2 Docker-dependent skipped)
 
 ## Project-Specific Guidance
 
@@ -56,6 +56,57 @@ Shared logic belongs in `Adam.Shared`. Mode-specific logic stays in the respecti
 
 ### Database Provider Abstraction
 `DbProviderConfig` in BrokerService configures the EF Core provider at runtime. Never hardcode provider-specific logic outside provider classes. Test changes against all three providers (see `DbProviderMatrixTests`).
+
+### SQLite DateTimeOffset ORDER BY Limitation
+
+The SQLite EF Core provider throws `NotSupportedException` when `DateTimeOffset` is used in `OrderBy`/`OrderByDescending`/`ThenBy` clauses. **This also applies to `.UtcDateTime`, `EF.Property<object>`, and `EF.Property<string>`** — the provider detects the underlying `DateTimeOffset` column type and refuses any ORDER BY expression involving it. PostgreSQL and SQL Server handle `DateTimeOffset` ORDER BY natively.
+
+**The ONLY approach that works on SQLite is client-side ordering:** load records to memory first, then sort with LINQ-to-Objects:
+
+```csharp
+// ❌ ALL of these throw NotSupportedException on SQLite:
+.OrderBy(x => x.DateTimeOffsetProp)
+.OrderBy(x => x.DateTimeOffsetProp.UtcDateTime)
+.OrderBy(x => EF.Property<object>(x, "Prop"))
+
+// ✅ Load to memory, then sort with LINQ-to-Objects:
+var items = await query.ToListAsync(ct);
+return [.. items.OrderByDescending(x => x.DateTimeOffsetProp)];
+```
+
+**For paginated queries (Skip/Take or keyset), use a two-query approach:**
+1. Load just IDs and the sort column into memory
+2. Sort in memory, apply Skip/Take
+3. Load full entities by the paginated IDs
+4. Re-sort to match the ID order
+
+```csharp
+// Two-query pagination example for Date Added sort:
+var sortedIds = (await query
+    .Select(a => new { a.Id, a.CreatedAt })
+    .ToListAsync(ct))
+    .OrderByDescending(a => a.CreatedAt)
+    .ThenBy(a => a.Id)
+    .Skip(skip)
+    .Take(take)
+    .Select(a => a.Id)
+    .ToList();
+
+var assets = await query.Where(a => sortedIds.Contains(a.Id)).ToListAsync(ct);
+var idOrder = sortedIds.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
+var result = [.. assets.OrderBy(a => idOrder[a.Id])];
+```
+
+**Null safety:** Only client-side ordering on non-nullable `DateTimeOffset` properties is safe. For `DateTimeOffset?` (nullable), use `.Value` or filter with `.Where(x => x.Prop != null)` before ordering. No nullable `DateTimeOffset?` property is currently used in any ORDER BY query in the codebase.
+
+**Locations refactored (14 production code locations across 10 files):**
+| Approach | Files | Count |
+|----------|-------|-------|
+| Load → sort in memory (no pagination) | AuditLogVM, ActivityFeedVM, SidebarVM, AuditLogHandler, CommentHandler, ChangeHandler | 6 |
+| Load → sort → Take | SearchHistoryService (2), SearchHistoryHandler (2) | 4 |
+| Two-query pagination | AssetGalleryVM, AssetHandler (ListAssets + ListDeletedAssets) | 4 |
+
+**Verified by unit tests** in `tests/Adam.Shared.Tests/Data/DateTimeOffsetOrderByTests.cs` — 6 tests covering all 5 entity types with the client-side approach, plus 2 end-to-end `SearchService` tests for the two-query pagination fix.
 
 ### Transport Protocol
 All multi-user communication uses raw TCP with length-prefixed protobuf framing (`TcpFrame`). No HTTP/REST/gRPC. Message types are in `Adam.Shared/Contracts/` with manual protobuf serialization.
@@ -258,10 +309,10 @@ dotnet test
 
 Run specific test suites:
 ```bash
-dotnet test tests/Adam.Shared.Tests         # 137 tests (core services, AI tagging, auth)
-dotnet test tests/Adam.BrokerService.Tests  # 92 tests (90 pass, 2 skipped w/o Docker)
+dotnet test tests/Adam.Shared.Tests         # 407 tests (core services, AI tagging, auth, DateTimeOffset ORDER BY)
+dotnet test tests/Adam.BrokerService.Tests  # 173 tests (171 pass, 2 skipped w/o Docker)
 dotnet test tests/Adam.ServiceManager.Tests # 156 tests (admin panel, user mgmt, audit log)
-dotnet test tests/Adam.CatalogBrowser.Tests # headless Avalonia tests
+dotnet test tests/Adam.CatalogBrowser.Tests # 637 headless Avalonia tests
 ```
 
 Run BrokerService tests by category (filter by test name):
@@ -277,7 +328,7 @@ Run AI Tagging tests:
 dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
 ```
 
-**Total: 1,232 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
+**Total: 1,371 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
 
 ### Testing ServiceManager ViewModels
 

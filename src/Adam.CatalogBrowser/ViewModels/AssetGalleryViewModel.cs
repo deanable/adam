@@ -893,26 +893,53 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                     _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
                 }
 
-                IQueryable<DigitalAsset> orderedQuery;
-                orderedQuery = _sortBy switch
+                // For Date Added sort, use a two-query approach to avoid SQLite DateTimeOffset ORDER BY limitation
+                List<DigitalAsset> assets;
+                if (_sortBy == "Date Added")
                 {
-                    "Date Added" => query.OrderByDescending(a => a.CreatedAt).ThenBy(a => a.Id),
-                    "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
-                    "File Size" => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
-                    _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
-                };
-                _logger.LogInformation("[LoadPageAsync] Ordering by {SortBy}", _sortBy);
+                    // Step 1: Load IDs + CreatedAt only (projected, no ORDER BY)
+                    var idQuery = query.Select(a => new { a.Id, a.CreatedAt });
 
-                // T21.4: Keyset pagination — use WHERE instead of SKIP for "load more"
-                // to avoid the OFFSET performance penalty at high page numbers.
-                if (_page > 0)
-                {
-                    orderedQuery = ApplyKeysetPagination(orderedQuery);
+                    // Apply keyset pagination for Date Added (WHERE clause works for SQLite)
+                    if (_page > 0)
+                    {
+                        idQuery = idQuery.Where(a =>
+                            a.CreatedAt < _lastSeekCreatedAt ||
+                            (a.CreatedAt == _lastSeekCreatedAt && a.Id > _lastSeekId));
+                    }
+
+                    // Sort in memory, paginate IDs
+                    var sortedIds = (await idQuery.ToListAsync(ct).ConfigureAwait(false))
+                        .OrderByDescending(x => x.CreatedAt)
+                        .ThenBy(x => x.Id)
+                        .Take(_pageSize)
+                        .Select(x => x.Id)
+                        .ToList();
+
+                    // Step 2: Load full entities by sorted IDs, preserving order
+                    assets = await PaginationHelper.LoadInOrderAsync(query, sortedIds, ct).ConfigureAwait(false);
                 }
+                else
+                {
+                    // Non-DateAdded sorts use native SQLite-compatible ORDER BY
+                    IQueryable<DigitalAsset> orderedQuery = _sortBy switch
+                    {
+                        "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
+                        "File Size" => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
+                        _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
+                    };
 
-                var assets = await orderedQuery
-                    .Take(_pageSize)
-                    .ToListAsync(ct).ConfigureAwait(false);
+                    // T21.4: Keyset pagination — use WHERE instead of SKIP for "load more"
+                    if (_page > 0)
+                    {
+                        orderedQuery = ApplyKeysetPagination(orderedQuery);
+                    }
+
+                    assets = await orderedQuery
+                        .Take(_pageSize)
+                        .ToListAsync(ct).ConfigureAwait(false);
+                }
+                _logger.LogInformation("[LoadPageAsync] Ordering by {SortBy}", _sortBy);
 
                 // T21.4: Store last item's values for next keyset seek
                 if (assets.Count > 0)

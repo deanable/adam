@@ -1,6 +1,7 @@
 using Adam.BrokerService.Transport;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
+using Adam.Shared.Models;
 using Adam.Shared.Services;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
@@ -79,23 +80,56 @@ public sealed class AssetHandler : HandlerBase
 
         var total = await query.CountAsync(ct);
 
-        // Apply sort from request, defaulting to FileName ascending
-        query = (req.SortBy, req.SortDir.ToLowerInvariant()) switch
+        // Apply sort from request, defaulting to FileName ascending.
+        // For Date Added sort, use a two-query approach to avoid SQLite DateTimeOffset ORDER BY limitation.
+        List<DigitalAsset> assets;
+        if (req.SortBy == "Date Added")
         {
-            ("Date Added", "desc") => query.OrderByDescending(a => a.CreatedAt).ThenBy(a => a.Id),
-            ("Date Added", _) => query.OrderBy(a => a.CreatedAt).ThenBy(a => a.Id),
-            ("File Type", "desc") => query.OrderByDescending(a => a.MimeType).ThenBy(a => a.Id),
-            ("File Type", _) => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
-            ("File Size", "desc") => query.OrderByDescending(a => a.FileSize).ThenBy(a => a.Id),
-            ("File Size", _) => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
-            ("File Name", "desc") => query.OrderByDescending(a => a.FileName).ThenBy(a => a.Id),
-            _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
-        };
+            var isDesc = req.SortDir.ToLowerInvariant() == "desc";
+            // Step 1: Load IDs + CreatedAt only
+            var idList = await query
+                .Select(a => new { a.Id, a.CreatedAt })
+                .ToListAsync(ct);
 
-        var assets = await query
-            .Skip((req.Page - 1) * req.PageSize)
-            .Take(req.PageSize)
-            .ToListAsync(ct);
+            if (isDesc)
+                idList.Sort((a, b) =>
+                {
+                    var cmp = b.CreatedAt.CompareTo(a.CreatedAt);
+                    return cmp != 0 ? cmp : a.Id.CompareTo(b.Id);
+                });
+            else
+                idList.Sort((a, b) =>
+                {
+                    var cmp = a.CreatedAt.CompareTo(b.CreatedAt);
+                    return cmp != 0 ? cmp : a.Id.CompareTo(b.Id);
+                });
+
+            var sortedIds = idList
+                .Skip((req.Page - 1) * req.PageSize)
+                .Take(req.PageSize)
+                .Select(a => a.Id)
+                .ToList();
+
+            // Step 2: Load full entities by sorted IDs, preserving order
+            assets = await PaginationHelper.LoadInOrderAsync(query, sortedIds, ct);
+        }
+        else
+        {
+            query = (req.SortBy, req.SortDir.ToLowerInvariant()) switch
+            {
+                ("File Type", "desc") => query.OrderByDescending(a => a.MimeType).ThenBy(a => a.Id),
+                ("File Type", _) => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
+                ("File Size", "desc") => query.OrderByDescending(a => a.FileSize).ThenBy(a => a.Id),
+                ("File Size", _) => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
+                ("File Name", "desc") => query.OrderByDescending(a => a.FileName).ThenBy(a => a.Id),
+                _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
+            };
+
+            assets = await query
+                .Skip((req.Page - 1) * req.PageSize)
+                .Take(req.PageSize)
+                .ToListAsync(ct);
+        }
 
         var response = new ListAssetsResponse
         {
@@ -533,12 +567,19 @@ public sealed class AssetHandler : HandlerBase
 
         var total = await query.CountAsync(ct);
 
-        var assets = await query
+        // Use two-query approach for ModifiedAt sort — SQLite cannot ORDER BY DateTimeOffset
+        var sortedIds = (await query
+            .Select(a => new { a.Id, a.ModifiedAt })
+            .ToListAsync(ct))
             .OrderByDescending(a => a.ModifiedAt)
             .ThenBy(a => a.Id)
             .Skip((req.Page - 1) * req.PageSize)
             .Take(req.PageSize)
-            .ToListAsync(ct);
+            .Select(a => a.Id)
+            .ToList();
+
+        List<DigitalAsset> assets;
+        assets = await PaginationHelper.LoadInOrderAsync(query, sortedIds, ct);
 
         var response = new ListDeletedAssetsResponse
         {

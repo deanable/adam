@@ -97,12 +97,12 @@ public sealed class SearchHistoryHandler : HandlerBase
         using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var items = await db.SearchHistoryEntries
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var all = await db.SearchHistoryEntries
             .Where(s => s.UserId == userGuid)
-            .OrderByDescending(s => s.ExecutedAt)
-            .Take(maxResults)
             .AsNoTracking()
             .ToListAsync(ct);
+        List<SearchHistoryEntry> items = [.. all.OrderByDescending(s => s.ExecutedAt).Take(maxResults)];
 
         var response = new ListSearchHistoryResponse();
         foreach (var item in items)
@@ -157,11 +157,11 @@ public sealed class SearchHistoryHandler : HandlerBase
         if (userId == null) return;
 
         // Single query: skip the 200 most recent entries, delete the rest
-        var toDelete = await db.SearchHistoryEntries
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var all = await db.SearchHistoryEntries
             .Where(s => s.UserId == userId)
-            .OrderByDescending(s => s.ExecutedAt)
-            .Skip(200)
             .ToListAsync(ct);
+        List<SearchHistoryEntry> toDelete = [.. all.OrderByDescending(s => s.ExecutedAt).Skip(200)];
 
         if (toDelete.Count > 0)
             db.SearchHistoryEntries.RemoveRange(toDelete);

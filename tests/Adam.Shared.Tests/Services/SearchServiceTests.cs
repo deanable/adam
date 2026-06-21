@@ -216,6 +216,40 @@ public sealed class SearchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchAsync_SortByDateAddedDesc_ReturnsDescendingOrder()
+    {
+        // Arrange — assets have CreatedAt: Jan 15 2024, Mar 20 2024, Jun 10 2024
+        await SeedAssetsAsync();
+        var sut = new SearchService(_db);
+
+        // Act — DateAdded desc uses the two-query approach: load IDs + CreatedAt, sort in memory
+        var results = await sut.SearchAsync(sortBy: "DateAdded", sortDir: "desc");
+
+        // Assert
+        results.Should().HaveCount(3);
+        results[0].FileName.Should().Be("video.mp4");      // Jun 10 (newest)
+        results[1].FileName.Should().Be("document.pdf");   // Mar 20
+        results[2].FileName.Should().Be("sunset.jpg");     // Jan 15 (oldest)
+    }
+
+    [Fact]
+    public async Task SearchAsync_SortByDateAddedAsc_ReturnsAscendingOrder()
+    {
+        // Arrange — assets have CreatedAt: Jan 15 2024, Mar 20 2024, Jun 10 2024
+        await SeedAssetsAsync();
+        var sut = new SearchService(_db);
+
+        // Act — DateAdded asc uses the two-query approach: load IDs + CreatedAt, sort in memory
+        var results = await sut.SearchAsync(sortBy: "DateAdded", sortDir: "asc");
+
+        // Assert
+        results.Should().HaveCount(3);
+        results[0].FileName.Should().Be("sunset.jpg");     // Jan 15 (oldest)
+        results[1].FileName.Should().Be("document.pdf");   // Mar 20
+        results[2].FileName.Should().Be("video.mp4");      // Jun 10 (newest)
+    }
+
+    [Fact]
     public async Task SearchAsync_Pagination_ReturnsCorrectPage()
     {
         // Arrange

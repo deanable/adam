@@ -123,7 +123,10 @@ public class AuditLogViewModel : INotifyPropertyChanged
                     AddLog($"Filtering to: {FilterTo.Value:yyyy-MM-dd HH:mm}");
                 }
 
-                var logs = await query.OrderByDescending(l => l.Timestamp).ToListAsync().ConfigureAwait(false);
+                // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+                var logs = (await query.ToListAsync().ConfigureAwait(false))
+                    .OrderByDescending(l => l.Timestamp)
+                    .ToList();
 
                 foreach (var l in logs)
                 {

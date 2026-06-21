@@ -41,7 +41,11 @@ public sealed class AuditLogHandler : HandlerBase
         if (filterReq.ToDate.HasValue)
             query = query.Where(l => l.Timestamp <= DateTimeOffset.FromUnixTimeSeconds(filterReq.ToDate.Value));
 
-        var logs = await query.OrderByDescending(l => l.Timestamp).Take(500).ToListAsync(ct);
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var logs = (await query.ToListAsync(ct))
+            .OrderByDescending(l => l.Timestamp)
+            .Take(500)
+            .ToList();
 
         var response = new ListAuditLogsResponse();
         foreach (var l in logs)

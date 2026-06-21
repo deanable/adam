@@ -12,7 +12,7 @@ public sealed class ActivityEntry
     public string EntityId { get; set; } = string.Empty;
     public string? AssetName { get; set; }     // Resolved from DB for display
     public string? UserName { get; set; }      // From ChangeNotification or AccessLog
-    public DateTime Timestamp { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
     public bool IsRead { get; set; }
 
     /// <summary>Relative time display string, e.g. "2 min ago".</summary>
@@ -57,9 +57,9 @@ public sealed class ActivityEntry
         }
     }
 
-    private static string GetRelativeTime(DateTime timestamp)
+    private static string GetRelativeTime(DateTimeOffset timestamp)
     {
-        var diff = DateTime.UtcNow - timestamp;
+        var diff = DateTimeOffset.UtcNow - timestamp;
         if (diff.TotalMinutes < 1) return "just now";
         if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
         if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";

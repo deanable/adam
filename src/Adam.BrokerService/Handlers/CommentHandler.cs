@@ -40,11 +40,13 @@ public sealed class CommentHandler : HandlerBase
         using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var comments = await db.Comments
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var comments = (await db.Comments
             .Include(c => c.User)
             .Where(c => c.AssetId == assetId)
+            .ToListAsync(ct))
             .OrderBy(c => c.CreatedAt)
-            .ToListAsync(ct);
+            .ToList();
 
         var userId = _authHandler.GetUserId(request);
         var userIdGuid = Guid.TryParse(userId, out var uid) ? uid : Guid.Empty;

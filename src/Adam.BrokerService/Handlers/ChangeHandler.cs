@@ -26,12 +26,14 @@ public sealed class ChangeHandler : HandlerBase
         using var scope = ServiceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var changedAssets = await db.DigitalAssets
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var changedAssets = (await db.DigitalAssets
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(a => a.ModifiedAt > since)
+            .ToListAsync(ct))
             .OrderBy(a => a.ModifiedAt)
-            .ToListAsync(ct);
+            .ToList();
 
         var response = new GetChangesResponse();
         foreach (var asset in changedAssets)

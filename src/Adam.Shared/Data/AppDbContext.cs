@@ -140,12 +140,14 @@ public class AppDbContext : DbContext
             e.Property(x => x.Orientation).HasMaxLength(50);
             e.HasIndex(x => x.DateTaken);
             e.HasIndex(x => x.Rating);
+            e.HasQueryFilter(x => x.DigitalAsset == null || !x.DigitalAsset.IsDeleted);
         });
 
         modelBuilder.Entity<RatingInfo>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasOne(x => x.DigitalAsset).WithOne().HasForeignKey<RatingInfo>(x => x.DigitalAssetId);
+            e.HasQueryFilter(x => x.DigitalAsset == null || !x.DigitalAsset.IsDeleted);
         });
 
         modelBuilder.Entity<Keyword>(e =>
@@ -268,6 +270,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.ModelVersion).IsRequired().HasMaxLength(100);
             e.HasOne(x => x.Asset).WithOne().HasForeignKey<AssetEmbedding>(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.AssetId).IsUnique();
+            e.HasQueryFilter(x => x.Asset == null || !x.Asset.IsDeleted);
         });
 
         modelBuilder.Entity<SearchClickLog>(e =>
@@ -279,6 +282,7 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.NormalizedQuery, x.ClickedAt });
             e.HasIndex(x => new { x.AssetId, x.NormalizedQuery });
+            e.HasQueryFilter(x => x.Asset == null || !x.Asset.IsDeleted);
         });
 
         modelBuilder.Entity<Person>(e =>
@@ -304,6 +308,7 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.AssetId);
             e.HasIndex(x => x.PersonId);
             e.HasIndex(x => x.DetectionConfidence);
+            e.HasQueryFilter(x => x.Asset == null || !x.Asset.IsDeleted);
         });
 
         modelBuilder.Entity<UserPreference>(e =>

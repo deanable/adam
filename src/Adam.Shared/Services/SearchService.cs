@@ -85,12 +85,44 @@ public class SearchService
             q = q.Where(a => a.CreatedAt <= to);
         }
 
+        // DateTimeOffset ORDER BY is not supported by SQLite's EF Core provider.
+        // Apply non-DateAdded sorts in the DB; for DateAdded, load all matching IDs
+        // with their CreatedAt values, sort in memory, paginate, then load assets by ID.
+        if (sortBy == "DateAdded")
+        {
+            // Query 1: Load just IDs with CreatedAt for ordering
+            var ordering = await q
+                .Select(a => new { a.Id, a.CreatedAt })
+                .ToListAsync(ct);
+
+            var orderedIds = (sortDir.ToLower() == "desc"
+                    ? ordering.OrderByDescending(x => x.CreatedAt)
+                    : ordering.OrderBy(x => x.CreatedAt))
+                .Select(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            if (orderedIds.Count == 0)
+                return [];
+
+            // Query 2: Load full assets by page IDs, preserving order
+            var idOrder = orderedIds.Select((id, idx) => new { id, idx })
+                .ToDictionary(x => x.id, x => x.idx);
+            var assets = await _context.DigitalAssets
+                .Include(a => a.Collection)
+                .Include(a => a.MetadataProfile)
+                .Include(a => a.Keywords)
+                .Where(a => orderedIds.Contains(a.Id))
+                .ToListAsync(ct);
+
+            return [.. assets.OrderBy(a => idOrder.GetValueOrDefault(a.Id))];
+        }
+
         q = (sortBy, sortDir.ToLower()) switch
         {
             ("FileName", "desc") => q.OrderByDescending(a => a.FileName),
             ("FileName", _) => q.OrderBy(a => a.FileName),
-            ("DateAdded", "desc") => q.OrderByDescending(a => a.CreatedAt),
-            ("DateAdded", _) => q.OrderBy(a => a.CreatedAt),
             ("FileType", "desc") => q.OrderByDescending(a => a.Type),
             ("FileType", _) => q.OrderBy(a => a.Type),
             ("FileSize", "desc") => q.OrderByDescending(a => a.FileSize),

@@ -926,11 +926,14 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (_modeManager.IsStandalone)
         {
             await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var history = await db.SearchHistoryEntries
+            var history = (await db.SearchHistoryEntries
+                .AsNoTracking()
+                .ToListAsync(ct).ConfigureAwait(false))
                 .OrderByDescending(h => h.ExecutedAt)
                 .Take(200)
-                .AsNoTracking()
-                .ToListAsync(ct).ConfigureAwait(false);
+                .ToList();
+
+            // Load to memory first, then sort -- SQLite cannot ORDER BY DateTimeOffset
 
             items = history.Select(h => new SearchHistoryNode
             {

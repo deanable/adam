@@ -138,11 +138,11 @@ public sealed class ActivityFeedViewModel : INotifyPropertyChanged
                     filtered = filtered.Where(l => l.EntityType == FilterEntityType);
                 }
 
-                var query = filtered
+                // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+                var logs = (await filtered.ToListAsync().ConfigureAwait(false))
                     .OrderByDescending(l => l.Timestamp)
-                    .Take(maxEntries);
-
-                var logs = await query.ToListAsync().ConfigureAwait(false);
+                    .Take(maxEntries)
+                    .ToList();
 
                 // Resolve asset names in a batch query
                 var resolved = new Dictionary<Guid, string?>();
@@ -183,7 +183,7 @@ public sealed class ActivityFeedViewModel : INotifyPropertyChanged
                             EntityId = entityId?.ToString() ?? string.Empty,
                             AssetName = assetName,
                             UserName = log.User?.Username ?? "System",
-                            Timestamp = log.Timestamp.UtcDateTime,
+                            Timestamp = log.Timestamp,
                             IsRead = false
                         });
                     }
@@ -243,7 +243,7 @@ public sealed class ActivityFeedViewModel : INotifyPropertyChanged
                                     ? ResolveAssetNameFromBroker(l.EntityId)
                                     : null,
                                 UserName = l.Username,
-                                Timestamp = DateTimeOffset.FromUnixTimeSeconds(l.Timestamp).UtcDateTime,
+                                Timestamp = DateTimeOffset.FromUnixTimeSeconds(l.Timestamp),
                                 IsRead = false
                             });
                         }
@@ -283,7 +283,7 @@ public sealed class ActivityFeedViewModel : INotifyPropertyChanged
             UserName = string.IsNullOrEmpty(notification.ChangedByUserId)
                 ? "System"
                 : $"User:{notification.ChangedByUserId[..Math.Min(8, notification.ChangedByUserId.Length)]}",
-            Timestamp = ts.UtcDateTime,
+            Timestamp = ts,
             IsRead = false
         };
 

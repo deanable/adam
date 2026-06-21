@@ -51,12 +51,12 @@ public sealed class SearchHistoryService
         int maxResults = 200,
         CancellationToken ct = default)
     {
-        return await _context.SearchHistoryEntries
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var all = await _context.SearchHistoryEntries
             .Where(s => s.UserId == userId)
-            .OrderByDescending(s => s.ExecutedAt)
-            .Take(maxResults)
             .AsNoTracking()
             .ToListAsync(ct);
+        return [.. all.OrderByDescending(s => s.ExecutedAt).Take(maxResults)];
     }
 
     public async Task ClearAsync(Guid? userId = null, CancellationToken ct = default)
@@ -74,11 +74,11 @@ public sealed class SearchHistoryService
         if (userId == null) return;
 
         // Single query: skip the 200 most recent entries and delete the rest
-        var toDelete = await _context.SearchHistoryEntries
+        // Load to memory first, then sort — SQLite cannot ORDER BY DateTimeOffset
+        var all = await _context.SearchHistoryEntries
             .Where(s => s.UserId == userId)
-            .OrderByDescending(s => s.ExecutedAt)
-            .Skip(200)
             .ToListAsync(ct);
+        var toDelete = all.OrderByDescending(s => s.ExecutedAt).Skip(200).ToList();
 
         if (toDelete.Count > 0)
             _context.SearchHistoryEntries.RemoveRange(toDelete);
