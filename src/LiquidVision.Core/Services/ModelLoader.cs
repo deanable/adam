@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 using LiquidVision.Core.Configuration;
 using LiquidVision.Core.Exceptions;
@@ -31,6 +32,12 @@ public sealed class LoadedModel : IDisposable
 public sealed class ModelLoader : IDisposable
 {
     private LoadedModel? _loaded;
+    private readonly ILogger? _logger;
+
+    public ModelLoader(ILogger? logger = null)
+    {
+        _logger = logger;
+    }
 
     public LoadedModel Load(Lfm2VlModelLayout layout, LiquidVisionOptions options)
     {
@@ -59,6 +66,7 @@ public sealed class ModelLoader : IDisposable
         }
         catch (Exception ex) when (ex is not ModelLoadException)
         {
+            _logger?.LogError(ex, "Failed to load ONNX model from {ModelDirectory}", layout.ModelDirectory);
             throw new ModelLoadException($"Failed to load ONNX model from {layout.ModelDirectory}", ex);
         }
     }

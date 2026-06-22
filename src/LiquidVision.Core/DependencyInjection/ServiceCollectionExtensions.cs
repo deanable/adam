@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using LiquidVision.Core.Configuration;
 
 namespace LiquidVision.Core.DependencyInjection;
@@ -31,7 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILiquidVisionAnalyzer>(sp =>
         {
             var factory = sp.GetRequiredService<IHttpClientFactory>();
-            return new LiquidVisionAnalyzer(options, factory);
+            var logger = sp.GetService<ILogger<LiquidVisionAnalyzer>>();
+            return new LiquidVisionAnalyzer(options, factory, logger);
         });
 
         return services;

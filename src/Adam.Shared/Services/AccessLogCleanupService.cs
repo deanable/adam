@@ -12,17 +12,20 @@ namespace Adam.Shared.Services;
 public class AccessLogCleanupService
 {
     private readonly ModeManager _modeManager;
+    private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly IConfiguration? _configuration;
     private readonly ILogger<AccessLogCleanupService> _logger;
 
     public AccessLogCleanupService(
         ModeManager modeManager,
         IConfiguration? configuration = null,
-        ILogger<AccessLogCleanupService>? logger = null)
+        ILogger<AccessLogCleanupService>? logger = null,
+        IDbContextFactory<AppDbContext>? dbContextFactory = null)
     {
         _modeManager = modeManager;
         _configuration = configuration;
         _logger = logger ?? NullLogger<AccessLogCleanupService>.Instance;
+        _dbContextFactory = dbContextFactory;
     }
 
     /// <summary>
@@ -51,7 +54,12 @@ public class AccessLogCleanupService
             return 0;
         }
 
-        await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+        // Use the injected IDbContextFactory when available (broker context) so that
+        // pruning targets the broker's actual database rather than ModeManager's
+        // standalone database. Fall back to ModeManager for standalone/tests.
+        await using var db = _dbContextFactory is not null
+            ? await _dbContextFactory.CreateDbContextAsync(ct)
+            : await _modeManager.CreateDbContextAsync(ct);
 
         // SQLite EF Core does not support DateTimeOffset comparison operators (<, >)
         // in Where clauses. To support all database providers, load entries into memory

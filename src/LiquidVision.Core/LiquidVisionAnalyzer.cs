@@ -10,6 +10,7 @@ using LiquidVision.Core.Configuration;
 using LiquidVision.Core.DependencyInjection;
 using LiquidVision.Core.Exceptions;
 using LiquidVision.Core.Services;
+using Microsoft.Extensions.Logging;
 
 namespace LiquidVision.Core;
 
@@ -21,9 +22,10 @@ public sealed class LiquidVisionAnalyzer : ILiquidVisionAnalyzer
 {
     private readonly LiquidVisionOptions _options;
     private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly ILogger<LiquidVisionAnalyzer>? _logger;
     private readonly ModelCacheManager _cacheManager;
     private readonly ModelVerificationMarker _marker;
-    private readonly ModelLoader _loader = new();
+    private readonly ModelLoader _loader;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     private LoadedModel? _model;
@@ -37,15 +39,17 @@ public sealed class LiquidVisionAnalyzer : ILiquidVisionAnalyzer
 
     public LiquidVisionAnalyzer() : this(new LiquidVisionOptions()) { }
 
-    public LiquidVisionAnalyzer(LiquidVisionOptions options)
+    public LiquidVisionAnalyzer(LiquidVisionOptions options, ILogger<LiquidVisionAnalyzer>? logger = null)
     {
         _options = options;
+        _logger = logger;
         _cacheManager = new ModelCacheManager(options);
-        _marker = new ModelVerificationMarker(_cacheManager.Layout);
+        _marker = new ModelVerificationMarker(_cacheManager.Layout, logger);
+        _loader = new ModelLoader(logger);
     }
 
-    public LiquidVisionAnalyzer(LiquidVisionOptions options, IHttpClientFactory httpClientFactory)
-        : this(options)
+    public LiquidVisionAnalyzer(LiquidVisionOptions options, IHttpClientFactory httpClientFactory, ILogger<LiquidVisionAnalyzer>? logger = null)
+        : this(options, logger)
     {
         _httpClientFactory = httpClientFactory;
     }
@@ -90,8 +94,9 @@ public sealed class LiquidVisionAnalyzer : ILiquidVisionAnalyzer
             {
                 LoadModel();
             }
-            catch (ModelLoadException)
+            catch (ModelLoadException ex)
             {
+                _logger?.LogWarning(ex, "Model load failed after verify — clearing cache and retrying download once");
                 // Corruption / partial cache: clear and retry once.
                 await _marker.ClearAsync(ct);
                 await _cacheManager.ClearCacheAsync(ct);
@@ -133,8 +138,8 @@ public sealed class LiquidVisionAnalyzer : ILiquidVisionAnalyzer
     private ModelDownloader CreateDownloader()
     {
         if (_httpClientFactory is not null)
-            return new ModelDownloader(_httpClientFactory.CreateClient(ServiceCollectionExtensions.HttpClientName), _options);
-        return new ModelDownloader(_options);
+            return new ModelDownloader(_httpClientFactory.CreateClient(ServiceCollectionExtensions.HttpClientName), _options, _logger);
+        return new ModelDownloader(_options, _logger);
     }
 
     private void LoadModel()

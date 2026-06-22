@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace LiquidVision.Core.Services;
 
@@ -17,10 +18,12 @@ public sealed class ModelVerificationMarker
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly string _markerFilePath;
     private readonly Lfm2VlModelLayout _layout;
+    private readonly ILogger? _logger;
 
-    public ModelVerificationMarker(Lfm2VlModelLayout layout)
+    public ModelVerificationMarker(Lfm2VlModelLayout layout, ILogger? logger = null)
     {
         _layout = layout;
+        _logger = logger;
         _markerFilePath = Path.Combine(layout.ModelDirectory, ".model_verified");
     }
 
@@ -56,8 +59,9 @@ public sealed class ModelVerificationMarker
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogDebug(ex, "Failed to read verification marker — treating model as unverified");
             return false; // corrupt marker → treat as unverified
         }
         finally

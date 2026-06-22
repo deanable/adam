@@ -125,10 +125,10 @@ var host = Host.CreateDefaultBuilder(args)
 
 // Initialize ModeManager for AccessLogCleanupService
 var modeManager = host.Services.GetRequiredService<ModeManager>();
-await modeManager.InitializeAsync();
 var fts = host.Services.GetService<IFtsService>();
 if (fts != null)
     modeManager.FtsService = fts;
+await modeManager.InitializeAsync();
 
 var runner = host.Services.GetRequiredService<MigrationRunner>();
 await runner.RunAsync();

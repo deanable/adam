@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LiquidVision.Core.Configuration;
 using LiquidVision.Core.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace LiquidVision.Core.Services;
 
@@ -20,21 +21,24 @@ public sealed class ModelDownloader : IDisposable
     private readonly HttpClient _httpClient;
     private readonly bool _ownsClient;
     private readonly LiquidVisionOptions _options;
+    private readonly ILogger? _logger;
 
     /// <summary>Creates a downloader that owns its own <see cref="HttpClient"/>.</summary>
-    public ModelDownloader(LiquidVisionOptions? options = null)
+    public ModelDownloader(LiquidVisionOptions? options = null, ILogger? logger = null)
     {
         _options = options ?? new LiquidVisionOptions();
         _httpClient = new HttpClient { Timeout = _options.DownloadTimeout };
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LiquidVision/1.0");
+        _logger = logger;
         _ownsClient = true;
     }
 
     /// <summary>Creates a downloader using an injected <see cref="HttpClient"/> (e.g. from IHttpClientFactory).</summary>
-    public ModelDownloader(HttpClient httpClient, LiquidVisionOptions options)
+    public ModelDownloader(HttpClient httpClient, LiquidVisionOptions options, ILogger? logger = null)
     {
         _httpClient = httpClient;
         _options = options;
+        _logger = logger;
         _ownsClient = false;
     }
 
@@ -115,7 +119,10 @@ public sealed class ModelDownloader : IDisposable
                 return resp.Content.Headers.ContentLength;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { /* fall through to unknown size */ }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "HEAD request failed for {Url} — proceeding without content-length", url);
+        }
         return null;
     }
 
@@ -186,12 +193,17 @@ public sealed class ModelDownloader : IDisposable
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or ModelDownloadException or TaskCanceledException)
             {
+                _logger?.LogWarning(ex, "Download attempt {Attempt}/{MaxRetries} failed for {Url}",
+                    attempt + 1, _options.MaxDownloadRetries + 1, url);
                 lastError = ex; // transient – retry (resuming from .part)
             }
         }
 
         if (optional)
             return false;
+
+        _logger?.LogError("Download exhausted {Attempts} retries for {Url}: {Error}",
+            _options.MaxDownloadRetries + 1, url, lastError?.Message);
 
         throw new ModelDownloadException(
             $"Network error downloading {url} after {_options.MaxDownloadRetries + 1} attempts: {lastError?.Message}",
