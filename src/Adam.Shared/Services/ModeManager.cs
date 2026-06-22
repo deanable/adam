@@ -81,22 +81,18 @@ public sealed class ModeManager
             // Use EnsureCreatedAsync during development to auto-generate schema from model
             // without maintaining EF Core migration files for every schema change.
             // The BrokerService uses DbMigrationService for production schema management.
-            var wasCreated = await db.Database.EnsureCreatedAsync();
-
-            // If the database already existed (wasCreated == false), EnsureCreatedAsync
-            // does NOT add columns that were added to the model after the DB was created.
-            // Manually add the SortOrder column and its indexes for existing databases.
-            // This is safe to run repeatedly — SQLite's IF NOT EXISTS semantics on ALTER
-            // TABLE ADD COLUMN only exist in custom SQL via PRAGMA or exception handling.
-            if (!wasCreated)
-            {
-                await AddMissingColumnsAsync(db);
-            }
+            await db.Database.EnsureCreatedAsync();
 
             // Seed the __EFMigrationsHistory table so that future migration-based
             // deployment (dotnet ef database update) knows the current state.
             await SeedMigrationHistoryAsync(db);
         }
+
+        // Always patch missing columns, regardless of which code path was taken.
+        // The AddMissingColumnsAsync method handles "duplicate column" gracefully
+        // and uses CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS for
+        // tables and indexes, so it is safe to run every startup.
+        await AddMissingColumnsAsync(db);
 
         // T11.5: Initialize FTS5 tables and triggers after schema creation
         if (FtsService != null)
@@ -118,30 +114,31 @@ public sealed class ModeManager
     }
 
     /// <summary>
-    /// Adds columns and indexes that were added to the EF Core model after the database
-    /// was initially created. Since standalone mode uses <c>EnsureCreatedAsync</c> (which
-    /// does NOT alter existing tables), these schema additions are applied via raw SQL.
+    /// Adds columns, tables, and indexes that were added to the EF Core model after
+    /// the database was initially created. Since standalone mode uses <c>EnsureCreatedAsync</c>
+    /// (which does NOT alter existing tables), these schema additions are applied via raw SQL.
     /// </summary>
     private async Task AddMissingColumnsAsync(AppDbContext db)
     {
-        // SQLite does not support IF NOT EXISTS for ALTER TABLE ADD COLUMN.
-        // Catch the "duplicate column" exception and ignore it.
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE \"DigitalAssets\" ADD COLUMN \"SortOrder\" INTEGER NOT NULL DEFAULT 0;");
-        }
-        catch (Exception ex) when (ex.Message.Contains("duplicate column"))
-        {
-            // Column already exists — no action needed
-        }
+        await AddColumnIfMissingAsync(db, "DigitalAssets", "\"SortOrder\" INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(db, "DigitalAssets", "\"Orientation\" INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(db, "Collections", "\"IsSmart\" INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(db, "Collections", "\"SmartQueryJson\" TEXT NULL");
+        await AddColumnIfMissingAsync(db, "Collections", "\"LastAutoRefreshedAt\" TEXT NULL");
+        await AddColumnIfMissingAsync(db, "Keywords", "\"IsAiGenerated\" INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(db, "Categories", "\"IsAiGenerated\" INTEGER NOT NULL DEFAULT 0");
 
-        // Create the UserPreferences table if it doesn't exist.
-        // This table was added in a later migration after the initial
-        // EnsureCreatedAsync() bootstrap.
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(@"
+        // Post-creation columns for tables that may already exist from a previous run
+        await AddColumnIfMissingAsync(db, "AssetEmbeddings", "\"ComputedAt\" TEXT NOT NULL DEFAULT '1970-01-01 00:00:00+00:00'");
+        await AddColumnIfMissingAsync(db, "SearchClickLogs", "\"DwellTimeMs\" INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(db, "SearchClickLogs", "\"RankPosition\" INTEGER NOT NULL DEFAULT 0");
+
+        // Ensure indexes exist (IF NOT EXISTS is safe for CREATE INDEX)
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_SortOrder\" ON \"DigitalAssets\" (\"SortOrder\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_CollectionId_SortOrder\" ON \"DigitalAssets\" (\"CollectionId\", \"SortOrder\");");
+
+        // Create the UserPreferences table and index
+        await TryExecuteAsync(db, @"
 CREATE TABLE IF NOT EXISTS ""UserPreferences"" (
     ""Id"" TEXT NOT NULL,
     ""UserId"" TEXT NULL,
@@ -151,35 +148,165 @@ CREATE TABLE IF NOT EXISTS ""UserPreferences"" (
     ""Version"" INTEGER NOT NULL,
     PRIMARY KEY (""Id"")
 );");
-            await db.Database.ExecuteSqlRawAsync(@"
+        await TryExecuteAsync(db, @"
 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
     ON ""UserPreferences"" (""UserId"", ""Key"");");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to create UserPreferences table or index (non-fatal)");
-        }
 
+        // Create the Persons table (Phase 23: facial recognition)
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""Persons"" (
+    ""Id"" TEXT NOT NULL,
+    ""Name"" TEXT NOT NULL,
+    ""Notes"" TEXT NULL,
+    ""ThumbnailImage"" BLOB NULL,
+    ""CentroidEmbedding"" BLOB NULL,
+    ""EmbeddingModelVersion"" TEXT NULL,
+    ""CreatedAt"" TEXT NOT NULL,
+    ""ModifiedAt"" TEXT NOT NULL,
+    PRIMARY KEY (""Id"")
+);");
+        await TryExecuteAsync(db, "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Persons_Name\" ON \"Persons\" (\"Name\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_Persons_CreatedAt\" ON \"Persons\" (\"CreatedAt\");");
 
-        // Create indexes for SortOrder (IF NOT EXISTS syntax works for CREATE INDEX)
+        // Create the AssetFaces table (Phase 23: facial recognition)
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""AssetFaces"" (
+    ""Id"" TEXT NOT NULL,
+    ""AssetId"" TEXT NOT NULL,
+    ""FaceEmbedding"" BLOB NOT NULL,
+    ""BoundingBoxJson"" TEXT NOT NULL,
+    ""ThumbnailImage"" BLOB NULL,
+    ""PersonId"" TEXT NULL,
+    ""DetectionConfidence"" REAL NOT NULL DEFAULT 0.0,
+    ""MatchingConfidence"" REAL NOT NULL DEFAULT 0.0,
+    ""IsAutoAssigned"" INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""AssetId"") REFERENCES ""DigitalAssets""(""Id"") ON DELETE CASCADE,
+    FOREIGN KEY (""PersonId"") REFERENCES ""Persons""(""Id"") ON DELETE SET NULL
+);");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_AssetFaces_AssetId\" ON \"AssetFaces\" (\"AssetId\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_AssetFaces_PersonId\" ON \"AssetFaces\" (\"PersonId\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_AssetFaces_DetectionConfidence\" ON \"AssetFaces\" (\"DetectionConfidence\");");
+
+        // Create the AssetEmbeddings table (Phase 19: semantic search) if missing
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""AssetEmbeddings"" (
+    ""Id"" TEXT NOT NULL,
+    ""AssetId"" TEXT NOT NULL,
+    ""TextEmbedding"" BLOB NOT NULL,
+    ""ImageEmbedding"" BLOB NULL,
+    ""ModelVersion"" TEXT NOT NULL,
+    ""ComputedAt"" TEXT NOT NULL,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""AssetId"") REFERENCES ""DigitalAssets""(""Id"") ON DELETE CASCADE
+);");
+        await TryExecuteAsync(db, "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_AssetEmbeddings_AssetId\" ON \"AssetEmbeddings\" (\"AssetId\");");
+
+        // Create the SearchClickLog table (Phase 22: search ranking) if missing
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""SearchClickLogs"" (
+    ""Id"" TEXT NOT NULL,
+    ""AssetId"" TEXT NOT NULL,
+    ""UserId"" TEXT NULL,
+    ""QueryText"" TEXT NOT NULL,
+    ""NormalizedQuery"" TEXT NULL,
+    ""ClickedAt"" TEXT NOT NULL,
+    ""DwellTimeMs"" INTEGER NOT NULL DEFAULT 0,
+    ""RankPosition"" INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""AssetId"") REFERENCES ""DigitalAssets""(""Id"") ON DELETE CASCADE,
+    FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE SET NULL
+);");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_SearchClickLogs_NormalizedQuery_ClickedAt\" ON \"SearchClickLogs\" (\"NormalizedQuery\", \"ClickedAt\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_SearchClickLogs_AssetId_NormalizedQuery\" ON \"SearchClickLogs\" (\"AssetId\", \"NormalizedQuery\");");
+
+        // Create the SavedSearches table (Phase 22: search/saved searches)
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""SavedSearches"" (
+    ""Id"" TEXT NOT NULL,
+    ""Name"" TEXT NOT NULL,
+    ""QueryText"" TEXT NULL,
+    ""FiltersJson"" TEXT NOT NULL,
+    ""IsPinned"" INTEGER NOT NULL DEFAULT 0,
+    ""UserId"" TEXT NULL,
+    ""CreatedAt"" TEXT NOT NULL,
+    ""ModifiedAt"" TEXT NOT NULL,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE SET NULL
+);");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_SavedSearches_UserId\" ON \"SavedSearches\" (\"UserId\");");
+        await TryExecuteAsync(db, "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_SavedSearches_UserId_Name\" ON \"SavedSearches\" (\"UserId\", \"Name\");");
+
+        // Create the SearchHistoryEntries table (Phase 22: search history)
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""SearchHistoryEntries"" (
+    ""Id"" TEXT NOT NULL,
+    ""QueryText"" TEXT NOT NULL,
+    ""FiltersJson"" TEXT NOT NULL,
+    ""IsSemantic"" INTEGER NOT NULL DEFAULT 0,
+    ""ExecutedAt"" TEXT NOT NULL,
+    ""UserId"" TEXT NULL,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE SET NULL
+);");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_SearchHistoryEntries_UserId\" ON \"SearchHistoryEntries\" (\"UserId\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_SearchHistoryEntries_ExecutedAt\" ON \"SearchHistoryEntries\" (\"ExecutedAt\");");
+
+        // Create the Comments table (Phase 22: asset commenting)
+        await TryExecuteAsync(db, @"
+CREATE TABLE IF NOT EXISTS ""Comments"" (
+    ""Id"" TEXT NOT NULL,
+    ""AssetId"" TEXT NOT NULL,
+    ""ParentCommentId"" TEXT NULL,
+    ""UserId"" TEXT NOT NULL,
+    ""Body"" TEXT NOT NULL,
+    ""CreatedAt"" TEXT NOT NULL,
+    ""EditedAt"" TEXT NULL,
+    ""IsDeleted"" INTEGER NOT NULL DEFAULT 0,
+    ""Version"" INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (""Id""),
+    FOREIGN KEY (""AssetId"") REFERENCES ""DigitalAssets""(""Id"") ON DELETE CASCADE,
+    FOREIGN KEY (""ParentCommentId"") REFERENCES ""Comments""(""Id"") ON DELETE RESTRICT,
+    FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE RESTRICT
+);");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_Comments_AssetId\" ON \"Comments\" (\"AssetId\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_Comments_CreatedAt\" ON \"Comments\" (\"CreatedAt\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_Comments_ParentCommentId\" ON \"Comments\" (\"ParentCommentId\");");
+        await TryExecuteAsync(db, "CREATE INDEX IF NOT EXISTS \"IX_Comments_UserId\" ON \"Comments\" (\"UserId\");");
+
+        _logger.LogInformation("Missing schema additions applied successfully");
+    }
+
+    /// <summary>
+    /// Adds a column to a SQLite table if it doesn't already exist.
+    /// SQLite does not support IF NOT EXISTS for ALTER TABLE ADD COLUMN,
+    /// so we catch the "duplicate column" exception.
+    /// </summary>
+    private static async Task AddColumnIfMissingAsync(AppDbContext db, string table, string columnDef)
+    {
         try
         {
             await db.Database.ExecuteSqlRawAsync(
-                "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_SortOrder\" ON \"DigitalAssets\" (\"SortOrder\");");
+                $"ALTER TABLE \"{table}\" ADD COLUMN {columnDef};");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogWarning(ex, "Failed to create SortOrder index (non-fatal)");
+            // Column already exists — no action needed
         }
+    }
 
+    /// <summary>
+    /// Executes a raw SQL command and logs non-fatal warnings on failure.
+    /// </summary>
+    private async Task TryExecuteAsync(AppDbContext db, string sql)
+    {
         try
         {
-            await db.Database.ExecuteSqlRawAsync(
-                "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_CollectionId_SortOrder\" ON \"DigitalAssets\" (\"CollectionId\", \"SortOrder\");");
+            await db.Database.ExecuteSqlRawAsync(sql);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to create CollectionId_SortOrder index (non-fatal)");
+            _logger.LogWarning(ex, "Schema migration SQL failed (non-fatal): {Sql}", sql);
         }
     }
 

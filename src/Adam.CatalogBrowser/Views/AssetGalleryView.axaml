@@ -147,7 +147,7 @@
           </Button>
 
           <!-- Phase 22: Generate smart albums from embedding clusters -->
-          <Button Content="🎵 Generate Albums"
+          <Button Content="🖼️ Generate Photo Albums"
                   Command="{Binding DataContext.GenerateAlbumsCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
                   FontSize="11"
                   Padding="6,2"

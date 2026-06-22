@@ -68,6 +68,24 @@ public sealed class Lfm2VlModelLayout
     public string VisionEncoderPath => LocalOnnx(VisionEncoderGraphName(Architecture));
     public string DecoderPath => LocalOnnx(DecoderGraphName(Architecture));
 
+    /// <summary>
+    /// Returns the effective precision suffix for a specific graph component,
+    /// with architecture-aware fallbacks when the repo doesn't ship a given variant.
+    /// For example, LFM2.5-VL doesn't ship quantized <c>embed_tokens</c> files,
+    /// so we fall back to the baseline (FP32) version which works alongside Q4 weights.
+    /// </summary>
+    private string EffectiveSuffixFor(string graph)
+    {
+        var suffix = PrecisionSuffix;
+        // LFM2.5-VL doesn't ship quantized embed_tokens; fall back to baseline (FP32)
+        if (Architecture == ModelArchitecture.Lfm25Vl && graph == "embed_tokens" &&
+            suffix is "_q4" or "_q4f16" or "_q8" or "_quantized")
+        {
+            return "";
+        }
+        return suffix;
+    }
+
     public string TokenizerJsonPath => Path.Combine(ModelDirectory, "tokenizer.json");
     public string TokenizerConfigPath => Path.Combine(ModelDirectory, "tokenizer_config.json");
     public string ConfigPath => Path.Combine(ModelDirectory, "config.json");
@@ -122,7 +140,8 @@ public sealed class Lfm2VlModelLayout
 
             foreach (var graph in new[] { "embed_tokens", VisionEncoderGraphName(arch), DecoderGraphName(arch) })
             {
-                var onnx = $"onnx/{graph}{suffix}.onnx";
+                var effectiveSuffix = EffectiveSuffixFor(graph);
+                var onnx = $"onnx/{graph}{effectiveSuffix}.onnx";
                 files.Add(new RemoteModelFile(onnx, Path.Combine(ModelDirectory, ToLocal(onnx)), Optional: false));
                 // External data sits beside the .onnx so ORT auto-loads it. Large graphs (e.g. the decoder) are
                 // sharded across .onnx_data, .onnx_data_1, .onnx_data_2 — all optional (a precision may inline them
@@ -153,7 +172,7 @@ public sealed class Lfm2VlModelLayout
     }
 
     private string LocalOnnx(string graph) =>
-        Path.Combine(ModelDirectory, "onnx", $"{graph}{PrecisionSuffix}.onnx");
+        Path.Combine(ModelDirectory, "onnx", $"{graph}{EffectiveSuffixFor(graph)}.onnx");
 
     private static string ToLocal(string remoteRelative) =>
         remoteRelative.Replace('/', Path.DirectorySeparatorChar);

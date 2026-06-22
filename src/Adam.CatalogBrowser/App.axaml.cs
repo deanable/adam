@@ -110,7 +110,7 @@ public partial class App : Application
             {
                 o.ModelId = !string.IsNullOrWhiteSpace(config.AiModelId)
                     ? config.AiModelId
-                    : "onnx-community/LFM2-VL-1.6B-ONNX";
+                    : "LiquidAI/LFM2.5-VL-1.6B-ONNX";
 
                 o.Precision = Enum.TryParse<ModelPrecision>(config.AiPrecision, ignoreCase: true, out var precision)
                     ? precision

@@ -42,7 +42,7 @@ public sealed class AdamConfig
     /// Hugging Face repository ID of the selected AI tagging model.
     /// Defaults to the LFM2-VL 1.6B ONNX model.
     /// </summary>
-    public string AiModelId { get; set; } = "onnx-community/LFM2-VL-1.6B-ONNX";
+    public string AiModelId { get; set; } = "LiquidAI/LFM2.5-VL-1.6B-ONNX";
 
     /// <summary>
     /// Weight precision of the selected AI tagging model (e.g. "Q4F16", "Fp16").
