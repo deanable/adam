@@ -68,6 +68,18 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<TcpListenerService>();
         services.AddSingleton<MetadataWritebackService>();
         services.AddSingleton<AccessLogCleanupService>();
+        services.Configure<PluginConfig>(cfg =>
+        {
+            cfg.PluginDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Adam", "plugins");
+        });
+        services.AddSingleton<PluginLoaderService>();
+        services.AddSingleton(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<ModeManager>>();
+            return new ModeManager(exeDir, logger: logger);
+        });
         services.AddHostedService<TcpListenerHostedService>();
         services.AddHostedService<AccessLogCleanupHostedService>();
         // Not registering FolderScanService here — it requires ModeManager which
@@ -110,6 +122,13 @@ var host = Host.CreateDefaultBuilder(args)
         logging.SetMinimumLevel(LogLevel.Information);
     })
     .Build();
+
+// Initialize ModeManager for AccessLogCleanupService
+var modeManager = host.Services.GetRequiredService<ModeManager>();
+await modeManager.InitializeAsync();
+var fts = host.Services.GetService<IFtsService>();
+if (fts != null)
+    modeManager.FtsService = fts;
 
 var runner = host.Services.GetRequiredService<MigrationRunner>();
 await runner.RunAsync();

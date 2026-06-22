@@ -122,7 +122,7 @@ public sealed class ModeManager
     /// was initially created. Since standalone mode uses <c>EnsureCreatedAsync</c> (which
     /// does NOT alter existing tables), these schema additions are applied via raw SQL.
     /// </summary>
-    private static async Task AddMissingColumnsAsync(AppDbContext db)
+    private async Task AddMissingColumnsAsync(AppDbContext db)
     {
         // SQLite does not support IF NOT EXISTS for ALTER TABLE ADD COLUMN.
         // Catch the "duplicate column" exception and ignore it.
@@ -155,9 +155,9 @@ CREATE TABLE IF NOT EXISTS ""UserPreferences"" (
 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
     ON ""UserPreferences"" (""UserId"", ""Key"");");
         }
-        catch
+        catch (Exception ex)
         {
-            // Table creation failure is non-fatal
+            _logger.LogWarning(ex, "Failed to create UserPreferences table or index (non-fatal)");
         }
 
 
@@ -167,9 +167,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
             await db.Database.ExecuteSqlRawAsync(
                 "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_SortOrder\" ON \"DigitalAssets\" (\"SortOrder\");");
         }
-        catch
+        catch (Exception ex)
         {
-            // Index creation failure is non-fatal
+            _logger.LogWarning(ex, "Failed to create SortOrder index (non-fatal)");
         }
 
         try
@@ -177,9 +177,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
             await db.Database.ExecuteSqlRawAsync(
                 "CREATE INDEX IF NOT EXISTS \"IX_DigitalAssets_CollectionId_SortOrder\" ON \"DigitalAssets\" (\"CollectionId\", \"SortOrder\");");
         }
-        catch
+        catch (Exception ex)
         {
-            // Index creation failure is non-fatal
+            _logger.LogWarning(ex, "Failed to create CollectionId_SortOrder index (non-fatal)");
         }
     }
 
@@ -190,7 +190,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
     /// Note: <c>ExecuteSqlRawAsync</c> returns rows *affected* (always -1 for SELECT),
     /// not the query result, so we rely on catching the "no such table" exception instead.
     /// </summary>
-    private static async Task<bool> MigrationHistoryTableExistsAsync(AppDbContext db)
+    private async Task<bool> MigrationHistoryTableExistsAsync(AppDbContext db)
     {
         try
         {
@@ -198,8 +198,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
                 "SELECT 1 FROM \"__EFMigrationsHistory\" LIMIT 1");
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Migration history table does not exist yet (expected on fresh database)");
             return false;
         }
     }
@@ -210,7 +211,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
     /// This is needed because <c>EnsureCreatedAsync()</c> creates the schema directly
     /// without populating the migration history.
     /// </summary>
-    private static async Task SeedMigrationHistoryAsync(AppDbContext db)
+    private async Task SeedMigrationHistoryAsync(AppDbContext db)
     {
         try
         {
@@ -237,11 +238,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserPreferences_UserId_Key""
                     migrationId);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Non-fatal — schema is already correct from EnsureCreatedAsync.
             // Migration history seeding failure just means future migrations
             // will need to handle the fallback path.
+            _logger.LogWarning(ex, "Failed to seed migration history (non-fatal)");
         }
     }
 
