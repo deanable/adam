@@ -18,45 +18,61 @@
 
         <!-- Source scope -->
         <TextBlock Grid.Row="0" Grid.Column="0" Text="Source:"
-                   Classes="Body" VerticalAlignment="Center" />
+                   Classes="Body" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <ComboBox Grid.Row="0" Grid.Column="1"
                   ItemsSource="{Binding SourceOptions}"
                   SelectedIndex="{Binding SelectedSourceIndex}"
-                  FontSize="11" Padding="4,2" />
+                  FontSize="11" Padding="4,2"
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  Background="{DynamicResource SurfaceLightBrush}" />
 
         <!-- Sensitivity slider -->
         <TextBlock Grid.Row="1" Grid.Column="0" Text="Sensitivity:"
-                   Classes="Body" VerticalAlignment="Center" />
+                   Classes="Body" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
-          <TextBlock Text="More" Classes="Caption" VerticalAlignment="Center" />
+          <TextBlock Text="More" Classes="Caption" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
           <Slider Minimum="0.6" Maximum="0.95" SmallChange="0.05"
                   Value="{Binding Sensitivity}"
                   Width="120" VerticalAlignment="Center" />
-          <TextBlock Text="Less" Classes="Caption" VerticalAlignment="Center" />
+          <TextBlock Text="Less" Classes="Caption" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
         </StackPanel>
 
         <!-- Min cluster size -->
         <TextBlock Grid.Row="2" Grid.Column="0" Text="Min album size:"
-                   Classes="Body" VerticalAlignment="Center" />
+                   Classes="Body" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <NumericUpDown Grid.Row="2" Grid.Column="1"
                        Value="{Binding MinClusterSize}"
                        Minimum="2" Maximum="20" Increment="1"
-                       Width="60" FontSize="11" />
+                       Width="60" FontSize="11"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       Background="{DynamicResource SurfaceLightBrush}" />
 
         <!-- Max clusters -->
         <TextBlock Grid.Row="3" Grid.Column="0" Text="Max albums:"
-                   Classes="Body" VerticalAlignment="Center" />
+                   Classes="Body" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <NumericUpDown Grid.Row="3" Grid.Column="1"
                        Value="{Binding MaxClusters}"
                        Minimum="5" Maximum="50" Increment="5"
-                       Width="60" FontSize="11" />
+                       Width="60" FontSize="11"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       Background="{DynamicResource SurfaceLightBrush}" />
       </Grid>
     </Border>
 
     <!-- Mode radio buttons -->
     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0,4">
-      <RadioButton Content="Images only (visual similarity)" GroupName="ClusterMode" />
-      <RadioButton Content="All assets (text + metadata)" GroupName="ClusterMode" />
+      <RadioButton Content="Images only (visual similarity)" GroupName="ClusterMode"
+                   IsChecked="{Binding IsImagesOnlyMode}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+      <RadioButton Content="All assets (text + metadata)" GroupName="ClusterMode"
+                   IsChecked="{Binding IsAllAssetsMode}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
     </StackPanel>
 
     <!-- Preview clusters -->

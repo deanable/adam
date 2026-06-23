@@ -8,10 +8,10 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         x:CompileBindings="False">
-  <Border Background="White" Padding="16">
+  <Border Background="{DynamicResource SurfaceBrush}" Padding="16">
   <Grid RowDefinitions="Auto,Auto,Auto">
     <!-- Message -->
-    <TextBlock Grid.Row="0" Text="{Binding Message}" FontSize="13" Foreground="#333" TextWrapping="Wrap" Margin="0,0,0,12" />
+    <TextBlock Grid.Row="0" Text="{Binding Message}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
 
     <!-- Text input -->
     <TextBox Grid.Row="1" x:Name="InputTextBox"
@@ -20,7 +20,8 @@
              Padding="6,4"
              BorderThickness="1"
              BorderBrush="#D0D0D0"
-             CornerRadius="4" />
+             CornerRadius="4"
+             Foreground="{DynamicResource TextPrimaryBrush}" />
 
     <!-- Buttons -->
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">

@@ -5,20 +5,21 @@
         x:DataType="vm:ExportDialogViewModel"
         Title="Export Assets"
         Width="460"
-        Height="520"
-        CanResize="False"
+        Height="620"
+        MinHeight="520"
+        CanResize="True"
         WindowStartupLocation="CenterOwner">
 
-  <Border Padding="20" Background="White">
+  <Border Padding="20" Background="{DynamicResource SurfaceBrush}">
     <StackPanel Spacing="12">
       <TextBlock Text="Export Assets"
                  FontSize="18"
                  FontWeight="Bold"
-                 Foreground="#333" />
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
 
       <!-- Destination folder -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Destination Folder:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="Destination Folder:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <Grid ColumnDefinitions="*,Auto">
           <TextBox Grid.Column="0"
                    Text="{Binding DestinationFolder}"
@@ -27,7 +28,8 @@
                    BorderBrush="#D0D0D0"
                    CornerRadius="4"
                    Padding="6,4"
-                   IsReadOnly="True" />
+                   IsReadOnly="True"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
           <Button Grid.Column="1"
                   Content="Browse..."
                   Command="{Binding BrowseCommand}"
@@ -42,14 +44,15 @@
 
       <!-- Format -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Format:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="Format:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <ComboBox SelectedIndex="{Binding SelectedFormatIndex}"
                   FontSize="12"
                   BorderThickness="1"
                   BorderBrush="#D0D0D0"
                   CornerRadius="4"
                   Padding="6,4"
-                  Width="160">
+                  Width="160"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
           <ComboBoxItem Content="JPEG" />
           <ComboBoxItem Content="TIFF" />
           <ComboBoxItem Content="CSV (Metadata)" />
@@ -58,69 +61,164 @@
 
       <!-- Quality (JPEG only) -->
       <StackPanel Spacing="4" IsVisible="{Binding IsJpegSelected}">
-        <TextBlock Text="Quality:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="Quality:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <Grid ColumnDefinitions="*,Auto">
           <Slider Grid.Column="0"
                   Minimum="1"
                   Maximum="100"
                   Value="{Binding Quality}"
                   TickFrequency="1"
-                  IsSnapToTickEnabled="True" />
+                  IsSnapToTickEnabled="True"
+                  Foreground="{DynamicResource PrimaryBrush}" />
           <TextBlock Grid.Column="1"
                      Text="{Binding Quality}"
                      FontSize="12"
                      Width="32"
                      TextAlignment="Center"
-                     VerticalAlignment="Center" />
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
         </Grid>
       </StackPanel>
 
       <!-- Compression (TIFF only) -->
       <StackPanel Spacing="4" IsVisible="{Binding !IsJpegSelected}">
-        <TextBlock Text="Compression:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="Compression:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <ComboBox SelectedIndex="{Binding SelectedCompressionIndex}"
                   FontSize="12"
                   BorderThickness="1"
                   BorderBrush="#D0D0D0"
                   CornerRadius="4"
                   Padding="6,4"
-                  Width="120">
+                  Width="120"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
           <ComboBoxItem Content="None" />
           <ComboBoxItem Content="LZW" />
         </ComboBox>
       </StackPanel>
 
-      <!-- Max dimension (image formats only) -->
+      <!-- Resolution (image & video formats) -->
       <StackPanel Spacing="4" IsVisible="{Binding !IsCsvSelected}">
-        <TextBlock Text="Max Dimension (px):" FontSize="12" Foreground="#666" />
-        <TextBox Text="{Binding MaxDimensionText}"
-                 FontSize="12"
-                 BorderThickness="1"
-                 BorderBrush="#D0D0D0"
-                 CornerRadius="4"
-                 Padding="6,4"
-                 PlaceholderText="Leave empty for original size" />
+        <TextBlock Text="Resolution:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ComboBox SelectedIndex="{Binding SelectedResolutionIndex}"
+                  FontSize="12"
+                  BorderThickness="1"
+                  BorderBrush="#D0D0D0"
+                  CornerRadius="4"
+                  Padding="6,4"
+                  Width="200"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
+          <ComboBoxItem Content="Original" />
+          <ComboBoxItem Content="480p (854×480)" />
+          <ComboBoxItem Content="720p (1280×720)" />
+          <ComboBoxItem Content="1080p (1920×1080)" />
+          <ComboBoxItem Content="2K (2560×1440)" />
+          <ComboBoxItem Content="4K (3840×2160)" />
+          <ComboBoxItem Content="Custom" />
+        </ComboBox>
+
+        <!-- Custom resolution inputs -->
+        <StackPanel Spacing="4" IsVisible="{Binding IsCustomResolution}" Orientation="Horizontal" Margin="0,4,0,0">
+          <TextBox Text="{Binding CustomWidthText}"
+                   FontSize="12"
+                   Width="80"
+                   BorderThickness="1"
+                   BorderBrush="#D0D0D0"
+                   CornerRadius="4"
+                   Padding="6,4"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="×"
+                     FontSize="14"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBox Text="{Binding CustomHeightText}"
+                   FontSize="12"
+                   Width="80"
+                   BorderThickness="1"
+                   BorderBrush="#D0D0D0"
+                   CornerRadius="4"
+                   Padding="6,4"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="px"
+                     FontSize="12"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextTertiaryBrush}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Aspect ratio (image & video formats) -->
+      <StackPanel Spacing="4" IsVisible="{Binding !IsCsvSelected}">
+        <TextBlock Text="Aspect Ratio:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ComboBox SelectedIndex="{Binding SelectedAspectRatioIndex}"
+                  FontSize="12"
+                  BorderThickness="1"
+                  BorderBrush="#D0D0D0"
+                  CornerRadius="4"
+                  Padding="6,4"
+                  Width="200"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
+          <ComboBoxItem Content="Original" />
+          <ComboBoxItem Content="1:1 Square" />
+          <ComboBoxItem Content="4:3" />
+          <ComboBoxItem Content="3:2" />
+          <ComboBoxItem Content="16:10" />
+          <ComboBoxItem Content="16:9" />
+          <ComboBoxItem Content="21:9 Ultrawide" />
+          <ComboBoxItem Content="9:16 Portrait" />
+        </ComboBox>
+
+        <!-- Effective size hint -->
+        <TextBlock Text="{Binding EffectiveSizeText}"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
+                   FontStyle="Italic"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding IsAspectRatioActive}" />
+      </StackPanel>
+
+      <!-- Video compression (visible when videos are in selection) -->
+      <StackPanel Spacing="4" IsVisible="{Binding HasVideos}">
+        <TextBlock Text="Video Quality (CRF):" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <Grid ColumnDefinitions="*,Auto">
+          <Slider Grid.Column="0"
+                  Minimum="0"
+                  Maximum="51"
+                  Value="{Binding VideoCrf}"
+                  TickFrequency="1"
+                  IsSnapToTickEnabled="True"
+                  Foreground="{DynamicResource PrimaryBrush}" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding VideoCrfLabel}"
+                     FontSize="12"
+                     Width="48"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+        </Grid>
+        <TextBlock Text="Lower = better quality, larger file (18 recommended, 23 default)"
+                   FontSize="10"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
+                   TextWrapping="Wrap" />
       </StackPanel>
 
       <!-- CSV options (visible when CSV selected) -->
       <StackPanel Spacing="8" IsVisible="{Binding IsCsvSelected}">
-        <TextBlock Text="Fields to Export:" FontSize="12" Foreground="#666" FontWeight="SemiBold" />
-        <CheckBox IsChecked="{Binding CsvExportTitle}" Content="Title" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportDescription}" Content="Description" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportKeywords}" Content="Keywords" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportCategories}" Content="Categories" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportRating}" Content="Rating" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportLabel}" Content="Label" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportFlag}" Content="Flag" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportCopyright}" Content="Copyright" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportGps}" Content="GPS" FontSize="11" />
-        <CheckBox IsChecked="{Binding CsvExportCamera}" Content="Camera Make/Model" FontSize="11" />
+        <TextBlock Text="Fields to Export:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="SemiBold" />
+        <CheckBox IsChecked="{Binding CsvExportTitle}" Content="Title" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportDescription}" Content="Description" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportKeywords}" Content="Keywords" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportCategories}" Content="Categories" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportRating}" Content="Rating" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportLabel}" Content="Label" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportFlag}" Content="Flag" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportCopyright}" Content="Copyright" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportGps}" Content="GPS" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
+        <CheckBox IsChecked="{Binding CsvExportCamera}" Content="Camera Make/Model" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
 
       <!-- Asset count info -->
       <TextBlock Text="{Binding AssetCountText}"
                  FontSize="11"
-                 Foreground="#888"
+                 Foreground="{DynamicResource TextTertiaryBrush}"
                  FontStyle="Italic" />
 
       <!-- Progress -->
@@ -131,7 +229,7 @@
                      CornerRadius="4" />
         <TextBlock Text="{Binding ProgressText}"
                    FontSize="11"
-                   Foreground="#666"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    TextAlignment="Center" />
       </StackPanel>
 

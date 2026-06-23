@@ -19,7 +19,8 @@
                  FontSize="12"
                  BorderThickness="1"
                  BorderBrush="{DynamicResource InputBorderBrush}"
-                 CornerRadius="4" />
+                 CornerRadius="4"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
 
         <!-- Category list -->
         <ScrollViewer Grid.Row="1" Margin="0,4,0,0">
@@ -77,7 +78,8 @@
               <ComboBox ItemsSource="{Binding ThemeOptions}"
                         SelectedIndex="{Binding SelectedThemeIndex}"
                         FontSize="12" Width="200" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
               <TextBlock Text="Choose Light, Dark, or follow the system theme. Changes apply immediately."
                          Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
             </StackPanel>
@@ -91,7 +93,8 @@
               <ComboBox ItemsSource="{Binding AccentOptions}"
                         SelectedIndex="{Binding SelectedAccentIndex}"
                         FontSize="12" Width="200" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
               <WrapPanel>
                 <WrapPanel.Styles>
                   <Style Selector="Border">
@@ -120,7 +123,8 @@
               <ComboBox ItemsSource="{Binding DensityOptions}"
                         SelectedIndex="{Binding SelectedDensityIndex}"
                         FontSize="12" Width="200" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
             </StackPanel>
           </Border>
 
@@ -132,7 +136,8 @@
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <TextBlock Text="0.5×" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
                 <Slider Grid.Column="1" Minimum="0.5" Maximum="2.0" SmallChange="0.1" LargeChange="0.25"
-                        Value="{Binding FontScale}" />
+                        Value="{Binding FontScale}"
+                        Foreground="{DynamicResource PrimaryBrush}" />
                 <TextBlock Grid.Column="2" Text="2.0×" Classes="Caption" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
               </Grid>
               <TextBlock Text="Preview: The quick brown fox jumps over the lazy dog"
@@ -207,13 +212,16 @@
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
                 <TextBlock Text="Host:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                 <TextBox Grid.Column="1" Text="{Binding Config.ServiceHost}" FontSize="12" Padding="4,2"
-                         BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" />
+                         BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4"
+                         Foreground="{DynamicResource TextPrimaryBrush}" />
                 <TextBlock Grid.Row="1" Text="Port:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                 <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Config.ServicePort}"
-                               Minimum="1" Maximum="65535" Increment="1" FontSize="12" Width="120" HorizontalAlignment="Left" />
+                               Minimum="1" Maximum="65535" Increment="1" FontSize="12" Width="120" HorizontalAlignment="Left"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
                 <TextBlock Grid.Row="2" Text="TLS:" Classes="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                 <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding Config.UseTls}"
-                          Content="{Binding Config.UseTls, StringFormat={}{}Enabled}" FontSize="12" />
+                          Content="{Binding Config.UseTls, StringFormat={}{}Enabled}" FontSize="12"
+                          Foreground="{DynamicResource TextPrimaryBrush}" />
               </Grid>
             </StackPanel>
           </Border>
@@ -344,7 +352,8 @@
               <ComboBox ItemsSource="{Binding DefaultSortOptions}"
                         SelectedIndex="{Binding DefaultSortIndex}"
                         FontSize="12" Width="200" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
             </StackPanel>
           </Border>
 
@@ -355,7 +364,8 @@
               <ComboBox ItemsSource="{Binding ResultsPerPageOptions}"
                         SelectedItem="{Binding ResultsPerPage}"
                         FontSize="12" Width="120" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
             </StackPanel>
           </Border>
 
@@ -366,7 +376,8 @@
               <ComboBox ItemsSource="{Binding ThumbnailSizeOptions}"
                         SelectedItem="{Binding ThumbnailSize}"
                         FontSize="12" Width="120" HorizontalAlignment="Left"
-                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2" />
+                        BorderThickness="1" BorderBrush="{DynamicResource InputBorderBrush}" CornerRadius="4" Padding="4,2"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
             </StackPanel>
           </Border>
 

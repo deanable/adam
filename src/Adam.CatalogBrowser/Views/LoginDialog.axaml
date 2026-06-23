@@ -22,7 +22,7 @@
     </Style>
   </Window.Styles>
 
-  <Border Padding="24" Background="White">
+  <Border Padding="24" Background="{DynamicResource SurfaceBrush}">
     <StackPanel Spacing="12">
 
       <!-- Header -->
@@ -30,15 +30,15 @@
         <TextBlock Text="Connect to Service"
                    FontSize="18"
                    FontWeight="Bold"
-                   Foreground="#333" />
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
         <TextBlock Text="Enter the service address and your credentials"
                    FontSize="12"
-                   Foreground="#888" />
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
       </StackPanel>
 
       <!-- Service Address -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Service Address:" FontSize="12" Foreground="#555" />
+        <TextBlock Text="Service Address:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
           <!-- Host text box -->
           <TextBox Grid.Row="0" Grid.Column="0"
@@ -48,7 +48,8 @@
                    BorderBrush="#D0D0D0"
                    CornerRadius="4"
                    Padding="8,6"
-                   PlaceholderText="e.g. localhost or 192.168.1.100" />
+                   PlaceholderText="e.g. localhost or 192.168.1.100"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
           <!-- Recent hosts dropdown -->
           <ComboBox Grid.Row="0" Grid.Column="1"
                     ItemsSource="{Binding RecentHosts}"
@@ -60,7 +61,8 @@
                     BorderBrush="#D0D0D0"
                     CornerRadius="4"
                     Padding="6,4"
-                    Cursor="Hand">
+                    Cursor="Hand"
+                    Foreground="{DynamicResource TextPrimaryBrush}">
             <ComboBox.Styles>
               <Style Selector="ComboBox:pointerover">
                 <Setter Property="BorderBrush" Value="#1976D2" />
@@ -72,7 +74,7 @@
 
       <!-- Port -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Port:" FontSize="12" Foreground="#555" />
+        <TextBlock Text="Port:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <NumericUpDown Value="{Binding ServicePort}"
                         Minimum="1"
                         Maximum="65535"
@@ -82,7 +84,8 @@
                         BorderBrush="#D0D0D0"
                         CornerRadius="4"
                         Padding="4,2"
-                        FormatString="0" />
+                        FormatString="0"
+                        Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
 
       <!-- Test Connection -->
@@ -149,7 +152,7 @@
 
       <!-- Username -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Username:" FontSize="12" Foreground="#555" />
+        <TextBlock Text="Username:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <TextBox Name="UsernameTextBox"
                  Text="{Binding Username}"
                  FontSize="13"
@@ -157,12 +160,13 @@
                  BorderBrush="#D0D0D0"
                  CornerRadius="4"
                  Padding="8,6"
-                 PlaceholderText="Enter username" />
+                 PlaceholderText="Enter username"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
 
       <!-- Password -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Password:" FontSize="12" Foreground="#555" />
+        <TextBlock Text="Password:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <TextBox Text="{Binding Password}"
                  FontSize="13"
                  BorderThickness="1"
@@ -170,7 +174,8 @@
                  CornerRadius="4"
                  Padding="8,6"
                  PlaceholderText="Enter password"
-                 PasswordChar="●" />
+                 PasswordChar="●"
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
 
       <!-- Clear saved credentials -->
@@ -192,7 +197,7 @@
         </Button>
         <TextBlock Text="— resets host, port, username, and recent servers"
                    FontSize="11"
-                   Foreground="#AAA"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
                    VerticalAlignment="Center" />
       </StackPanel>
 

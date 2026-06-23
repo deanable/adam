@@ -83,11 +83,18 @@ public class ConnectionViewModel : INotifyPropertyChanged
             _isServiceMode = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsLocalMode));
+            OnPropertyChanged(nameof(ShowServiceNotConnectedPanel));
             if (!value) _ = SwitchToLocalAsync();
         }
     }
 
     public bool IsLocalMode => !IsServiceMode;
+
+    /// <summary>
+    /// Whether to show the host/port/connect connection panel in the title bar.
+    /// Only visible in service mode when not yet connected, so local mode stays clean.
+    /// </summary>
+    public bool ShowServiceNotConnectedPanel => IsServiceMode && !IsConnectedToService;
 
     public string ServiceHost
     {
@@ -108,6 +115,7 @@ public class ConnectionViewModel : INotifyPropertyChanged
         {
             _isConnectedToService = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowServiceNotConnectedPanel));
             ConnectToServiceCommand.RaiseCanExecuteChanged();
             DisconnectFromServiceCommand.RaiseCanExecuteChanged();
             LogoutCommand.RaiseCanExecuteChanged();

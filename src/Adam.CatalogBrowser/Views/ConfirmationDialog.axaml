@@ -10,18 +10,18 @@
         WindowStartupLocation="CenterOwner"
         Topmost="False">
 
-  <Border Padding="20" Background="White">
+  <Border Padding="20" Background="{DynamicResource SurfaceBrush}">
     <StackPanel Spacing="16">
       <!-- Title -->
       <TextBlock Text="{Binding Title}"
                  FontSize="16"
                  FontWeight="SemiBold"
-                 Foreground="#333" />
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
 
       <!-- Message -->
       <TextBlock Text="{Binding Message}"
                  FontSize="13"
-                 Foreground="#555"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
                  TextWrapping="Wrap" />
 
       <!-- Buttons -->

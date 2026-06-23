@@ -627,6 +627,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var selected = AssetGallery.SelectedAssets.ToList();
         if (selected.Count == 0) return;
         var vm = new ExportDialogViewModel(_modeManager) { SelectedAssets = selected };
+        vm.OnSelectedAssetsChanged();
         var dialog = new Views.ExportDialog(vm);
         if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
             await dialog.ShowDialog(desktop.MainWindow);

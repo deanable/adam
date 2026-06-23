@@ -30,14 +30,17 @@
             <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                   RowSpacing="4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Title:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="1" Grid.Column="0" Text="Headline:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Description:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
               <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description}"
-                       AcceptsReturn="True" MaxHeight="80" FontSize="11" Padding="4,2" />
+                       AcceptsReturn="True" MaxHeight="80" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Keywords:" VerticalAlignment="Top" FontSize="11" Margin="0,4,0,0" />
               <controls:TagEditorControl Grid.Row="3" Grid.Column="1"
@@ -71,17 +74,21 @@
             <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                   RowSpacing="4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Creator:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Creator}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Creator}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="1" Grid.Column="0" Text="Copyright:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Headline:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Headline}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Contact:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ContactInfo}"
-                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2" />
+                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
             </Grid>
           </StackPanel>
         </Expander>
@@ -98,10 +105,12 @@
             <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Usage Terms:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
               <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UsageTerms}"
-                       AcceptsReturn="True" MaxHeight="60" FontSize="11" Padding="4,2" />
+                       AcceptsReturn="True" MaxHeight="60" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="1" Grid.Column="0" Text="Copyright:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Copyright}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Orientation:" VerticalAlignment="Center" FontSize="11" />
               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReadOnlyOrientation}" FontSize="11" FontWeight="Medium" />
@@ -120,17 +129,21 @@
           <StackPanel Spacing="6" Margin="8,8,8,8">
             <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="City:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding City}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding City}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="1" Grid.Column="0" Text="State/Province:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding State}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding State}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Country:" VerticalAlignment="Center" FontSize="11" />
-              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Country}" FontSize="11" Padding="4,2" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Country}" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Contact Info:" VerticalAlignment="Top" FontSize="11" Margin="0,2,0,0" />
               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ContactInfo}"
-                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2" />
+                       AcceptsReturn="True" MaxHeight="50" FontSize="11" Padding="4,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
             </Grid>
           </StackPanel>
         </Expander>

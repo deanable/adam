@@ -9,7 +9,7 @@
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
-  <Border Padding="20" Background="White">
+  <Border Padding="20" Background="{DynamicResource SurfaceBrush}">
     <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
 
       <!-- Header -->
@@ -17,14 +17,14 @@
                  Text="Metadata Presets"
                  FontSize="18"
                  FontWeight="Bold"
-                 Foreground="#333"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
                  Margin="0,0,0,8" />
 
       <!-- Save current as preset -->
       <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,12">
         <TextBlock Text="Save current asset as preset:"
                    FontSize="12"
-                   Foreground="#666" />
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
         <Grid ColumnDefinitions="*,Auto">
           <TextBox Grid.Column="0"
                    Text="{Binding NewPresetName}"
@@ -33,7 +33,8 @@
                    BorderThickness="1"
                    BorderBrush="#D0D0D0"
                    CornerRadius="4"
-                   Padding="6,4" />
+                   Padding="6,4"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
           <Button Grid.Column="1"
                   Content="Save"
                   Command="{Binding SavePresetCommand}"
@@ -59,7 +60,7 @@
       <StackPanel Grid.Row="2" Spacing="4">
         <TextBlock Text="Saved presets:"
                    FontSize="12"
-                   Foreground="#666" />
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
         <Border BorderThickness="1"
                 BorderBrush="#D0D0D0"
                 CornerRadius="4"
@@ -77,16 +78,16 @@
                                  Text="{Binding Name}"
                                  FontSize="13"
                                  FontWeight="SemiBold"
-                                 Foreground="#333" />
+                                 Foreground="{DynamicResource TextPrimaryBrush}" />
                       <TextBlock Grid.Row="0" Grid.Column="1"
                                  Text="{Binding SavedAtFormatted}"
                                  FontSize="10"
-                                 Foreground="#999"
+                                 Foreground="{DynamicResource TextTertiaryBrush}"
                                  VerticalAlignment="Center" />
                       <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
                                  Text="{Binding FieldSummary}"
                                  FontSize="11"
-                                 Foreground="#777"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
                                  Margin="0,2,0,0" />
                     </Grid>
                   </Border>
@@ -101,7 +102,7 @@
       <TextBlock Grid.Row="3"
                  Text="{Binding StatusText}"
                  FontSize="11"
-                 Foreground="#666"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
                  FontStyle="Italic"
                  Margin="0,8,0,0"
                  TextWrapping="Wrap" />

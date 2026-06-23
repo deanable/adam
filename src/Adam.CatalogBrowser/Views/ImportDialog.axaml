@@ -9,16 +9,16 @@
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
-  <Border Padding="20" Background="White">
+  <Border Padding="20" Background="{DynamicResource SurfaceBrush}">
     <StackPanel Spacing="12">
       <TextBlock Text="Import Metadata from CSV"
                  FontSize="18"
                  FontWeight="Bold"
-                 Foreground="#333" />
+                 Foreground="{DynamicResource TextPrimaryBrush}" />
 
       <!-- File selection -->
       <StackPanel Spacing="4">
-        <TextBlock Text="CSV File:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="CSV File:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <Grid ColumnDefinitions="*,Auto">
           <TextBox Grid.Column="0"
                    Text="{Binding SelectedFilePath}"
@@ -27,7 +27,8 @@
                    BorderBrush="#D0D0D0"
                    CornerRadius="4"
                    Padding="6,4"
-                   IsReadOnly="True" />
+                   IsReadOnly="True"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
           <Button Grid.Column="1"
                   Content="Browse..."
                   Command="{Binding BrowseFileCommand}"
@@ -42,13 +43,14 @@
 
       <!-- Conflict resolution -->
       <StackPanel Spacing="4">
-        <TextBlock Text="Conflict Resolution:" FontSize="12" Foreground="#666" />
+        <TextBlock Text="Conflict Resolution:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
         <ComboBox SelectedIndex="{Binding SelectedConflictIndex}"
                   FontSize="12"
                   BorderThickness="1"
                   BorderBrush="#D0D0D0"
                   CornerRadius="4"
-                  Padding="6,4">
+                  Padding="6,4"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
           <ComboBoxItem Content="Overwrite (replace existing values)" />
           <ComboBoxItem Content="Skip empty (preserve existing if CSV field is empty)" />
           <ComboBoxItem Content="Append keywords/categories (keep existing + add new)" />
@@ -59,7 +61,7 @@
       <StackPanel Spacing="4" IsVisible="{Binding HasPreview}">
         <TextBlock Text="{Binding ProgressText}"
                    FontSize="11"
-                   Foreground="#555"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    FontStyle="Italic" />
         <Border BorderThickness="1"
                 BorderBrush="#D0D0D0"
@@ -75,7 +77,8 @@
                              FontSize="10"
                              FontFamily="Consolas, Courier New, monospace"
                              TextWrapping="Wrap"
-                             Margin="0,1" />
+                             Margin="0,1"
+                             Foreground="{DynamicResource TextPrimaryBrush}" />
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -91,7 +94,7 @@
                      CornerRadius="4" />
         <TextBlock Text="{Binding ProgressText}"
                    FontSize="11"
-                   Foreground="#666"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    TextAlignment="Center" />
       </StackPanel>
 

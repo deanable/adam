@@ -174,7 +174,7 @@
 
             <!-- === Service mode: not connected === -->
             <StackPanel Orientation="Horizontal" Spacing="4"
-                        IsVisible="{Binding Connection.IsConnectedToService, Converter={x:Static views:InverseBoolConverter.Instance}}">
+                        IsVisible="{Binding Connection.ShowServiceNotConnectedPanel}">
               <TextBlock Text="Host:" Classes="Caption" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
               <TextBox Text="{Binding Connection.ServiceHost}" Width="80" FontSize="11" Padding="2,1" />
               <TextBlock Text="Port:" Classes="Caption" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />

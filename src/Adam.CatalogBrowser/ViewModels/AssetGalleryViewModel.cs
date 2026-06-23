@@ -857,6 +857,12 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         ClearThumbnailCache();
+
+        // Clear selection before clearing the collection to prevent
+        // Avalonia's SelectionModel from accessing invalid indices.
+        SelectedAsset = null;
+        _selectedAssets.Clear();
+
         foreach (var item in Assets)
             item.Dispose();
         Assets.Clear();

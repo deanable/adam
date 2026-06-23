@@ -327,7 +327,8 @@ public class InverseBoolConverter : IValueConverter
 
 /// <summary>
 /// Converts a boolean to a background brush for the active mode toggle button.
-/// True → #33FFFFFF (semi-transparent white highlight), False → Transparent.
+/// True → #115E59 (PrimaryPressedBrush — darker teal), False → Transparent.
+/// The darker fill creates a clear "selected" state on the teal title bar.
 /// </summary>
 public class BoolToModeBgConverter : IValueConverter
 {
@@ -335,7 +336,7 @@ public class BoolToModeBgConverter : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        return value is bool b && b ? new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)) : Brushes.Transparent;
+        return value is bool b && b ? new SolidColorBrush(Color.FromRgb(0x11, 0x5E, 0x59)) : Brushes.Transparent;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

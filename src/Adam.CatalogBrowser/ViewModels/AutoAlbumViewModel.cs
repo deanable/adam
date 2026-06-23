@@ -58,7 +58,38 @@ public sealed class AutoAlbumViewModel : INotifyPropertyChanged
     public int SelectedModeIndex
     {
         get => _selectedModeIndex;
-        set { _selectedModeIndex = value; OnPropertyChanged(); }
+        set
+        {
+            if (_selectedModeIndex == value) return;
+            _selectedModeIndex = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsImagesOnlyMode));
+            OnPropertyChanged(nameof(IsAllAssetsMode));
+        }
+    }
+
+    /// <summary>
+    /// Whether the "Images only" radio button is selected.
+    /// </summary>
+    public bool IsImagesOnlyMode
+    {
+        get => _selectedModeIndex == 0;
+        set
+        {
+            if (value) SelectedModeIndex = 0;
+        }
+    }
+
+    /// <summary>
+    /// Whether the "All assets" radio button is selected.
+    /// </summary>
+    public bool IsAllAssetsMode
+    {
+        get => _selectedModeIndex == 1;
+        set
+        {
+            if (value) SelectedModeIndex = 1;
+        }
     }
 
     /// <summary>

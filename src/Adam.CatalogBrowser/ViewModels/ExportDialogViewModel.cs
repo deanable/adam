@@ -17,9 +17,13 @@ public class ExportDialogViewModel : INotifyPropertyChanged
     private readonly ModeManager? _modeManager;
     private string _destinationFolder = string.Empty;
     private int _quality = 85;
-    private string _maxDimensionText = string.Empty;
     private int _selectedFormatIndex;
     private int _selectedCompressionIndex = 1; // LZW default
+    private int _selectedResolutionIndex;
+    private string _customWidthText = "1920";
+    private string _customHeightText = "1080";
+    private int _selectedAspectRatioIndex;
+    private int _videoCrf = 23;
     private bool _isExporting;
     private double _progressValue;
     private string _progressText = string.Empty;
@@ -35,6 +39,33 @@ public class ExportDialogViewModel : INotifyPropertyChanged
     private bool _csvExportCopyright = true;
     private bool _csvExportGps = true;
     private bool _csvExportCamera = true;
+
+    // Resolution presets: (Width, Height, Label)
+    private static readonly (int Width, int Height, string Label)[] ResolutionPresets =
+    [
+        (0, 0, "Original"),          // No resize
+        (854, 480, "480p"),           // 480p widescreen
+        (1280, 720, "720p"),          // 720p HD
+        (1920, 1080, "1080p"),        // 1080p Full HD
+        (2560, 1440, "2K"),           // 2K QHD
+        (3840, 2160, "4K"),           // 4K UHD
+        (0, 0, "Custom")              // Custom
+    ];
+
+    private const int CustomResolutionIndex = 6;
+
+    // Aspect ratio presets: (W, H, Label)
+    private static readonly (int W, int H, string Label)[] AspectRatioPresets =
+    [
+        (0, 0, "Original"),          // No constraint
+        (1, 1, "1:1 Square"),
+        (4, 3, "4:3"),
+        (3, 2, "3:2"),
+        (16, 10, "16:10"),
+        (16, 9, "16:9"),
+        (21, 9, "21:9 Ultrawide"),
+        (9, 16, "9:16 Portrait")
+    ];
 
     public ExportDialogViewModel(ModeManager? modeManager = null)
     {
@@ -55,12 +86,6 @@ public class ExportDialogViewModel : INotifyPropertyChanged
         set { _quality = value; OnPropertyChanged(); }
     }
 
-    public string MaxDimensionText
-    {
-        get => _maxDimensionText;
-        set { _maxDimensionText = value; OnPropertyChanged(); }
-    }
-
     public int SelectedFormatIndex
     {
         get => _selectedFormatIndex;
@@ -77,6 +102,189 @@ public class ExportDialogViewModel : INotifyPropertyChanged
     {
         get => _selectedCompressionIndex;
         set { _selectedCompressionIndex = value; OnPropertyChanged(); }
+    }
+
+    public int SelectedResolutionIndex
+    {
+        get => _selectedResolutionIndex;
+        set
+        {
+            _selectedResolutionIndex = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsCustomResolution));
+            OnPropertyChanged(nameof(ResolutionTargetWidth));
+            OnPropertyChanged(nameof(ResolutionTargetHeight));
+            OnPropertyChanged(nameof(EffectiveTargetWidth));
+            OnPropertyChanged(nameof(EffectiveTargetHeight));
+            OnPropertyChanged(nameof(EffectiveSizeText));
+        }
+    }
+
+    /// <summary>
+    /// True when the user has selected the "Custom" resolution option.
+    /// </summary>
+    public bool IsCustomResolution => SelectedResolutionIndex == CustomResolutionIndex;
+
+    /// <summary>
+    /// Width text for custom resolution. Parsed to int in ResolutionTargetWidth.
+    /// </summary>
+    public string CustomWidthText
+    {
+        get => _customWidthText;
+        set { _customWidthText = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResolutionTargetWidth)); OnPropertyChanged(nameof(EffectiveTargetWidth)); OnPropertyChanged(nameof(EffectiveSizeText)); }
+    }
+
+    /// <summary>
+    /// Height text for custom resolution. Parsed to int in ResolutionTargetHeight.
+    /// </summary>
+    public string CustomHeightText
+    {
+        get => _customHeightText;
+        set { _customHeightText = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResolutionTargetHeight)); OnPropertyChanged(nameof(EffectiveTargetHeight)); OnPropertyChanged(nameof(EffectiveSizeText)); }
+    }
+
+    /// <summary>
+    /// Parsed custom width. Falls back to 0 if the text is not a valid positive integer.
+    /// </summary>
+    private int CustomWidthParsed => int.TryParse(_customWidthText, out var w) && w > 0 ? w : 0;
+
+    /// <summary>
+    /// Parsed custom height. Falls back to 0 if the text is not a valid positive integer.
+    /// </summary>
+    private int CustomHeightParsed => int.TryParse(_customHeightText, out var h) && h > 0 ? h : 0;
+
+    public int ResolutionTargetWidth
+    {
+        get
+        {
+            if (IsCustomResolution)
+                return CustomWidthParsed;
+            return SelectedResolutionIndex >= 0 && SelectedResolutionIndex < ResolutionPresets.Length
+                ? ResolutionPresets[SelectedResolutionIndex].Width
+                : 0;
+        }
+    }
+
+    public int ResolutionTargetHeight
+    {
+        get
+        {
+            if (IsCustomResolution)
+                return CustomHeightParsed;
+            return SelectedResolutionIndex >= 0 && SelectedResolutionIndex < ResolutionPresets.Length
+                ? ResolutionPresets[SelectedResolutionIndex].Height
+                : 0;
+        }
+    }
+
+    public int SelectedAspectRatioIndex
+    {
+        get => _selectedAspectRatioIndex;
+        set
+        {
+            _selectedAspectRatioIndex = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsAspectRatioActive));
+            OnPropertyChanged(nameof(EffectiveTargetWidth));
+            OnPropertyChanged(nameof(EffectiveTargetHeight));
+        }
+    }
+
+    /// <summary>
+    /// True when the user has selected a non-Original aspect ratio.
+    /// </summary>
+    public bool IsAspectRatioActive => _selectedAspectRatioIndex > 0;
+
+    /// <summary>
+    /// Computes the export width combining resolution bounds and aspect ratio constraint.
+    /// When an aspect ratio is active, this finds the largest dimensions within the
+    /// resolution bounds that match the selected ratio.
+    /// </summary>
+    public int EffectiveTargetWidth
+    {
+        get
+        {
+            var maxW = ResolutionTargetWidth;
+            var maxH = ResolutionTargetHeight;
+            if (!IsAspectRatioActive || maxW <= 0 || maxH <= 0)
+                return maxW;
+
+            var preset = AspectRatioPresets[_selectedAspectRatioIndex];
+            var hFromW = maxW * preset.H / preset.W;
+            return hFromW <= maxH ? maxW : maxH * preset.W / preset.H;
+        }
+    }
+
+    /// <summary>
+    /// Computes the export height combining resolution bounds and aspect ratio constraint.
+    /// </summary>
+    public int EffectiveTargetHeight
+    {
+        get
+        {
+            var maxW = ResolutionTargetWidth;
+            var maxH = ResolutionTargetHeight;
+            if (!IsAspectRatioActive || maxW <= 0 || maxH <= 0)
+                return maxH;
+
+            var preset = AspectRatioPresets[_selectedAspectRatioIndex];
+            var hFromW = maxW * preset.H / preset.W;
+            return hFromW <= maxH ? hFromW : maxH;
+        }
+    }
+
+    /// <summary>
+    /// Text showing the effective export size when aspect ratio is active.
+    /// </summary>
+    public string EffectiveSizeText
+    {
+        get
+        {
+            var w = EffectiveTargetWidth;
+            var h = EffectiveTargetHeight;
+            if (w <= 0 || h <= 0)
+                return string.Empty;
+
+            var label = AspectRatioPresets[_selectedAspectRatioIndex].Label;
+            var resolutionLabel = ResolutionLabel;
+            return IsAspectRatioActive
+                ? $"→ {w}×{h} ({label}, within {resolutionLabel})"
+                : w > 0 && h > 0 ? $"→ {w}×{h}" : string.Empty;
+        }
+    }
+
+    private string ResolutionLabel
+    {
+        get
+        {
+            if (IsCustomResolution)
+                return $"{CustomWidthParsed}×{CustomHeightParsed}";
+            return SelectedResolutionIndex >= 0 && SelectedResolutionIndex < ResolutionPresets.Length
+                ? ResolutionPresets[SelectedResolutionIndex].Label
+                : "Original";
+        }
+    }
+
+    public int VideoCrf
+    {
+        get => _videoCrf;
+        set { _videoCrf = value; OnPropertyChanged(); OnPropertyChanged(nameof(VideoCrfLabel)); }
+    }
+
+    public string VideoCrfLabel => $"CRF {_videoCrf}";
+
+    /// <summary>
+    /// Whether any selected asset is a video file.
+    /// </summary>
+    public bool HasVideos => SelectedAssets.Any(IsVideoAsset);
+
+    /// <summary>
+    /// Returns true if the asset is a video file based on its extension.
+    /// </summary>
+    private static bool IsVideoAsset(AssetListItem a)
+    {
+        var ext = Path.GetExtension(a.FileName ?? a.StoragePath).ToLowerInvariant();
+        return ext is ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" or ".webm" or ".flv" or ".m4v";
     }
 
     public bool IsJpegSelected => SelectedFormatIndex == 0;
@@ -120,6 +328,14 @@ public class ExportDialogViewModel : INotifyPropertyChanged
     public ICommand BrowseCommand { get; }
 
     public List<AssetListItem> SelectedAssets { get; set; } = [];
+
+    /// <summary>
+    /// Callback to invalidate properties when SelectedAssets changes.
+    /// </summary>
+    public void OnSelectedAssetsChanged()
+    {
+        OnPropertyChanged(nameof(HasVideos));
+    }
     public Func<Task<string>>? BrowseFolderFunc { get; set; }
 
     private async void BrowseFolder()
@@ -148,7 +364,30 @@ public class ExportDialogViewModel : INotifyPropertyChanged
             }
             else
             {
-                await ExportImageAsync();
+                // Split selection into images and videos, run both pipelines
+                var images = SelectedAssets.Where(a => !IsVideoAsset(a)).ToList();
+                var videos = SelectedAssets.Where(a => IsVideoAsset(a)).ToList();
+
+                if (images.Count > 0)
+                {
+                    ProgressText = $"Exporting {images.Count} image(s)...";
+                    await ExportImageAsync(images);
+                }
+
+                if (videos.Count > 0)
+                {
+                    ProgressText = $"Exporting {videos.Count} video(s)...";
+                    await ExportVideoAsync(videos);
+                }
+
+                if (images.Count == 0 && videos.Count == 0)
+                {
+                    ProgressText = "No supported files to export";
+                }
+                else
+                {
+                    ProgressText = "Export complete!";
+                }
             }
         }
         catch (Exception ex)
@@ -216,17 +455,16 @@ public class ExportDialogViewModel : INotifyPropertyChanged
         ProgressValue = 100;
     }
 
-    private async Task ExportImageAsync()
+    private async Task ExportImageAsync(IReadOnlyList<AssetListItem> assets)
     {
         var format = SelectedFormatIndex == 0 ? ImageExportService.ExportFormat.Jpeg : ImageExportService.ExportFormat.Tiff;
         var compression = SelectedCompressionIndex == 0
             ? TiffCompression.None
             : TiffCompression.Lzw;
-        int? maxDim = int.TryParse(MaxDimensionText, out var md) && md > 0 ? md : null;
 
         var exportService = new ImageExportService();
         var items = new List<(string SourcePath, string DestinationPath, DigitalAsset? Asset)>();
-        foreach (var a in SelectedAssets)
+        foreach (var a in assets)
         {
             var ext = format == ImageExportService.ExportFormat.Jpeg ? ".jpg" : ".tiff";
             var destName = Path.GetFileNameWithoutExtension(a.FileName) + "_export" + ext;
@@ -241,8 +479,34 @@ public class ExportDialogViewModel : INotifyPropertyChanged
             ProgressText = $"{p.Completed}/{p.Total} — {p.CurrentFile}";
         });
 
-        await exportService.ExportBatchAsync(items, format, Quality, maxDim, compression, progress);
-        ProgressText = "Export complete!";
+        int? tw = EffectiveTargetWidth > 0 ? EffectiveTargetWidth : null;
+        int? th = EffectiveTargetHeight > 0 ? EffectiveTargetHeight : null;
+        int? cw = IsAspectRatioActive && EffectiveTargetWidth > 0 && EffectiveTargetHeight > 0 ? (int?)AspectRatioPresets[_selectedAspectRatioIndex].W : null;
+        int? ch = IsAspectRatioActive && EffectiveTargetWidth > 0 && EffectiveTargetHeight > 0 ? (int?)AspectRatioPresets[_selectedAspectRatioIndex].H : null;
+        await exportService.ExportBatchAsync(items, format, Quality, null, tw, th, compression, progress, cropAspectW: cw, cropAspectH: ch);
+    }
+
+    private async Task ExportVideoAsync(IReadOnlyList<AssetListItem> assets)
+    {
+        var targetWidth = EffectiveTargetWidth;
+        var targetHeight = EffectiveTargetHeight;
+
+        var exportService = new VideoExportService();
+        var items = new List<(string SourcePath, string DestinationPath)>();
+        foreach (var a in assets)
+        {
+            var destName = Path.GetFileNameWithoutExtension(a.FileName) + "_export.mp4";
+            var destPath = Path.Combine(DestinationFolder, destName);
+            items.Add((a.StoragePath, destPath));
+        }
+
+        var progress = new Progress<(int Completed, int Total, string CurrentFile)>(p =>
+        {
+            ProgressValue = (double)p.Completed / p.Total * 100;
+            ProgressText = $"{p.Completed}/{p.Total} — {p.CurrentFile}";
+        });
+
+        await exportService.ExportBatchAsync(items, targetWidth, targetHeight, VideoCrf, progress);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
