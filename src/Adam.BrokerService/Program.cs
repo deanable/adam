@@ -15,6 +15,9 @@ using Microsoft.Extensions.Logging;
 var brokerLogDir = Path.Combine(Path.GetTempPath(), "Adam", "BrokerService");
 ConnectionDebugLogger.LogDirectory = brokerLogDir;
 ConnectionDebugLogger.Reset();
+// The broker is long-running (often a Windows Service), so cap the debug log to
+// the most recent entries instead of letting it grow unbounded within a session.
+ConnectionDebugLogger.EnableRotation(1000);
 ConnectionDebugLogger.Info($"[BROKER] Starting: Machine={Environment.MachineName}, OS={Environment.OSVersion}, log={ConnectionDebugLogger.LogFilePath}");
 
 var exeDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;

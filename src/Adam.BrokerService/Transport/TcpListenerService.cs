@@ -282,6 +282,14 @@ public sealed class TcpListenerService
             _logger.LogWarning(ex, "Connection {ConnectionId} disposed after {ElapsedMs:F0}ms",
                 state.Id, connectionSw.Elapsed.TotalMilliseconds);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Expected on shutdown: the connection was parked in ReceiveAsync waiting
+            // for the next frame when our own cancellation token fired. Not an error.
+            // (TaskCanceledException derives from OperationCanceledException.)
+            _logger.LogDebug("Connection {ConnectionId} cancelled on shutdown after {ElapsedMs:F0}ms and {Count} messages",
+                state.Id, connectionSw.Elapsed.TotalMilliseconds, messageCount);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling connection {ConnectionId} after {ElapsedMs:F0}ms and {Count} messages",
