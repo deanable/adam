@@ -17,6 +17,14 @@ public static class ConnectionDebugLogger
     private static string _logFileName = "connection-debug.log";
     private static readonly object _lock = new();
 
+    // Bounded rotation (opt-in via EnableRotation). When enabled, the file is
+    // capped at roughly the last _maxEntries log lines so a long-running process
+    // (e.g. the broker service) cannot grow the log without limit.
+    private static int _maxEntries; // 0 = rotation disabled (append-only)
+    private static string? _banner;
+    private static readonly Queue<string> _ring = new();
+    private static int _appendsSinceCompact;
+
     /// <summary>
     /// Directory where the connection debug log file is written.
     /// Defaults to <c>%LOCALAPPDATA%/Adam/</c> on Windows,
@@ -78,15 +86,36 @@ public static class ConnectionDebugLogger
 
                 var dir = LogDirectory;
                 Directory.CreateDirectory(dir);
-                File.WriteAllText(LogFilePath,
+                _banner =
                     $"=== Connection debug log started {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff} ==={Environment.NewLine}" +
                     $"=== Machine: {Environment.MachineName}, OS: {Environment.OSVersion}, Process: {Process.GetCurrentProcess().ProcessName} (PID={Environment.ProcessId}) ==={Environment.NewLine}" +
-                    $"=== Log file: {LogFilePath} ==={Environment.NewLine}");
+                    $"=== Log file: {LogFilePath} ==={Environment.NewLine}";
+                _ring.Clear();
+                _appendsSinceCompact = 0;
+                File.WriteAllText(LogFilePath, _banner);
             }
             catch
             {
                 // best effort — don't let logging cause issues
             }
+        }
+    }
+
+    /// <summary>
+    /// Enables bounded rotation so the log keeps only roughly the most recent
+    /// <paramref name="maxEntries"/> lines (plus the startup banner). Intended for
+    /// long-running processes such as the broker service, where the per-run
+    /// truncation in <see cref="Reset"/> is not enough on its own. Call once after
+    /// <see cref="Reset"/>. Passing 0 or a negative value disables rotation
+    /// (append-only — the default).
+    /// </summary>
+    public static void EnableRotation(int maxEntries = 1000)
+    {
+        lock (_lock)
+        {
+            _maxEntries = maxEntries > 0 ? maxEntries : 0;
+            _ring.Clear();
+            _appendsSinceCompact = 0;
         }
     }
 
@@ -120,7 +149,33 @@ public static class ConnectionDebugLogger
             {
                 var dir = LogDirectory;
                 Directory.CreateDirectory(dir);
-                File.AppendAllText(LogFilePath, Fmt(level, message) + Environment.NewLine);
+                var line = Fmt(level, message);
+
+                if (_maxEntries <= 0)
+                {
+                    // Append-only (rotation disabled).
+                    File.AppendAllText(LogFilePath, line + Environment.NewLine);
+                    return;
+                }
+
+                // Bounded mode: keep the last _maxEntries lines in memory and append
+                // to the file. Once the file has grown to ~2x the cap, rewrite it from
+                // the banner + ring so it never exceeds roughly 2 * _maxEntries lines.
+                // This amortizes the rewrite cost to O(1) per write.
+                _ring.Enqueue(line);
+                while (_ring.Count > _maxEntries)
+                    _ring.Dequeue();
+
+                if (++_appendsSinceCompact >= _maxEntries)
+                {
+                    File.WriteAllText(LogFilePath,
+                        (_banner ?? string.Empty) + string.Join(Environment.NewLine, _ring) + Environment.NewLine);
+                    _appendsSinceCompact = 0;
+                }
+                else
+                {
+                    File.AppendAllText(LogFilePath, line + Environment.NewLine);
+                }
             }
             catch
             {
