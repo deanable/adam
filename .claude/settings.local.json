@@ -72,7 +72,20 @@
       "PowerShell(gsd-plan-phase 19 *)",
       "Skill(gsd-execute-phase)",
       "PowerShell(gsd-execute-phase 19 *)",
-      "PowerShell(gsd execute-phase *)"
+      "PowerShell(gsd execute-phase *)",
+      "Read(//c/Users/Dean/.claude/**)",
+      "Read(//c/Program Files/Git/bin/**)",
+      "Bash(\"C:/Program Files/Git/bin/bash.exe\" --version)",
+      "Bash(\"C:/Program Files/Git/bin/bash.exe\" \"C:/Users/Dean/.claude/hooks/gsd-session-state.sh\")",
+      "Read(//c/Program Files/Git/usr/bin/**)",
+      "Bash(\"C:/Program Files/Git/usr/bin/bash.exe\" --version)",
+      "Bash(\"C:/Program Files/Git/usr/bin/bash.exe\" \"C:/Users/Dean/.claude/hooks/gsd-session-state.sh\")",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('C:/Users/Dean/.claude/settings.json','utf8'\\)\\); console.log\\('OK - valid JSON'\\)\")",
+      "Bash(git checkout *)",
+      "Bash(git --no-pager diff -- src/ tests/)",
+      "Bash(git commit -m 'fix\\(broker\\): stop logging shutdown cancellation as error *)",
+      "Bash(git commit -m 'feat\\(broker\\): cap connection debug log with bounded rotation *)",
+      "Bash(git --no-pager log --oneline main..HEAD)"
     ]
   }
 }
