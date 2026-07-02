@@ -90,6 +90,7 @@ public partial class App : Application
             services.AddSingleton<MetadataWritebackService>();
             services.AddSingleton<NavigationService>();
             services.AddSingleton<BulkAssetOperationService>();
+            services.AddSingleton<PanelStateService>();
             services.Configure<PluginConfig>(cfg =>
             {
                 cfg.PluginDirectory = Path.Combine(

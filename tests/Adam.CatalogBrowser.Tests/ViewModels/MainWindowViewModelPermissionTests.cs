@@ -63,6 +63,7 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             statusBar,
             new DeleteService(_modeManager), new ToastService(),
             new BulkAssetOperationService(_modeManager, new ToastService(), new NullLogger<BulkAssetOperationService>()),
+            new PanelStateService(),
             activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
             new NavigationService(),

@@ -34,8 +34,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly NavigationService _navigationService;
     private readonly BulkAssetOperationService _bulkOps;
     internal readonly ToastService ToastService;
+
+    /// <summary>
+    /// Exposed for XAML binding of sidebar/right-panel expander states.
+    /// </summary>
+    public PanelStateService PanelState { get; }
     private readonly IUiDispatcher _dispatcher;
-    private readonly IUserPreferenceService? _prefs;
     private object? _currentView;
     private readonly DispatcherTimer? _sessionCheckTimer;
 
@@ -55,10 +59,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         DeleteService deleteService,
         ToastService toastService,
         BulkAssetOperationService bulkOpService,
+        PanelStateService panelState,
         ActivityFeedViewModel activityFeed,
         CommentService commentService,
         NavigationService navigationService,
-        IUserPreferenceService? prefs = null,
         AiTaggingService? aiTaggingService = null,
         LiquidVisionOptions? liquidVisionOptions = null,
         bool startUp = true,
@@ -73,8 +77,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _navigationService = navigationService;
         _bulkOps = bulkOpService;
         ToastService = toastService;
+        PanelState = panelState;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
-        _prefs = prefs;
         Sidebar = sidebar;
         AssetGallery = assetGallery;
         Ingestion = ingestion;
@@ -1564,218 +1568,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Session validation failed during periodic check");
-        }
-    }
-
-    // ── Sidebar / Right-panel expander persistence ─────────────────
-
-    // Sidebar left-panel expanders (12)
-    private bool _isSidebarFoldersExpanded = true;
-    private bool _isSidebarCollectionsExpanded = true;
-    private bool _isSidebarSavedSearchesExpanded = true;
-    private bool _isSidebarRecentSearchesExpanded = true;
-    private bool _isSidebarKeywordsExpanded = true;
-    private bool _isSidebarMediaFormatExpanded = true;
-    private bool _isSidebarCategoriesExpanded = true;
-    private bool _isSidebarDateTakenExpanded = true;
-    private bool _isSidebarRatingExpanded;
-    private bool _isSidebarLabelExpanded;
-    private bool _isSidebarFlagExpanded;
-    private bool _isSidebarAiModelExpanded = true;
-
-    // Right-panel expanders (3)
-    private bool _isRightMetadataExpanded = true;
-    private bool _isRightCommentsExpanded = true;
-    private bool _isRightTagsExpanded = true;
-
-    // Suppresses individual saves during batch restore to avoid race conditions
-    private bool _isRestoringSidebarPanels;
-
-    public bool IsSidebarFoldersExpanded
-    {
-        get => _isSidebarFoldersExpanded;
-        set { _isSidebarFoldersExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarCollectionsExpanded
-    {
-        get => _isSidebarCollectionsExpanded;
-        set { _isSidebarCollectionsExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarSavedSearchesExpanded
-    {
-        get => _isSidebarSavedSearchesExpanded;
-        set { _isSidebarSavedSearchesExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarRecentSearchesExpanded
-    {
-        get => _isSidebarRecentSearchesExpanded;
-        set { _isSidebarRecentSearchesExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarKeywordsExpanded
-    {
-        get => _isSidebarKeywordsExpanded;
-        set { _isSidebarKeywordsExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarMediaFormatExpanded
-    {
-        get => _isSidebarMediaFormatExpanded;
-        set { _isSidebarMediaFormatExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarCategoriesExpanded
-    {
-        get => _isSidebarCategoriesExpanded;
-        set { _isSidebarCategoriesExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarDateTakenExpanded
-    {
-        get => _isSidebarDateTakenExpanded;
-        set { _isSidebarDateTakenExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarRatingExpanded
-    {
-        get => _isSidebarRatingExpanded;
-        set { _isSidebarRatingExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarLabelExpanded
-    {
-        get => _isSidebarLabelExpanded;
-        set { _isSidebarLabelExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarFlagExpanded
-    {
-        get => _isSidebarFlagExpanded;
-        set { _isSidebarFlagExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsSidebarAiModelExpanded
-    {
-        get => _isSidebarAiModelExpanded;
-        set { _isSidebarAiModelExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsRightMetadataExpanded
-    {
-        get => _isRightMetadataExpanded;
-        set { _isRightMetadataExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsRightCommentsExpanded
-    {
-        get => _isRightCommentsExpanded;
-        set { _isRightCommentsExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    public bool IsRightTagsExpanded
-    {
-        get => _isRightTagsExpanded;
-        set { _isRightTagsExpanded = value; OnPropertyChanged(); if (!_isRestoringSidebarPanels) _ = SaveSidebarPanelStatesAsync(); }
-    }
-
-    /// <summary>
-    /// Persists all sidebar/right-panel expander states to UserPreferenceService
-    /// under "metadata.expandedPanels", merging with any existing metadata-editor panel states.
-    /// </summary>
-    private async Task SaveSidebarPanelStatesAsync()
-    {
-        if (_prefs == null) return;
-        try
-        {
-            var expanded = new System.Collections.Generic.HashSet<string>
-            {
-                "folders", "collections", "savedSearches", "recentSearches",
-                "keywords", "mediaFormat", "categories", "dateTaken", "aiModel",
-                "metadata", "comments", "tags"
-            };
-
-            // Remove collapsed panels
-            if (!_isSidebarFoldersExpanded) expanded.Remove("folders");
-            if (!_isSidebarCollectionsExpanded) expanded.Remove("collections");
-            if (!_isSidebarSavedSearchesExpanded) expanded.Remove("savedSearches");
-            if (!_isSidebarRecentSearchesExpanded) expanded.Remove("recentSearches");
-            if (!_isSidebarKeywordsExpanded) expanded.Remove("keywords");
-            if (!_isSidebarMediaFormatExpanded) expanded.Remove("mediaFormat");
-            if (!_isSidebarCategoriesExpanded) expanded.Remove("categories");
-            if (!_isSidebarDateTakenExpanded) expanded.Remove("dateTaken");
-            if (!_isSidebarAiModelExpanded) expanded.Remove("aiModel");
-            if (_isSidebarRatingExpanded) expanded.Add("rating"); else expanded.Remove("rating");
-            if (_isSidebarLabelExpanded) expanded.Add("label"); else expanded.Remove("label");
-            if (_isSidebarFlagExpanded) expanded.Add("flag"); else expanded.Remove("flag");
-            if (!_isRightMetadataExpanded) expanded.Remove("metadata");
-            if (!_isRightCommentsExpanded) expanded.Remove("comments");
-            if (!_isRightTagsExpanded) expanded.Remove("tags");
-
-            // Merge with existing saved state (metadata editor panels stored by MetadataEditorViewModel)
-            var existing = await _prefs.GetAsync<System.Collections.Generic.HashSet<string>>("metadata.expandedPanels");
-            if (existing != null)
-            {
-                // Keep metadata-editor entries (single chars A-H)
-                foreach (var p in existing)
-                {
-                    if (p.Length == 1 && p[0] >= 'A' && p[0] <= 'H')
-                        expanded.Add(p);
-                }
-            }
-
-            await _prefs.SetAsync("metadata.expandedPanels", expanded);
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to persist panel states: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Restores saved sidebar/right-panel expander states from UserPreferenceService.
-    /// Called once during constructor initialization.
-    /// Suppresses individual saves during batch restore to avoid race conditions,
-    /// then performs a single coalesced save after all panels are restored.
-    /// </summary>
-    private async Task RestoreSidebarPanelStatesAsync()
-    {
-        if (_prefs == null) return;
-        try
-        {
-            var expanded = await _prefs.GetAsync<System.Collections.Generic.HashSet<string>>("metadata.expandedPanels");
-            if (expanded == null) return;
-
-            _isRestoringSidebarPanels = true;
-            await _dispatcher.InvokeAsync(() =>
-            {
-                IsSidebarFoldersExpanded = expanded.Contains("folders");
-                IsSidebarCollectionsExpanded = expanded.Contains("collections");
-                IsSidebarSavedSearchesExpanded = expanded.Contains("savedSearches");
-                IsSidebarRecentSearchesExpanded = expanded.Contains("recentSearches");
-                IsSidebarKeywordsExpanded = expanded.Contains("keywords");
-                IsSidebarMediaFormatExpanded = expanded.Contains("mediaFormat");
-                IsSidebarCategoriesExpanded = expanded.Contains("categories");
-                IsSidebarDateTakenExpanded = expanded.Contains("dateTaken");
-                IsSidebarRatingExpanded = expanded.Contains("rating");
-                IsSidebarLabelExpanded = expanded.Contains("label");
-                IsSidebarFlagExpanded = expanded.Contains("flag");
-                IsSidebarAiModelExpanded = expanded.Contains("aiModel");
-                IsRightMetadataExpanded = expanded.Contains("metadata");
-                IsRightCommentsExpanded = expanded.Contains("comments");
-                IsRightTagsExpanded = expanded.Contains("tags");
-            });
-            _isRestoringSidebarPanels = false;
-
-            // Single coalesced save after all panels are restored
-            _ = SaveSidebarPanelStatesAsync();
-        }
-        catch (Exception ex)
-        {
-            _isRestoringSidebarPanels = false;
-            System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to restore panel states: {ex.Message}");
         }
     }
 
