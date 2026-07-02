@@ -88,8 +88,11 @@ public class MainWindowViewModelTests : IAsyncLifetime
             ingestion, metadataEditor,
             auditLog, bulkQueue,
             propertyInspector, connection, statusBar,
-            new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new DeleteService(_modeManager), new ToastService(),
+            new BulkAssetOperationService(_modeManager, new ToastService(), new NullLogger<BulkAssetOperationService>()),
+            activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            new NavigationService(),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 
@@ -1084,8 +1087,11 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             propertyInspector,
             connection,
             statusBar,
-            new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new DeleteService(_modeManager), new ToastService(),
+            new BulkAssetOperationService(_modeManager, new ToastService(), new NullLogger<BulkAssetOperationService>()),
+            activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            new NavigationService(),
             startUp: false, startSessionTimer: false,
             dispatcher: new SyncUiDispatcher());
 

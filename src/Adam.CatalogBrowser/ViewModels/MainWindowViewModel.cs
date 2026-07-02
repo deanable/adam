@@ -32,6 +32,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly BulkOperationQueue _bulkQueue;
     private readonly DeleteService _deleteService;
     private readonly NavigationService _navigationService;
+    private readonly BulkAssetOperationService _bulkOps;
     internal readonly ToastService ToastService;
     private readonly IUiDispatcher _dispatcher;
     private readonly IUserPreferenceService? _prefs;
@@ -53,6 +54,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         StatusBarViewModel statusBar,
         DeleteService deleteService,
         ToastService toastService,
+        BulkAssetOperationService bulkOpService,
         ActivityFeedViewModel activityFeed,
         CommentService commentService,
         NavigationService navigationService,
@@ -69,6 +71,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _bulkQueue = bulkQueue;
         _deleteService = deleteService;
         _navigationService = navigationService;
+        _bulkOps = bulkOpService;
         ToastService = toastService;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         _prefs = prefs;
@@ -175,19 +178,37 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AddToCollectionCommand = new RelayCommand(async _ => await AddToCollectionAsync(), _ => AssetGallery.SelectedAssets.Count > 0);
 
         // Wave 1: Per-asset rate/label/flag commands (T8.16)
-        RateAssetCommand = new RelayCommand(async _ => await RateSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
-        SetLabelCommand = new RelayCommand(async _ => await SetLabelSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
-        SetFlagCommand = new RelayCommand(async _ => await SetFlagSelectedAsync(), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        RateAssetCommand = new RelayCommand(async _ => await _bulkOps.RateSelectedAsync(AssetGallery.SelectedAssets.ToList()), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetLabelCommand = new RelayCommand(async _ => await _bulkOps.SetLabelSelectedAsync(AssetGallery.SelectedAssets.ToList()), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetFlagCommand = new RelayCommand(async _ => await _bulkOps.SetFlagSelectedAsync(AssetGallery.SelectedAssets.ToList()), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
 
         // T8.21: Keyboard rating digits — sets exact rating value via command parameter
-        SetRatingCommand = new RelayCommand(async p => await SetRatingByKeyAsync(p), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetRatingCommand = new RelayCommand(async p =>
+        {
+            if (p is string ratingStr && int.TryParse(ratingStr, out var rating))
+                await _bulkOps.SetRatingByKeyAsync(AssetGallery.SelectedAssets.ToList(), rating);
+        }, _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
 
         // T8.21: P = Pick flag, X = Reject flag (direct-set commands)
-        SetFlagPickCommand = new RelayCommand(async _ => await SetFlagByKeyAsync(AssetFlag.Pick), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
-        SetFlagRejectCommand = new RelayCommand(async _ => await SetFlagByKeyAsync(AssetFlag.Reject), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetFlagPickCommand = new RelayCommand(async _ => await _bulkOps.SetFlagByKeyAsync(AssetGallery.SelectedAssets.ToList(), AssetFlag.Pick), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
+        SetFlagRejectCommand = new RelayCommand(async _ => await _bulkOps.SetFlagByKeyAsync(AssetGallery.SelectedAssets.ToList(), AssetFlag.Reject), _ => AssetGallery.SelectedAssets.Count > 0 && CanEditMetadata);
 
         // T8.21: F2 = Rename asset title
-        RenameAssetCommand = new RelayCommand(async _ => await RenameAssetAsync(), _ => AssetGallery.SelectedAssets.Count == 1 && CanEditMetadata);
+        RenameAssetCommand = new RelayCommand(async _ =>
+        {
+            var asset = AssetGallery.SelectedAssets.FirstOrDefault();
+            if (asset == null) return;
+
+            var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (mainWindow == null) return;
+
+            var newTitle = await Views.InputDialog.ShowAsync(mainWindow, "Rename Asset", "Enter a new name for this asset:",
+                confirmText: "Rename", defaultValue: asset.Title);
+            if (!string.IsNullOrWhiteSpace(newTitle))
+                await _bulkOps.RenameAssetAsync(asset, newTitle);
+        }, _ => AssetGallery.SelectedAssets.Count == 1 && CanEditMetadata);
 
         // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
             FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
@@ -1255,275 +1276,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to save current search");
             ToastService.Show("Failed to save search", Services.ToastLevel.Error);
-        }
-    }
-
-    /// <summary>
-    /// Cycles the rating on all selected assets (T8.22 bulk actions).
-    /// Each asset gets its own next-rating value independently.
-    /// </summary>
-    private async Task RateSelectedAsync()
-    {
-        var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var ids = selected.Select(a => a.Id).ToList();
-            var dbAssets = await db.DigitalAssets
-                .Where(a => ids.Contains(a.Id))
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (var dbAsset in dbAssets)
-                dbAsset.Rating = (dbAsset.Rating + 1) % 6;
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tiles so the UI reflects new ratings immediately
-            foreach (var item in selected)
-            {
-                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
-                if (dbMatch != null)
-                    item.Rating = dbMatch.Rating;
-            }
-
-            ToastService.Show(selected.Count == 1
-                ? $"Rated '{selected[0].Title}' {dbAssets.FirstOrDefault()?.Rating}/5"
-                : $"Rated {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to rate assets");
-        }
-    }
-
-    /// <summary>
-    /// Cycles the color label on all selected assets (T8.22 bulk actions).
-    /// Each asset gets its own next-label value independently.
-    /// </summary>
-    private async Task SetLabelSelectedAsync()
-    {
-        var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var ids = selected.Select(a => a.Id).ToList();
-            var dbAssets = await db.DigitalAssets
-                .Where(a => ids.Contains(a.Id))
-                .ToListAsync().ConfigureAwait(false);
-
-            var labels = Enum.GetValues<AssetLabel>();
-            foreach (var dbAsset in dbAssets)
-            {
-                var currentIndex = Array.IndexOf(labels, dbAsset.Label);
-                dbAsset.Label = labels[(currentIndex + 1) % labels.Length];
-            }
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tiles so the UI reflects new labels immediately
-            foreach (var item in selected)
-            {
-                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
-                if (dbMatch != null)
-                {
-                    (item.ColorLabel, item.ColorBrush) = AssetListItem.MapLabelToDisplay(dbMatch.Label);
-                }
-            }
-
-            var labelName = dbAssets.FirstOrDefault()?.Label.ToString() ?? "None";
-            ToastService.Show(selected.Count == 1
-                ? $"Label set to '{labelName}' for '{selected[0].Title}'"
-                : $"Label set to '{labelName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to set label");
-        }
-    }
-
-    /// <summary>
-    /// Sets the rating of all selected assets to a specific value (T8.21 keyboard digits, T8.22 bulk).
-    /// The parameter is the rating value as a string ("0"-"5").
-    /// </summary>
-    private async Task SetRatingByKeyAsync(object? parameter)
-    {
-        if (parameter is not string ratingStr || !int.TryParse(ratingStr, out var rating))
-            return;
-        rating = Math.Clamp(rating, 0, 5);
-
-        var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var ids = selected.Select(a => a.Id).ToList();
-            var dbAssets = await db.DigitalAssets
-                .Where(a => ids.Contains(a.Id))
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (var dbAsset in dbAssets)
-                dbAsset.Rating = rating;
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tiles so the UI reflects new ratings immediately
-            foreach (var item in selected)
-            {
-                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
-                if (dbMatch != null)
-                    item.Rating = dbMatch.Rating;
-            }
-
-            ToastService.Show(selected.Count == 1
-                ? (rating > 0 ? $"Rated '{selected[0].Title}' {rating}/5" : $"Rating cleared for '{selected[0].Title}'")
-                : $"Set {dbAssets.Count} asset(s) to {rating}/5", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to set rating via keyboard");
-        }
-    }
-
-    /// <summary>
-    /// Cycles the flag on all selected assets (T8.22 bulk actions).
-    /// Each asset gets its own next-flag value independently.
-    /// </summary>
-    private async Task SetFlagSelectedAsync()
-    {
-        var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var ids = selected.Select(a => a.Id).ToList();
-            var dbAssets = await db.DigitalAssets
-                .Where(a => ids.Contains(a.Id))
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (var dbAsset in dbAssets)
-            {
-                dbAsset.Flag = dbAsset.Flag switch
-                {
-                    AssetFlag.Unflagged => AssetFlag.Pick,
-                    AssetFlag.Pick => AssetFlag.Reject,
-                    AssetFlag.Reject => AssetFlag.Unflagged,
-                    _ => AssetFlag.Unflagged
-                };
-            }
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tiles so the UI reflects new flags immediately
-            foreach (var item in selected)
-            {
-                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
-                if (dbMatch != null)
-                    item.IsFlagged = dbMatch.Flag != AssetFlag.Unflagged;
-            }
-
-            var flagName = dbAssets.FirstOrDefault()?.Flag.ToString() ?? "Unflagged";
-            ToastService.Show(selected.Count == 1
-                ? $"Flag set to '{flagName}' for '{selected[0].Title}'"
-                : $"Flag set to '{flagName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to set flag");
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    //  T8.21: Keyboard flag shortcuts (P = Pick, X = Reject)
-    // ─────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Sets the flag on all selected assets to a specific value (T8.21 P/X keyboard shortcuts).
-    /// </summary>
-    private async Task SetFlagByKeyAsync(AssetFlag flag)
-    {
-        var selected = AssetGallery.SelectedAssets.ToList();
-        if (selected.Count == 0) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var ids = selected.Select(a => a.Id).ToList();
-            var dbAssets = await db.DigitalAssets
-                .Where(a => ids.Contains(a.Id))
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (var dbAsset in dbAssets)
-                dbAsset.Flag = flag;
-
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tiles
-            foreach (var item in selected)
-            {
-                var dbMatch = dbAssets.FirstOrDefault(d => d.Id == item.Id);
-                if (dbMatch != null)
-                    item.IsFlagged = dbMatch.Flag != AssetFlag.Unflagged;
-            }
-
-            var flagName = flag.ToString();
-            ToastService.Show(selected.Count == 1
-                ? $"Flag set to '{flagName}' for '{selected[0].Title}'"
-                : $"Flag set to '{flagName}' on {dbAssets.Count} asset(s)", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to set flag via keyboard");
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    //  T8.21: F2 Rename asset
-    // ─────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Opens an input dialog to rename the selected asset's title (T8.21 F2 shortcut).
-    /// Only works when exactly one asset is selected.
-    /// </summary>
-    private async Task RenameAssetAsync()
-    {
-        var asset = AssetGallery.SelectedAssets.FirstOrDefault();
-        if (asset == null) return;
-
-        var mainWindow = App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
-        if (mainWindow == null) return;
-
-        var newTitle = await Views.InputDialog.ShowAsync(mainWindow,
-            "Rename Asset", "Enter a new name for this asset:",
-            confirmText: "Rename", defaultValue: asset.Title);
-
-        if (string.IsNullOrWhiteSpace(newTitle) || newTitle == asset.Title) return;
-
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var dbAsset = await db.DigitalAssets.FirstOrDefaultAsync(a => a.Id == asset.Id).ConfigureAwait(false);
-            if (dbAsset == null) return;
-
-            dbAsset.Title = newTitle.Trim();
-            await db.SaveChangesAsync().ConfigureAwait(false);
-
-            // Update in-memory tile
-            asset.Title = dbAsset.Title;
-
-            ToastService.Show($"Renamed to '{dbAsset.Title}'", Services.ToastLevel.Success);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to rename asset");
-            ToastService.Show("Failed to rename asset", Services.ToastLevel.Error);
         }
     }
 

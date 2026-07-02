@@ -61,8 +61,11 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
             propertyInspector,
             connection,
             statusBar,
-            new DeleteService(_modeManager), new ToastService(), activityFeed,
+            new DeleteService(_modeManager), new ToastService(),
+            new BulkAssetOperationService(_modeManager, new ToastService(), new NullLogger<BulkAssetOperationService>()),
+            activityFeed,
             new CommentService(_modeManager, new NullLogger<CommentService>()),
+            new NavigationService(),
             startUp: false,
             dispatcher: new SyncUiDispatcher());
     }
