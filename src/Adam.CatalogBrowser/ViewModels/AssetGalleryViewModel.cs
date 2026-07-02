@@ -405,40 +405,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
 
             var results = await _ftsService.SearchAsync(query, 200, ct).ConfigureAwait(false);
 
-            var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
-            var thumbnailDir = Path.Combine(dbDir, "thumbnails");
+            var thumbnailDir = GetThumbnailDir();
+            var assets = results.Select(r => r.Asset).ToList();
+            var newItems = BuildAssetItems(assets, thumbnailDir, highlightText: query);
 
-            var newItems = new List<AssetListItem>(results.Count);
-            foreach (var result in results)
+            // Overlay per-result matched fields (search-specific metadata)
+            for (int i = 0; i < newItems.Count && i < results.Count; i++)
             {
-                var thumbnailPath = _thumbnailService.GetThumbnailPath(
-                    result.Asset.StoragePath, thumbnailDir);
-
-                var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(result.Asset.Label);
-
-                var item = new AssetListItem
-                {
-                    Id = result.Asset.Id,
-                    Title = result.Asset.Title,
-                    FileName = result.Asset.FileName,
-                    StoragePath = result.Asset.StoragePath,
-                    FileType = result.Asset.MimeType,
-                    FileSize = result.Asset.FileSize,
-                    Width = result.Asset.Width,
-                    Height = result.Asset.Height,
-                    CreatedAt = result.Asset.CreatedAt,
-                    ThumbnailPath = thumbnailPath,
-                    Rating = result.Asset.Rating,
-                    ColorLabel = colorLabel,
-                    ColorBrush = colorBrush,
-                    IsFlagged = result.Asset.Flag != AssetFlag.Unflagged,
-                    // T11.10: Search result highlighting
-                    HighlightText = query,
-                    MatchedFields = result.MatchedFields
-                };
-
-                AddToolbarActions(item);
-                newItems.Add(item);
+                newItems[i].MatchedFields = results[i].MatchedFields;
             }
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -553,36 +527,14 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
                 }).ToList();
             }
 
-            var dbDir2 = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
-            var thumbnailDir = Path.Combine(dbDir2, "thumbnails");
+            var thumbnailDir = GetThumbnailDir();
+            var assets = results.Select(r => r.Asset).ToList();
+            var newItems = BuildAssetItems(assets, thumbnailDir);
 
-            var newItems = new List<AssetListItem>(results.Count);
-            foreach (var result in results)
+            // Overlay per-result search scores (semantic search-specific metadata)
+            for (int i = 0; i < newItems.Count && i < results.Count; i++)
             {
-                var thumbnailPath = _thumbnailService.GetThumbnailPath(
-                    result.Asset.StoragePath, thumbnailDir);
-
-                var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(result.Asset.Label);
-
-                var item = new AssetListItem
-                {
-                    Id = result.Asset.Id,
-                    Title = result.Asset.Title,
-                    FileName = result.Asset.FileName,
-                    StoragePath = result.Asset.StoragePath,
-                    FileType = result.Asset.MimeType,
-                    FileSize = result.Asset.FileSize,
-                    CreatedAt = result.Asset.CreatedAt,
-                    ThumbnailPath = thumbnailPath,
-                    Rating = result.Asset.Rating,
-                    ColorLabel = colorLabel,
-                    ColorBrush = colorBrush,
-                    IsFlagged = result.Asset.Flag != AssetFlag.Unflagged,
-                    SearchScore = result.Score
-                };
-
-                AddToolbarActions(item);
-                newItems.Add(item);
+                newItems[i].SearchScore = results[i].Score;
             }
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -879,6 +831,249 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         });
     }
 
+    /// <summary>
+    /// Returns the directory path for cached thumbnails.
+    /// </summary>
+    private string GetThumbnailDir()
+    {
+        var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
+        return Path.Combine(dbDir, "thumbnails");
+    }
+
+    /// <summary>
+    /// Maps <see cref="DigitalAsset"/> entities to <see cref="AssetListItem"/> display objects.
+    /// Shared between LoadPageAsync, ExecuteSearchAsync, and ExecuteSemanticSearchAsync.
+    /// </summary>
+    private List<AssetListItem> BuildAssetItems(List<DigitalAsset> assets, string thumbnailDir, string? highlightText = null, float? searchScore = null, IReadOnlyList<string>? matchedFields = null)
+    {
+        var newItems = new List<AssetListItem>(assets.Count);
+        foreach (var asset in assets)
+        {
+            var thumbnailPath = _thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
+            var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(asset.Label);
+
+            var item = new AssetListItem
+            {
+                Id = asset.Id,
+                Title = asset.Title,
+                FileName = asset.FileName,
+                StoragePath = asset.StoragePath,
+                FileType = asset.MimeType,
+                FileSize = asset.FileSize,
+                Width = asset.Width,
+                Height = asset.Height,
+                CreatedAt = asset.CreatedAt,
+                ThumbnailPath = thumbnailPath,
+                Rating = asset.Rating,
+                ColorLabel = colorLabel,
+                ColorBrush = colorBrush,
+                IsFlagged = asset.Flag != AssetFlag.Unflagged,
+                HighlightText = highlightText ?? string.Empty,
+                SearchScore = searchScore ?? 0,
+                MatchedFields = matchedFields ?? []
+            };
+
+            AddToolbarActions(item);
+            newItems.Add(item);
+        }
+        return newItems;
+    }
+
+    /// <summary>
+    /// Resolves pagination for standalone mode, handling the SQLite DateTimeOffset
+    /// ORDER BY limitation via a two-query approach for Date Added sort.
+    /// </summary>
+    private async Task<List<DigitalAsset>> ResolveStandalonePaginationAsync(
+        IQueryable<DigitalAsset> query, CancellationToken ct)
+    {
+        List<DigitalAsset> assets;
+
+        if (_sortBy == "Date Added")
+        {
+            // Step 1: Load IDs + CreatedAt only (projected, no ORDER BY)
+            var idQuery = query.Select(a => new { a.Id, a.CreatedAt });
+
+            // Apply keyset pagination for Date Added (WHERE clause works for SQLite)
+            if (_page > 0)
+            {
+                idQuery = idQuery.Where(a =>
+                    a.CreatedAt < _lastSeekCreatedAt ||
+                    (a.CreatedAt == _lastSeekCreatedAt && a.Id > _lastSeekId));
+            }
+
+            // Sort in memory, paginate IDs
+            var sortedIds = (await idQuery.ToListAsync(ct).ConfigureAwait(false))
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenBy(x => x.Id)
+                .Take(_pageSize)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Step 2: Load full entities by sorted IDs, preserving order
+            assets = await PaginationHelper.LoadInOrderAsync(query, sortedIds, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // Non-DateAdded sorts use native SQLite-compatible ORDER BY
+            IQueryable<DigitalAsset> orderedQuery = _sortBy switch
+            {
+                "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
+                "File Size" => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
+                _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
+            };
+
+            // T21.4: Keyset pagination — use WHERE instead of SKIP for "load more"
+            if (_page > 0)
+            {
+                orderedQuery = ApplyKeysetPagination(orderedQuery);
+            }
+
+            assets = await orderedQuery
+                .Take(_pageSize)
+                .ToListAsync(ct).ConfigureAwait(false);
+        }
+
+        // T21.4: Store last item's values for next keyset seek
+        if (assets.Count > 0)
+        {
+            var last = assets[^1];
+            _lastSeekFileName = last.FileName;
+            _lastSeekCreatedAt = last.CreatedAt;
+            _lastSeekModifiedAt = last.ModifiedAt;
+            _lastSeekMimeType = last.MimeType;
+            _lastSeekFileSize = last.FileSize;
+            _lastSeekId = last.Id;
+        }
+
+        return assets;
+    }
+
+    /// <summary>
+    /// Loads a page of assets from the local database (standalone mode).
+    /// </summary>
+    private async Task LoadPageStandaloneAsync(CancellationToken ct)
+    {
+        await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
+        _logger.LogInformation("[LoadPageAsync] DbContext created");
+
+        var query = ApplyFilters(db.DigitalAssets.AsQueryable());
+        _logger.LogInformation("[LoadPageAsync] Filters applied - activeCategory={Category}, activeFolder={Folder}", _activeCategory, _activeFolderPath);
+
+        if (_page == 0)
+        {
+            _totalCount = await query.CountAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
+        }
+
+        var assets = await ResolveStandalonePaginationAsync(query, ct).ConfigureAwait(false);
+        _logger.LogInformation("[LoadPageAsync] Retrieved {Count} assets from database", assets.Count);
+
+        var thumbnailDir = GetThumbnailDir();
+        _logger.LogInformation("Gallery loading: thumbnailDir={ThumbDir}, assetCount={Count}", thumbnailDir, assets.Count);
+
+        var newItems = BuildAssetItems(assets, thumbnailDir);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            foreach (var item in newItems)
+                Assets.Add(item);
+        });
+
+        // T21.1/T21.2: Load visible thumbnails immediately; batch-load remaining
+        LoadVisibleThumbnails(newItems);
+        _ = BatchLoadRemainingThumbnailsAsync(newItems);
+
+        _page++;
+        _hasMore = assets.Count >= _pageSize;
+
+        // T12.2: Backfill thumbnails for assets that don't have them yet
+        _ = BackfillMissingThumbnailsAsync(newItems, thumbnailDir, ct);
+    }
+
+    /// <summary>
+    /// Loads a page of assets from the broker service (multi-user mode).
+    /// </summary>
+    private async Task LoadPageMultiUserAsync(CancellationToken ct)
+    {
+        var broker = _modeManager.BrokerClient;
+        var auth = _modeManager.AuthSession;
+        if (broker == null || auth == null) return;
+
+        if (!broker.IsConnected)
+            await broker.ConnectAsync(ct);
+
+        // Build the request with all active filters
+        var listReq = new ListAssetsRequest
+        {
+            Page = _page + 1,
+            PageSize = _pageSize,
+            SortBy = _sortBy,
+            SortDir = _sortBy switch
+            {
+                "Date Added" => "desc",
+                _ => "asc"
+            }
+        };
+
+        // Type/category filter
+        if (!string.IsNullOrEmpty(_activeCategory) && _activeCategory != "All")
+            listReq.Type = _activeCategory;
+
+        foreach (var id in _activeCategoryIds)
+            listReq.CategoryIds.Add(id.ToString());
+
+        // Folder path filter
+        if (!string.IsNullOrEmpty(_activeFolderPath))
+            listReq.FolderPath = _activeFolderPath;
+
+        // Keyword filter
+        foreach (var id in _activeKeywordIds)
+            listReq.KeywordIds.Add(id.ToString());
+
+        // Date range filter (from DateTaken tree, as Unix timestamps)
+        if (_filterDateFrom.HasValue)
+            listReq.FromDate = new DateTimeOffset(_filterDateFrom.Value, TimeSpan.Zero).ToUnixTimeSeconds();
+        if (_filterDateTo.HasValue)
+            listReq.ToDate = new DateTimeOffset(_filterDateTo.Value, TimeSpan.Zero).ToUnixTimeSeconds();
+
+        var correlationId = Guid.NewGuid().ToString();
+        var request = new Envelope
+        {
+            AuthToken = auth.Token ?? "",
+            CorrelationId = correlationId,
+            MessageType = MessageTypeCode.ListAssetsRequest,
+            Payload = ByteString.CopyFrom(ProtoHelper.Serialize(listReq))
+        };
+
+        var response = await broker.SendAsync(request, ct);
+        if (response.StatusCode != 0) return;
+
+        var listResponse = ProtoHelper.Deserialize<ListAssetsResponse>(response.Payload.ToByteArray());
+
+        if (_page == 0)
+            _totalCount = listResponse.TotalCount;
+
+        var newItems = listResponse.Items.Select(item => new AssetListItem
+        {
+            Id = Guid.Parse(item.Id),
+            Title = item.Title,
+            FileName = item.FileName,
+            FileType = item.MimeType,
+            FileSize = item.FileSize,
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt)
+        }).ToList();
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            foreach (var item in newItems)
+                Assets.Add(item);
+        });
+
+        _page++;
+        if (listResponse.Items.Count < _pageSize)
+            _hasMore = false;
+    }
+
     private async Task LoadPageAsync(CancellationToken ct = default)
     {
         IsLoadingMore = true;
@@ -886,223 +1081,9 @@ public class AssetGalleryViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             if (_modeManager.IsStandalone)
-            {
-                await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-                _logger.LogInformation("[LoadPageAsync] DbContext created");
-
-                var query = ApplyFilters(db.DigitalAssets.AsQueryable());
-                _logger.LogInformation("[LoadPageAsync] Filters applied - activeCategory={Category}, activeFolder={Folder}", _activeCategory, _activeFolderPath);
-
-            if (_page == 0)
-                {
-                    _totalCount = await query.CountAsync(ct).ConfigureAwait(false);
-                    _logger.LogInformation("[LoadPageAsync] Total count={TotalCount}", _totalCount);
-                }
-
-                // For Date Added sort, use a two-query approach to avoid SQLite DateTimeOffset ORDER BY limitation
-                List<DigitalAsset> assets;
-                if (_sortBy == "Date Added")
-                {
-                    // Step 1: Load IDs + CreatedAt only (projected, no ORDER BY)
-                    var idQuery = query.Select(a => new { a.Id, a.CreatedAt });
-
-                    // Apply keyset pagination for Date Added (WHERE clause works for SQLite)
-                    if (_page > 0)
-                    {
-                        idQuery = idQuery.Where(a =>
-                            a.CreatedAt < _lastSeekCreatedAt ||
-                            (a.CreatedAt == _lastSeekCreatedAt && a.Id > _lastSeekId));
-                    }
-
-                    // Sort in memory, paginate IDs
-                    var sortedIds = (await idQuery.ToListAsync(ct).ConfigureAwait(false))
-                        .OrderByDescending(x => x.CreatedAt)
-                        .ThenBy(x => x.Id)
-                        .Take(_pageSize)
-                        .Select(x => x.Id)
-                        .ToList();
-
-                    // Step 2: Load full entities by sorted IDs, preserving order
-                    assets = await PaginationHelper.LoadInOrderAsync(query, sortedIds, ct).ConfigureAwait(false);
-                }
-                else
-                {
-                    // Non-DateAdded sorts use native SQLite-compatible ORDER BY
-                    IQueryable<DigitalAsset> orderedQuery = _sortBy switch
-                    {
-                        "File Type" => query.OrderBy(a => a.MimeType).ThenBy(a => a.Id),
-                        "File Size" => query.OrderBy(a => a.FileSize).ThenBy(a => a.Id),
-                        _ => query.OrderBy(a => a.FileName).ThenBy(a => a.Id)
-                    };
-
-                    // T21.4: Keyset pagination — use WHERE instead of SKIP for "load more"
-                    if (_page > 0)
-                    {
-                        orderedQuery = ApplyKeysetPagination(orderedQuery);
-                    }
-
-                    assets = await orderedQuery
-                        .Take(_pageSize)
-                        .ToListAsync(ct).ConfigureAwait(false);
-                }
-                _logger.LogInformation("[LoadPageAsync] Ordering by {SortBy}", _sortBy);
-
-                // T21.4: Store last item's values for next keyset seek
-                if (assets.Count > 0)
-                {
-                    var last = assets[^1];
-                    _lastSeekFileName = last.FileName;
-                    _lastSeekCreatedAt = last.CreatedAt;
-                    _lastSeekModifiedAt = last.ModifiedAt;
-                    _lastSeekMimeType = last.MimeType;
-                    _lastSeekFileSize = last.FileSize;
-                    _lastSeekId = last.Id;
-                }
-                _logger.LogInformation("[LoadPageAsync] Retrieved {Count} assets from database", assets.Count);
-
-                var dbDir = Path.GetDirectoryName(_modeManager.DbPath) ?? ".";
-                var thumbnailDir = Path.Combine(dbDir, "thumbnails");
-                _logger.LogInformation("Gallery loading: thumbnailDir={ThumbDir}, assetCount={Count}", thumbnailDir, assets.Count);
-
-                var newItems = new List<AssetListItem>(assets.Count);
-                foreach (var asset in assets)
-                {
-                    var thumbnailPath = _thumbnailService.GetThumbnailPath(asset.StoragePath, thumbnailDir);
-                    _logger.LogDebug("[Thumbnail] AssetId={AssetId}, StoragePath={StoragePath}, ThumbnailPath={ThumbnailPath}, ThumbnailExists={Exists}", 
-                        asset.Id, asset.StoragePath, thumbnailPath, File.Exists(thumbnailPath));
-
-                    // Map label to color display (T8.20) via shared helper (T8.22)
-                    var (colorLabel, colorBrush) = AssetListItem.MapLabelToDisplay(asset.Label);
-
-                    var item = new AssetListItem
-                    {
-                        Id = asset.Id,
-                        Title = asset.Title,
-                        FileName = asset.FileName,
-                        StoragePath = asset.StoragePath,
-                        FileType = asset.MimeType,
-                        FileSize = asset.FileSize,
-                        Width = asset.Width,
-                        Height = asset.Height,
-                        CreatedAt = asset.CreatedAt,
-                        ThumbnailPath = thumbnailPath,
-                        Rating = asset.Rating,
-                        ColorLabel = colorLabel,
-                        ColorBrush = colorBrush,
-                        IsFlagged = asset.Flag != AssetFlag.Unflagged
-                    };
-
-                    // Quick action toolbar buttons (T8.20)
-                    AddToolbarActions(item);
-
-                    newItems.Add(item);
-                }
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    foreach (var item in newItems)
-                        Assets.Add(item);
-                });
-
-                // T21.1/T21.2: Load visible thumbnails immediately; batch-load remaining
-                LoadVisibleThumbnails(newItems);
-                _ = BatchLoadRemainingThumbnailsAsync(newItems);
-
-                _page++;
-                if (assets.Count < _pageSize)
-                {
-                    _hasMore = false;
-                }
-                else if (_page > 0)
-                {
-                    // T21.4: With keyset pagination, we know there are more items
-                    // if we got a full page. No need to check count.
-                    _hasMore = assets.Count >= _pageSize;
-                }
-
-                // T12.2: Backfill thumbnails for assets that don't have them yet
-                _ = BackfillMissingThumbnailsAsync(newItems, thumbnailDir, ct);
-            }
+                await LoadPageStandaloneAsync(ct);
             else if (_modeManager.IsMultiUser)
-            {
-                var broker = _modeManager.BrokerClient;
-                var auth = _modeManager.AuthSession;
-                if (broker == null || auth == null) return;
-
-                if (!broker.IsConnected)
-                    await broker.ConnectAsync(ct);
-
-                // Build the request with all active filters
-                var listReq = new ListAssetsRequest
-                {
-                    Page = _page + 1,
-                    PageSize = _pageSize,
-                    SortBy = _sortBy,
-                    SortDir = _sortBy switch
-                    {
-                        "Date Added" => "desc",
-                        _ => "asc"
-                    }
-                };
-
-                // Type/category filter
-                if (!string.IsNullOrEmpty(_activeCategory) && _activeCategory != "All")
-                    listReq.Type = _activeCategory;
-
-                foreach (var id in _activeCategoryIds)
-                    listReq.CategoryIds.Add(id.ToString());
-
-                // Folder path filter
-                if (!string.IsNullOrEmpty(_activeFolderPath))
-                    listReq.FolderPath = _activeFolderPath;
-
-                // Keyword filter
-                foreach (var id in _activeKeywordIds)
-                    listReq.KeywordIds.Add(id.ToString());
-
-                // Date range filter (from DateTaken tree, as Unix timestamps)
-                if (_filterDateFrom.HasValue)
-                    listReq.FromDate = new DateTimeOffset(_filterDateFrom.Value, TimeSpan.Zero).ToUnixTimeSeconds();
-                if (_filterDateTo.HasValue)
-                    listReq.ToDate = new DateTimeOffset(_filterDateTo.Value, TimeSpan.Zero).ToUnixTimeSeconds();
-
-                var correlationId = Guid.NewGuid().ToString();
-                var request = new Envelope
-                {
-                    AuthToken = auth.Token ?? "",
-                    CorrelationId = correlationId,
-                    MessageType = MessageTypeCode.ListAssetsRequest,
-                    Payload = ByteString.CopyFrom(ProtoHelper.Serialize(listReq))
-                };
-
-                var response = await broker.SendAsync(request, ct);
-                if (response.StatusCode != 0) return;
-
-                var listResponse = ProtoHelper.Deserialize<ListAssetsResponse>(response.Payload.ToByteArray());
-
-                if (_page == 0)
-                    _totalCount = listResponse.TotalCount;
-
-                var newItems = listResponse.Items.Select(item => new AssetListItem
-                {
-                    Id = Guid.Parse(item.Id),
-                    Title = item.Title,
-                    FileName = item.FileName,
-                    FileType = item.MimeType,
-                    FileSize = item.FileSize,
-                    CreatedAt = DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt)
-                }).ToList();
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    foreach (var item in newItems)
-                        Assets.Add(item);
-                });
-
-                _page++;
-                if (listResponse.Items.Count < _pageSize)
-                    _hasMore = false;
-            }
+                await LoadPageMultiUserAsync(ct);
         }
         catch (Exception ex)
         {
