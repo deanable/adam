@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Adam.CatalogBrowser.Services;
 using Adam.Shared.Data;
 using Adam.Shared.Models;
 using Adam.Shared.Services;
@@ -18,7 +19,7 @@ namespace Adam.CatalogBrowser.ViewModels;
 /// ViewModel for the face tagging view: browse known persons, name unknown faces,
 /// confirm/reject suggestions, and manage face assignments.
 /// </summary>
-public sealed class FaceTaggingViewModel : INotifyPropertyChanged
+public sealed class FaceTaggingViewModel : INotifyPropertyChanged, ICloseable
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly FaceMatcherService _matcher;
@@ -68,6 +69,11 @@ public sealed class FaceTaggingViewModel : INotifyPropertyChanged
     public ICommand ConfirmFaceCommand { get; }
     public ICommand RejectFaceCommand { get; }
     public ICommand OpenPersonGalleryCommand { get; }
+
+    /// <summary>
+    /// Raised when the user wants to close the face tagging view and return to the gallery.
+    /// </summary>
+    public event Action? CloseRequested;
 
     public event Action? NavigateToPersonGallery;
     public event PropertyChangedEventHandler? PropertyChanged;

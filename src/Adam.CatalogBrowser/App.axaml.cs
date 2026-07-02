@@ -88,6 +88,7 @@ public partial class App : Application
             services.AddSingleton<ToastService>();
             services.AddSingleton<BulkOperationQueue>();
             services.AddSingleton<MetadataWritebackService>();
+            services.AddSingleton<NavigationService>();
             services.Configure<PluginConfig>(cfg =>
             {
                 cfg.PluginDirectory = Path.Combine(

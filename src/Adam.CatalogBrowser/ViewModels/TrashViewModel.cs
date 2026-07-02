@@ -33,7 +33,7 @@ public class DeletedAssetItem : INotifyPropertyChanged
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
-public class TrashViewModel : INotifyPropertyChanged
+public class TrashViewModel : INotifyPropertyChanged, ICloseable
 {
     private readonly DeleteService _deleteService;
     private readonly ToastService _toastService;
@@ -41,6 +41,11 @@ public class TrashViewModel : INotifyPropertyChanged
     private bool _isLoading;
     private bool _hasItems;
     private bool _isProcessing;
+
+    /// <summary>
+    /// Raised when the user wants to close the trash view and return to the gallery.
+    /// </summary>
+    public event Action? CloseRequested;
 
     public TrashViewModel(
         DeleteService deleteService,

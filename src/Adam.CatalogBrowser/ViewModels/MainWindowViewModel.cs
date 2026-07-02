@@ -31,6 +31,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly AiTaggingService? _aiTaggingService;
     private readonly BulkOperationQueue _bulkQueue;
     private readonly DeleteService _deleteService;
+    private readonly NavigationService _navigationService;
     internal readonly ToastService ToastService;
     private readonly IUiDispatcher _dispatcher;
     private readonly IUserPreferenceService? _prefs;
@@ -54,6 +55,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ToastService toastService,
         ActivityFeedViewModel activityFeed,
         CommentService commentService,
+        NavigationService navigationService,
         IUserPreferenceService? prefs = null,
         AiTaggingService? aiTaggingService = null,
         LiquidVisionOptions? liquidVisionOptions = null,
@@ -66,6 +68,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _writeback = writeback;
         _bulkQueue = bulkQueue;
         _deleteService = deleteService;
+        _navigationService = navigationService;
         ToastService = toastService;
         _dispatcher = dispatcher ?? new AvaloniaUiDispatcher();
         _prefs = prefs;
@@ -81,6 +84,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Connection = connection;
         StatusBar = statusBar;
         _currentView = assetGallery;
+
+        // Wire NavigationService view changes to the bound CurrentView property
+        _navigationService.ViewChanged += view =>
+        {
+            _currentView = view;
+            OnPropertyChanged(nameof(CurrentView));
+        };
 
         // Phase 7: Session check timer — checks token expiry every 60s (T7.3)
         // Skipped when startSessionTimer is false (unit tests) to avoid requiring
@@ -179,7 +189,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // T8.21: F2 = Rename asset title
         RenameAssetCommand = new RelayCommand(async _ => await RenameAssetAsync(), _ => AssetGallery.SelectedAssets.Count == 1 && CanEditMetadata);
 
-        // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)            FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
+        // T8.21: Ctrl+F = Focus keyword search (wired via event to MainWindow code-behind)
+            FocusSearchCommand = new RelayCommand(_ => RequestFocusSearch?.Invoke());
 
             // Phase 22: Generate albums command
             GenerateAlbumsCommand = new RelayCommand(async _ => await ShowAutoAlbumDialogAsync());
@@ -194,7 +205,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 var settingsVm = App.ServiceProvider?.GetService<SettingsViewModel>();
                 if (settingsVm != null)
-                    CurrentView = settingsVm;
+                    _navigationService.NavigateTo(settingsVm);
             });
 
             ShowFacesCommand = new RelayCommand(async _ =>
@@ -203,9 +214,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 var matcher = App.ServiceProvider?.GetService<FaceMatcherService>();
                 if (dbFactory != null && matcher != null)
                 {
-                    var faceVm = new FaceTaggingViewModel(dbFactory, matcher);
-                    await faceVm.LoadAsync();
-                    CurrentView = faceVm;
+                    await _navigationService.NavigateToAsync(
+                        () => new FaceTaggingViewModel(dbFactory, matcher),
+                        vm => vm.LoadAsync());
                 }
             });
 
@@ -222,28 +233,21 @@ public class MainWindowViewModel : INotifyPropertyChanged
             // T20.2: Loupe view — open on double-click
         assetGallery.OpenAssetRequested += async asset =>
         {
-            var loupe = new LoupeViewModel(_modeManager);
-            await loupe.OpenAsync(asset, assetGallery.Assets.ToList());
-            loupe.CloseRequested += () =>
-            {
-                loupe.Dispose();
-                CurrentView = assetGallery;
-            };
-            CurrentView = loupe;
+            await _navigationService.NavigateToAsync(
+                () => new LoupeViewModel(_modeManager),
+                loupe => loupe.OpenAsync(asset, assetGallery.Assets.ToList()));
         };
 
         // T20.3: Compare view
         assetGallery.CompareAssetsRequested += async (left, right) =>
         {
-            var compare = new CompareViewModel(_modeManager);
-            await compare.SetLeftAssetAsync(left);
-            await compare.SetRightAssetAsync(right);
-            compare.CloseRequested += () =>
-            {
-                compare.Dispose();
-                CurrentView = assetGallery;
-            };
-            CurrentView = compare;
+            await _navigationService.NavigateToAsync(
+                () => new CompareViewModel(_modeManager),
+                async compare =>
+                {
+                    await compare.SetLeftAssetAsync(left);
+                    await compare.SetRightAssetAsync(right);
+                });
         };
 
         // Phase 19: Save current search query as a saved search
@@ -883,21 +887,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var clusterService = App.ServiceProvider?.GetService<EmbeddingClusterService>();
         if (clusterService == null) return;
 
-        var vm = new AutoAlbumViewModel(clusterService, _modeManager);
-        vm.AlbumsCreated += async count =>
-        {
-            ToastService.Show($"Created {count} smart album(s)", Adam.CatalogBrowser.Services.ToastLevel.Success);
-            await Sidebar.LoadAsync();
-            await AssetGallery.LoadAssetsAsync();
-        };
-        vm.CloseRequested += () =>
-        {
-            CurrentView = AssetGallery;
-        };
-        CurrentView = vm;
-
-        // Auto-compute preview when dialog opens
-        await vm.ComputePreviewAsync();
+        await _navigationService.NavigateToAsync(
+            () => new AutoAlbumViewModel(clusterService, _modeManager),
+            async vm =>
+            {
+                vm.AlbumsCreated += async count =>
+                {
+                    ToastService.Show($"Created {count} smart album(s)", Adam.CatalogBrowser.Services.ToastLevel.Success);
+                    await Sidebar.LoadAsync();
+                    await AssetGallery.LoadAssetsAsync();
+                };
+                await vm.ComputePreviewAsync();
+            });
     }
 
     /// <summary>
@@ -912,14 +913,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var asset = AssetGallery.SelectedAssets.FirstOrDefault();
         if (asset == null) return;
 
-        var vm = new DuplicateReviewViewModel(dupService, deleteService);
-        vm.CloseRequested += () =>
-        {
-            CurrentView = AssetGallery;
-        };
-        CurrentView = vm;
-
-        await vm.FindForAssetAsync(asset.Id);
+        await _navigationService.NavigateToAsync(
+            () => new DuplicateReviewViewModel(dupService, deleteService),
+            vm => vm.FindForAssetAsync(asset.Id));
     }
 
     /// <summary>
@@ -931,14 +927,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var deleteService = App.ServiceProvider?.GetService<Services.DeleteService>();
         if (dupService == null) return;
 
-        var vm = new DuplicateReviewViewModel(dupService, deleteService);
-        vm.CloseRequested += () =>
-        {
-            CurrentView = AssetGallery;
-        };
-        CurrentView = vm;
-
-        await vm.ScanAllAsync();
+        await _navigationService.NavigateToAsync(
+            () => new DuplicateReviewViewModel(dupService, deleteService),
+            vm => vm.ScanAllAsync());
     }
 
     /// <summary>
@@ -1064,12 +1055,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Switches to the Trash view to browse deleted assets (T8.17).
+    /// If already on the trash view, reloads the asset list.
     /// </summary>
     private async Task ShowTrashViewAsync()
     {
-        if (CurrentView is TrashViewModel trashVm)
+        if (CurrentView is TrashViewModel existingVm)
         {
-            await trashVm.LoadDeletedAssetsAsync();
+            await existingVm.LoadDeletedAssetsAsync();
             return;
         }
 
@@ -1077,16 +1069,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (provider == null)
         {
             // Fallback: manually create with the available services
-            trashVm = new TrashViewModel(_deleteService, ToastService,
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<TrashViewModel>.Instance);
+            await _navigationService.NavigateToDirectAsync(
+                () => new TrashViewModel(_deleteService, ToastService,
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<TrashViewModel>.Instance),
+                vm => vm.LoadDeletedAssetsAsync());
         }
         else
         {
-            trashVm = provider.GetRequiredService<TrashViewModel>();
+            await _navigationService.NavigateToDirectAsync(
+                () => provider.GetRequiredService<TrashViewModel>(),
+                vm => vm.LoadDeletedAssetsAsync());
         }
-
-        await trashVm.LoadDeletedAssetsAsync();
-        CurrentView = trashVm;
     }
 
     /// <summary>
