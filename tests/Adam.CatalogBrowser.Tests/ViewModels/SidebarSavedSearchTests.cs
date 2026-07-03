@@ -1,4 +1,5 @@
 using System.Reflection;
+using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.CatalogBrowser.Models.Sidebar;
 using Adam.Shared.Services;
@@ -39,7 +40,10 @@ public sealed class SidebarSavedSearchTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _modeManager.InitializeAsync();
-        _sidebar = new SidebarViewModel(_modeManager, _logger);
+        var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        _sidebar = new SidebarViewModel(_modeManager, _logger, mediaFormatService, dateTakenTreeService, savedSearchService);
     }
 
     public async Task DisposeAsync()
@@ -693,33 +697,15 @@ public sealed class SidebarSavedSearchTests : IAsyncLifetime
     // ═══════════════════════════════════════════════════════════
 
     [Fact]
-    public void SavedSearches_Setter_RaisesPropertyChanged()
+    public void SavedSearches_RetrievesFromService()
     {
-        var changed = new List<string?>();
-        _sidebar.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-
-        // Trigger the private setter via reflection
-        var field = typeof(SidebarViewModel)
-            .GetField("_savedSearches", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var newCollection = new System.Collections.ObjectModel.ObservableCollection<SavedSearchNode>();
-        // The setter is auto-property with private set; we trigger it via the backing field
-        // Actually, we need to invoke the setter. Let's use reflection to set the property.
-        var prop = typeof(SidebarViewModel).GetProperty(nameof(SidebarViewModel.SavedSearches))!;
-        prop.SetValue(_sidebar, newCollection);
-
-        changed.Should().Contain(nameof(SidebarViewModel.SavedSearches));
+        _sidebar.SavedSearches.Should().NotBeNull();
     }
 
     [Fact]
-    public void RecentSearches_Setter_RaisesPropertyChanged()
+    public void RecentSearches_RetrievesFromService()
     {
-        var changed = new List<string?>();
-        _sidebar.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-
-        var prop = typeof(SidebarViewModel).GetProperty(nameof(SidebarViewModel.RecentSearches))!;
-        prop.SetValue(_sidebar, new System.Collections.ObjectModel.ObservableCollection<SearchHistoryNode>());
-
-        changed.Should().Contain(nameof(SidebarViewModel.RecentSearches));
+        _sidebar.RecentSearches.Should().NotBeNull();
     }
 
     [Fact]

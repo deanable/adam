@@ -16,6 +16,8 @@ using Microsoft.Extensions.Logging;
 using Adam.CatalogBrowser.Models.Sidebar;
 // Resolves ambiguity with Adam.Shared.Contracts.CollectionNode (protobuf message)
 using CollectionNode = Adam.CatalogBrowser.Models.Sidebar.CollectionNode;
+// Resolves ambiguity with Adam.Shared.Services.SavedSearchService
+using SavedSearchService = Adam.CatalogBrowser.Services.SavedSearchService;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -24,6 +26,9 @@ public class SidebarViewModel : INotifyPropertyChanged
     private readonly ModeManager _modeManager;
     private readonly ILogger<SidebarViewModel> _logger;
     private readonly FolderScanService _folderScanService;
+    private readonly MediaFormatService _mediaFormatService;
+    private readonly DateTakenTreeService _dateTakenTreeService;
+    private readonly SavedSearchService _savedSearchService;
     private CategoryNode _selectedMediaFormat;
     private CategoryNode? _selectedMetadataCategory;
     private FolderNode? _selectedFolder;
@@ -35,20 +40,20 @@ public class SidebarViewModel : INotifyPropertyChanged
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private bool _isLoading;
     private DateTakenNode? _selectedDateTaken;
-    private ObservableCollection<DateTakenNode> _dateTakenTree = [];
     private string? _activeSearchQueryText;
     private SavedSearchNode? _selectedSavedSearch;
     private SearchHistoryNode? _selectedRecentSearch;
-    private ObservableCollection<SavedSearchNode> _savedSearches = [];
-    private ObservableCollection<SearchHistoryNode> _recentSearches = [];
 
-    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, FolderScanService? folderScanService = null)
+    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, MediaFormatService mediaFormatService, DateTakenTreeService dateTakenTreeService, SavedSearchService savedSearchService, FolderScanService? folderScanService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
         _folderScanService = folderScanService ?? new FolderScanService(modeManager, new PluginLoaderService(
             Microsoft.Extensions.Options.Options.Create(new Adam.Shared.Configuration.PluginConfig()),
             logger as ILogger<PluginLoaderService> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<PluginLoaderService>.Instance));
+        _mediaFormatService = mediaFormatService;
+        _dateTakenTreeService = dateTakenTreeService;
+        _savedSearchService = savedSearchService;
         _selectedMediaFormat = MediaFormats[0];
 
         // T8.18 / T10.3: Sidebar CRUD commands with permission gating
@@ -106,14 +111,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         private set { _keywords = value; OnPropertyChanged(); }
     }
 
-    public ObservableCollection<CategoryNode> MediaFormats { get; } =
-    [
-        new() { Name = "All", Count = 0 },
-        new() { Name = "Images", Count = 0 },
-        new() { Name = "Videos", Count = 0 },
-        new() { Name = "Documents", Count = 0 },
-        new() { Name = "Audio", Count = 0 },
-    ];
+    public ObservableCollection<CategoryNode> MediaFormats => _mediaFormatService.MediaFormats;
 
     public bool IsLoading
     {
@@ -127,11 +125,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         private set { _metadataCategories = value; OnPropertyChanged(); }
     }
 
-    public ObservableCollection<DateTakenNode> DateTakenTree
-    {
-        get => _dateTakenTree;
-        private set { _dateTakenTree = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<DateTakenNode> DateTakenTree => _dateTakenTreeService.DateTakenTree;
 
     // T14.5: Advanced filter properties
     private int _selectedRating;
@@ -288,17 +282,9 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
     }
 
-    public ObservableCollection<SavedSearchNode> SavedSearches
-    {
-        get => _savedSearches;
-        private set { _savedSearches = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<SavedSearchNode> SavedSearches => _savedSearchService.SavedSearches;
 
-    public ObservableCollection<SearchHistoryNode> RecentSearches
-    {
-        get => _recentSearches;
-        private set { _recentSearches = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<SearchHistoryNode> RecentSearches => _savedSearchService.RecentSearches;
 
     public SavedSearchNode? SelectedSavedSearch
     {
@@ -434,11 +420,11 @@ public class SidebarViewModel : INotifyPropertyChanged
                 LoadFoldersAsync(ct),
                 LoadCollectionsAsync(ct),
                 LoadKeywordsAsync(ct),
-                LoadMediaFormatCountsAsync(ct),
+                _mediaFormatService.LoadAsync(ct),
                 LoadMetadataCategoriesAsync(ct),
-                LoadDateTakenTreeAsync(ct),
-                LoadSavedSearchesAsync(ct),
-                LoadRecentSearchesAsync(ct)).ConfigureAwait(false);
+                _dateTakenTreeService.LoadAsync(ct),
+                _savedSearchService.LoadSavedSearchesAsync(ct),
+                _savedSearchService.LoadRecentSearchesAsync(ct)).ConfigureAwait(false);
             _logger.LogInformation("[LoadAsync] All parallel loads completed successfully");
         }
         catch (Exception ex)
@@ -754,250 +740,6 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
 
         await Dispatcher.UIThread.InvokeAsync(() => Keywords = new ObservableCollection<KeywordNode> { root });
-    }
-
-
-
-    private async Task LoadDateTakenTreeAsync(CancellationToken ct = default)
-    {
-        var root = new DateTakenNode { Name = "All Dates", IsExpanded = true };
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-
-            // Group MetadataProfiles with a DateTaken by year/month and count distinct assets
-            var dateGroups = await db.MetadataProfiles
-                .Where(mp => mp.DateTaken.HasValue)
-                .GroupBy(mp => new { mp.DateTaken!.Value.Year, mp.DateTaken.Value.Month })
-                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            // Group by year then month
-            var byYear = dateGroups
-                .GroupBy(g => g.Year)
-                .OrderByDescending(g => g.Key)
-                .ToList();
-
-            foreach (var yearGroup in byYear)
-            {
-                var yearNode = new DateTakenNode
-                {
-                    Name = yearGroup.Key.ToString(),
-                    Year = yearGroup.Key,
-                    AssetCount = yearGroup.Sum(g => g.Count),
-                    IsExpanded = false
-                };
-
-                foreach (var monthGroup in yearGroup.OrderByDescending(g => g.Month))
-                {
-                    var monthNode = new DateTakenNode
-                    {
-                        Name = new DateTime(yearGroup.Key, monthGroup.Month, 1).ToString("MMMM"),
-                        Year = yearGroup.Key,
-                        Month = monthGroup.Month,
-                        AssetCount = monthGroup.Count
-                    };
-                    yearNode.Children.Add(monthNode);
-                }
-
-                root.Children.Add(yearNode);
-            }
-
-            // Total count on root
-            root.AssetCount = byYear.Sum(g => g.Sum(x => x.Count));
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListDateTakenTreeRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListDateTakenTreeRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListDateTakenTreeResponse>(resp.Payload.ToByteArray());
-                foreach (var yearInfo in data.Years)
-                {
-                    var yearNode = new DateTakenNode
-                    {
-                        Name = yearInfo.Year.ToString(),
-                        Year = yearInfo.Year,
-                        AssetCount = yearInfo.AssetCount,
-                        IsExpanded = false
-                    };
-
-                    foreach (var monthInfo in yearInfo.Months)
-                    {
-                        var monthNode = new DateTakenNode
-                        {
-                            Name = monthInfo.MonthName,
-                            Year = yearInfo.Year,
-                            Month = monthInfo.Month,
-                            AssetCount = monthInfo.AssetCount
-                        };
-                        yearNode.Children.Add(monthNode);
-                    }
-
-                    root.Children.Add(yearNode);
-                }
-
-                root.AssetCount = data.Years.Sum(y => y.AssetCount);
-                _logger.LogInformation("[LoadDateTakenTreeAsync] Loaded {Count} years from broker", data.Years.Count);
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            DateTakenTree = new ObservableCollection<DateTakenNode> { root };
-        });
-    }
-
-    private async Task LoadSavedSearchesAsync(CancellationToken ct = default)
-    {
-        var items = new List<SavedSearchNode>();
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var saved = await db.SavedSearches
-                .OrderByDescending(s => s.IsPinned)
-                .ThenBy(s => s.Name)
-                .AsNoTracking()
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            items = saved.Select(s => new SavedSearchNode
-            {
-                SearchId = s.Id,
-                Name = s.Name,
-                QueryText = s.QueryText,
-                IsPinned = s.IsPinned
-            }).ToList();
-
-            _logger.LogInformation("[LoadSavedSearchesAsync] Loaded {Count} saved searches", items.Count);
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var resp = await SendBrokerRequestAsync(
-                new ListSavedSearchesRequest(),
-                MessageTypeCode.ListSavedSearchesRequest, ct);
-            if (resp != null && resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListSavedSearchesResponse>(resp.Payload.ToByteArray());
-                items = data.Items.Select(w => new SavedSearchNode
-                {
-                    SearchId = Guid.Parse(w.Id),
-                    Name = w.Name,
-                    QueryText = w.QueryText,
-                    IsPinned = w.IsPinned
-                }).ToList();
-                _logger.LogInformation("[LoadSavedSearchesAsync] Loaded {Count} saved searches from broker", items.Count);
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            SavedSearches = new ObservableCollection<SavedSearchNode>(items);
-        });
-    }
-
-    private async Task LoadRecentSearchesAsync(CancellationToken ct = default)
-    {
-        var items = new List<SearchHistoryNode>();
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var history = (await db.SearchHistoryEntries
-                .AsNoTracking()
-                .ToListAsync(ct).ConfigureAwait(false))
-                .OrderByDescending(h => h.ExecutedAt)
-                .Take(200)
-                .ToList();
-
-            // Load to memory first, then sort -- SQLite cannot ORDER BY DateTimeOffset
-
-            items = history.Select(h => new SearchHistoryNode
-            {
-                EntryId = h.Id,
-                QueryText = h.QueryText,
-                ExecutedAt = h.ExecutedAt
-            }).ToList();
-
-            _logger.LogInformation("[LoadRecentSearchesAsync] Loaded {Count} recent searches", items.Count);
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var resp = await SendBrokerRequestAsync(
-                new ListSearchHistoryRequest { MaxResults = 200 },
-                MessageTypeCode.ListSearchHistoryRequest, ct);
-            if (resp != null && resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListSearchHistoryResponse>(resp.Payload.ToByteArray());
-                items = data.Items.Select(w => new SearchHistoryNode
-                {
-                    EntryId = Guid.Parse(w.Id),
-                    QueryText = w.QueryText,
-                    ExecutedAt = DateTimeOffset.FromUnixTimeSeconds(w.ExecutedAt)
-                }).ToList();
-                _logger.LogInformation("[LoadRecentSearchesAsync] Loaded {Count} recent searches from broker", items.Count);
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            RecentSearches = new ObservableCollection<SearchHistoryNode>(items);
-        });
-    }
-
-    private async Task LoadMediaFormatCountsAsync(CancellationToken ct = default)
-    {
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var counts = await db.DigitalAssets
-                .GroupBy(a => a.Type)
-                .Select(g => new { Type = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.Type, x => x.Count, ct).ConfigureAwait(false);
-
-            var total = counts.Values.Sum();
-            counts.TryGetValue(Adam.Shared.Models.AssetType.Image, out var images);
-            counts.TryGetValue(Adam.Shared.Models.AssetType.Video, out var videos);
-            counts.TryGetValue(Adam.Shared.Models.AssetType.Document, out var docs);
-            counts.TryGetValue(Adam.Shared.Models.AssetType.Audio, out var audio);
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                MediaFormats[0].Count = total;
-                MediaFormats[1].Count = images;
-                MediaFormats[2].Count = videos;
-                MediaFormats[3].Count = docs;
-                MediaFormats[4].Count = audio;
-            });
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListMediaFormatCountsRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListMediaFormatCountsRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListMediaFormatCountsResponse>(resp.Payload.ToByteArray());
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    MediaFormats[0].Count = data.TotalCount;
-                    MediaFormats[1].Count = data.ImageCount;
-                    MediaFormats[2].Count = data.VideoCount;
-                    MediaFormats[3].Count = data.DocumentCount;
-                    MediaFormats[4].Count = data.AudioCount;
-                });
-                _logger.LogInformation("[LoadMediaFormatCountsAsync] Loaded format counts from broker: Total={Total}", data.TotalCount);
-            }
-        }
     }
 
     private async Task LoadMetadataCategoriesAsync(CancellationToken ct)
@@ -2104,108 +1846,25 @@ public class SidebarViewModel : INotifyPropertyChanged
             SelectedRecentSearch = rs;
     }
 
-    private void OnDeleteSavedSearch(object? parameter)
+    private async void OnDeleteSavedSearch(object? parameter)
     {
         if (SelectedSavedSearch == null) return;
-        // In standalone mode, delete from DB; in multi-user, send broker request
-        if (_modeManager.IsStandalone)
-        {
-            _ = DeleteSavedSearchFromDbAsync(SelectedSavedSearch.SearchId);
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            _ = DeleteSavedSearchFromBrokerAsync(SelectedSavedSearch.SearchId);
-        }
+        await _savedSearchService.DeleteSavedSearchAsync(SelectedSavedSearch.SearchId);
+        OnPropertyChanged(nameof(SavedSearches));
+        SelectedSavedSearch = null;
     }
 
-    private async Task DeleteSavedSearchFromDbAsync(Guid searchId)
-    {
-        try
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == searchId).ConfigureAwait(false);
-            if (saved != null)
-            {
-                db.SavedSearches.Remove(saved);
-                await db.SaveChangesAsync().ConfigureAwait(false);
-            }
-            var toRemove = _savedSearches.Where(s => s.SearchId == searchId).ToList();
-            foreach (var s in toRemove)
-                _savedSearches.Remove(s);
-            OnPropertyChanged(nameof(SavedSearches));
-            if (SelectedSavedSearch?.SearchId == searchId)
-                SelectedSavedSearch = null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete saved search: {SearchId}", searchId);
-        }
-    }
-
-    private async Task DeleteSavedSearchFromBrokerAsync(Guid searchId)
-    {
-        try
-        {
-            await SendBrokerRequestAsync(
-                new DeleteSavedSearchRequest { Id = searchId.ToString() },
-                MessageTypeCode.DeleteSavedSearchRequest);
-            var toRemove = _savedSearches.Where(s => s.SearchId == searchId).ToList();
-            foreach (var s in toRemove)
-                _savedSearches.Remove(s);
-            OnPropertyChanged(nameof(SavedSearches));
-            if (SelectedSavedSearch?.SearchId == searchId)
-                SelectedSavedSearch = null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete saved search via broker: {SearchId}", searchId);
-        }
-    }
-
-    private void OnTogglePinSavedSearch(object? parameter)
+    private async void OnTogglePinSavedSearch(object? parameter)
     {
         if (SelectedSavedSearch == null) return;
         SelectedSavedSearch.IsPinned = !SelectedSavedSearch.IsPinned;
         // Persist pin state
-        _ = PersistPinStateAsync(SelectedSavedSearch.SearchId, SelectedSavedSearch.IsPinned);
-    }
-
-    private async Task PersistPinStateAsync(Guid searchId, bool isPinned)
-    {
-        try
-        {
-            if (_modeManager.IsStandalone)
-            {
-                await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-                var saved = await db.SavedSearches.FirstOrDefaultAsync(s => s.Id == searchId).ConfigureAwait(false);
-                if (saved != null)
-                {
-                    saved.IsPinned = isPinned;
-                    await db.SaveChangesAsync().ConfigureAwait(false);
-                }
-            }
-            else if (_modeManager.BrokerClient != null)
-            {
-                await SendBrokerRequestAsync(
-                    new PinSavedSearchRequest
-                    {
-                        Id = searchId.ToString(),
-                        IsPinned = isPinned
-                    },
-                    MessageTypeCode.PinSavedSearchRequest);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to persist pin state: {SearchId}", searchId);
-        }
+        await _savedSearchService.PersistPinStateAsync(SelectedSavedSearch.SearchId, SelectedSavedSearch.IsPinned);
     }
 
     private void ClearRecentSearches()
     {
-        foreach (var rs in _recentSearches)
-            rs.IsActiveFilter = false;
-        _recentSearches.Clear();
+        _savedSearchService.ClearRecentSearches();
         OnPropertyChanged(nameof(RecentSearches));
         SelectedRecentSearch = null;
     }
@@ -2215,8 +1874,7 @@ public class SidebarViewModel : INotifyPropertyChanged
     /// </summary>
     private void ClearSavedSearchActiveStates()
     {
-        foreach (var ss in _savedSearches)
-            ss.IsActiveFilter = false;
+        _savedSearchService.ClearSavedSearchActiveStates();
     }
 
     /// <summary>
@@ -2224,8 +1882,7 @@ public class SidebarViewModel : INotifyPropertyChanged
     /// </summary>
     private void ClearRecentSearchActiveStates()
     {
-        foreach (var rs in _recentSearches)
-            rs.IsActiveFilter = false;
+        _savedSearchService.ClearRecentSearchActiveStates();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -100,6 +100,9 @@ public partial class App : Application
             services.AddSingleton<PluginLoaderService>();
 
             services.AddSingleton<FolderScanService>();
+            services.AddSingleton<MediaFormatService>();
+            services.AddSingleton<DateTakenTreeService>();
+            services.AddSingleton<Adam.CatalogBrowser.Services.SavedSearchService>();
             services.AddSingleton<AccessLogCleanupService>();
             services.AddSingleton<CommentService>();
 

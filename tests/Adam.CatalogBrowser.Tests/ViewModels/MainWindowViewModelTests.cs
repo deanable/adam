@@ -68,7 +68,10 @@ public class MainWindowViewModelTests : IAsyncLifetime
 
         await _modeManager.InitializeAsync();
 
-        _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
+        var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService);
         _gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
             Options.Create(new PluginConfig()),
@@ -1061,7 +1064,10 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         currentUserField.SetValue(_auth, new Adam.Shared.Contracts.UserProfile { Username = "testuser" });
 
-        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
+        var mediaFormatSvc = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeSvc = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchSvc = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>(), mediaFormatSvc, dateTakenTreeSvc, savedSearchSvc);
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());

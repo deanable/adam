@@ -37,7 +37,10 @@ public sealed class MainWindowViewModelPermissionTests : IAsyncLifetime
     {
         await _modeManager.InitializeAsync();
 
-        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>());
+        var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>(), mediaFormatService, dateTakenTreeService, savedSearchService);
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());
         var propertyInspector = new PropertyInspectorViewModel(

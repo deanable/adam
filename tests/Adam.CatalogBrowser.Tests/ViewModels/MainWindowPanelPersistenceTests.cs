@@ -52,7 +52,10 @@ public sealed class MainWindowPanelPersistenceTests : IAsyncLifetime
         _prefs = new UserPreferenceService(factory, NullLogger<UserPreferenceService>.Instance);
         _panelState = new PanelStateService(_prefs);
 
-        var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger);
+        var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService);
         var gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
             Options.Create(new PluginConfig()),

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Adam.CatalogBrowser.Services;
 using Adam.CatalogBrowser.ViewModels;
 using Adam.Shared.Services;
 using FluentAssertions;
@@ -33,7 +34,10 @@ public sealed class SidebarCrudTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _modeManager.InitializeAsync();
-        _sidebar = new SidebarViewModel(_modeManager, _logger);
+        var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
+        var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
+        var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
+        _sidebar = new SidebarViewModel(_modeManager, _logger, mediaFormatService, dateTakenTreeService, savedSearchService);
         // Note: LoadAsync dispatches to Dispatcher.UIThread which requires a pumping
         // dispatcher. Tests verify the data model (commands, properties, static helpers)
         // that don't require UI-thread Init.
