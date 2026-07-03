@@ -71,7 +71,11 @@ public class MainWindowViewModelTests : IAsyncLifetime
         var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
         var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
         var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
-        _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService);
+        var folderTreeService = new FolderTreeService(_modeManager, new NullLogger<FolderTreeService>());
+        var collectionTreeService = new CollectionTreeService(_modeManager, new NullLogger<CollectionTreeService>());
+        var keywordTreeService = new KeywordTreeService(_modeManager, new NullLogger<KeywordTreeService>());
+        var categoryTreeService = new CategoryTreeService(_modeManager, new NullLogger<CategoryTreeService>());
+        _sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService, folderTreeService, collectionTreeService, keywordTreeService, categoryTreeService);
         _gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
             Options.Create(new PluginConfig()),
@@ -1067,7 +1071,11 @@ internal sealed class LoggedInVmContext : IAsyncDisposable
         var mediaFormatSvc = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
         var dateTakenTreeSvc = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
         var savedSearchSvc = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
-        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>(), mediaFormatSvc, dateTakenTreeSvc, savedSearchSvc);
+        var folderTreeSvc = new FolderTreeService(_modeManager, new NullLogger<FolderTreeService>());
+        var collectionTreeSvc = new CollectionTreeService(_modeManager, new NullLogger<CollectionTreeService>());
+        var keywordTreeSvc = new KeywordTreeService(_modeManager, new NullLogger<KeywordTreeService>());
+        var categoryTreeSvc = new CategoryTreeService(_modeManager, new NullLogger<CategoryTreeService>());
+        var sidebar = new SidebarViewModel(_modeManager, new NullLogger<SidebarViewModel>(), mediaFormatSvc, dateTakenTreeSvc, savedSearchSvc, folderTreeSvc, collectionTreeSvc, keywordTreeSvc, categoryTreeSvc);
         var gallery = new AssetGalleryViewModel(_modeManager, new NullLogger<AssetGalleryViewModel>());
 
         var bulkQueue = new BulkOperationQueue(_modeManager, new NullLogger<BulkOperationQueue>());

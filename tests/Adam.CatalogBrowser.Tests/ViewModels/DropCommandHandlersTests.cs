@@ -54,7 +54,11 @@ public sealed class DropCommandHandlersTests : IAsyncLifetime
         var mediaFormatService = new MediaFormatService(_modeManager, new NullLogger<MediaFormatService>());
         var dateTakenTreeService = new DateTakenTreeService(_modeManager, new NullLogger<DateTakenTreeService>());
         var savedSearchService = new Adam.CatalogBrowser.Services.SavedSearchService(_modeManager, new NullLogger<Adam.CatalogBrowser.Services.SavedSearchService>());
-        var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService);
+        var folderTreeService = new FolderTreeService(_modeManager, new NullLogger<FolderTreeService>());
+        var collectionTreeService = new CollectionTreeService(_modeManager, new NullLogger<CollectionTreeService>());
+        var keywordTreeService = new KeywordTreeService(_modeManager, new NullLogger<KeywordTreeService>());
+        var categoryTreeService = new CategoryTreeService(_modeManager, new NullLogger<CategoryTreeService>());
+        var sidebar = new SidebarViewModel(_modeManager, _sidebarLogger, mediaFormatService, dateTakenTreeService, savedSearchService, folderTreeService, collectionTreeService, keywordTreeService, categoryTreeService);
         var gallery = new AssetGalleryViewModel(_modeManager, _galleryLogger);
         var ingestion = new IngestionViewModel(_modeManager, new PluginLoaderService(
             Options.Create(new PluginConfig()),

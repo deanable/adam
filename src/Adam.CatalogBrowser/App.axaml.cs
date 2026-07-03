@@ -103,6 +103,10 @@ public partial class App : Application
             services.AddSingleton<MediaFormatService>();
             services.AddSingleton<DateTakenTreeService>();
             services.AddSingleton<Adam.CatalogBrowser.Services.SavedSearchService>();
+            services.AddSingleton<FolderTreeService>();
+            services.AddSingleton<CollectionTreeService>();
+            services.AddSingleton<KeywordTreeService>();
+            services.AddSingleton<CategoryTreeService>();
             services.AddSingleton<AccessLogCleanupService>();
             services.AddSingleton<CommentService>();
 

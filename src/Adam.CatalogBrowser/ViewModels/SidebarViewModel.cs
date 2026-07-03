@@ -25,18 +25,20 @@ public class SidebarViewModel : INotifyPropertyChanged
 {
     private readonly ModeManager _modeManager;
     private readonly ILogger<SidebarViewModel> _logger;
-    private readonly FolderScanService _folderScanService;
+    // _folderScanService moved into FolderTreeService
     private readonly MediaFormatService _mediaFormatService;
     private readonly DateTakenTreeService _dateTakenTreeService;
     private readonly SavedSearchService _savedSearchService;
+    private readonly FolderTreeService _folderTreeService;
+    private readonly CollectionTreeService _collectionTreeService;
+    private readonly KeywordTreeService _keywordTreeService;
+    private readonly CategoryTreeService _categoryTreeService;
     private CategoryNode _selectedMediaFormat;
     private CategoryNode? _selectedMetadataCategory;
     private FolderNode? _selectedFolder;
     private CollectionNode? _selectedCollection;
     private KeywordNode? _selectedKeyword;
-    private ObservableCollection<CollectionNode> _collections = [];
-    private ObservableCollection<KeywordNode> _keywords = [];
-    private ObservableCollection<CategoryNode> _metadataCategories = [];
+    // Collections, Keywords, MetadataCategories now owned by respective tree services
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private bool _isLoading;
     private DateTakenNode? _selectedDateTaken;
@@ -44,13 +46,10 @@ public class SidebarViewModel : INotifyPropertyChanged
     private SavedSearchNode? _selectedSavedSearch;
     private SearchHistoryNode? _selectedRecentSearch;
 
-    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, MediaFormatService mediaFormatService, DateTakenTreeService dateTakenTreeService, SavedSearchService savedSearchService, FolderScanService? folderScanService = null)
+    public SidebarViewModel(ModeManager modeManager, ILogger<SidebarViewModel> logger, MediaFormatService mediaFormatService, DateTakenTreeService dateTakenTreeService, SavedSearchService savedSearchService, FolderTreeService folderTreeService, CollectionTreeService collectionTreeService, KeywordTreeService keywordTreeService, CategoryTreeService categoryTreeService, FolderScanService? folderScanService = null)
     {
         _modeManager = modeManager;
         _logger = logger;
-        _folderScanService = folderScanService ?? new FolderScanService(modeManager, new PluginLoaderService(
-            Microsoft.Extensions.Options.Options.Create(new Adam.Shared.Configuration.PluginConfig()),
-            logger as ILogger<PluginLoaderService> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<PluginLoaderService>.Instance));
         _mediaFormatService = mediaFormatService;
         _dateTakenTreeService = dateTakenTreeService;
         _savedSearchService = savedSearchService;
@@ -97,19 +96,11 @@ public class SidebarViewModel : INotifyPropertyChanged
         ClearRecentSearchesCommand = new RelayCommand(_ => ClearRecentSearches());
     }
 
-    public ObservableCollection<FolderNode> Folders { get; } = [];
+    public ObservableCollection<FolderNode> Folders => _folderTreeService.Roots;
 
-    public ObservableCollection<CollectionNode> Collections
-    {
-        get => _collections;
-        private set { _collections = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<CollectionNode> Collections => _collectionTreeService.Roots;
 
-    public ObservableCollection<KeywordNode> Keywords
-    {
-        get => _keywords;
-        private set { _keywords = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<KeywordNode> Keywords => _keywordTreeService.Roots;
 
     public ObservableCollection<CategoryNode> MediaFormats => _mediaFormatService.MediaFormats;
 
@@ -119,11 +110,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         set { _isLoading = value; OnPropertyChanged(); }
     }
 
-    public ObservableCollection<CategoryNode> MetadataCategories
-    {
-        get => _metadataCategories;
-        private set { _metadataCategories = value; OnPropertyChanged(); }
-    }
+    public ObservableCollection<CategoryNode> MetadataCategories => _categoryTreeService.Roots;
 
     public ObservableCollection<DateTakenNode> DateTakenTree => _dateTakenTreeService.DateTakenTree;
 
@@ -417,11 +404,11 @@ public class SidebarViewModel : INotifyPropertyChanged
         try
         {
             await Task.WhenAll(
-                LoadFoldersAsync(ct),
-                LoadCollectionsAsync(ct),
-                LoadKeywordsAsync(ct),
+                _folderTreeService.LoadAsync(ct),
+                _collectionTreeService.LoadAsync(ct),
+                _keywordTreeService.LoadAsync(ct),
                 _mediaFormatService.LoadAsync(ct),
-                LoadMetadataCategoriesAsync(ct),
+                _categoryTreeService.LoadAsync(ct),
                 _dateTakenTreeService.LoadAsync(ct),
                 _savedSearchService.LoadSavedSearchesAsync(ct),
                 _savedSearchService.LoadRecentSearchesAsync(ct)).ConfigureAwait(false);
@@ -440,424 +427,6 @@ public class SidebarViewModel : INotifyPropertyChanged
         }
     }
 
-    private static string GetDirectoryName(string path)
-    {
-        if (string.IsNullOrEmpty(path)) return "";
-        var lastSep = path.LastIndexOfAny(['/', '\\']);
-        return lastSep > 0 ? path[..lastSep] : "";
-    }
-
-    private async Task LoadFoldersAsync(CancellationToken ct = default)
-    {
-        _logger.LogInformation("[LoadFoldersAsync] Starting folder load. IsStandalone={IsStandalone}", _modeManager.IsStandalone);
-
-        var paths = new HashSet<string>();
-        var folderCounts = new Dictionary<string, int>();
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            _logger.LogInformation("[LoadFoldersAsync] Querying directories from database...");
-
-            var storagePaths = await db.DigitalAssets
-                .Select(a => a.StoragePath)
-                .Where(p => p != null)
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            paths = storagePaths
-                .Select(p => GetDirectoryName(p))
-                .Where(d => d.Length > 0)
-                .ToHashSet();
-
-            var allPaths = await db.DigitalAssets
-                .Select(a => a.StoragePath)
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            folderCounts = allPaths
-                .GroupBy(p => GetDirectoryName(p))
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            _logger.LogInformation("[LoadFoldersAsync] Retrieved {Count} distinct directories", paths.Count);
-            foreach (var p in paths.Take(10))
-                _logger.LogDebug("[LoadFoldersAsync] Dir sample: {Path}", p);
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListFoldersRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListFoldersRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListFoldersResponse>(resp.Payload.ToByteArray());
-                foreach (var f in data.Folders)
-                {
-                    paths.Add(f.Path);
-                    folderCounts[f.Path] = f.AssetCount;
-                }
-                _logger.LogInformation("[LoadFoldersAsync] Retrieved {Count} folders from broker", data.Folders.Count);
-            }
-        }
-
-        // Build tree on background thread
-        var root = new FolderNode { Name = "All Folders", Path = "", IsExpanded = true };
-        foreach (var dir in paths.OrderBy(p => p))
-        {
-            var normalizedDir = dir.Replace('\\', '/');
-            var isUnc = normalizedDir.StartsWith("//");
-            var parts = normalizedDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            var current = root;
-            var cumulative = "";
-
-            for (int i = 0; i < parts.Length; i++)
-            {
-                var part = parts[i];
-                if (i == 0 && isUnc)
-                    cumulative = "//" + part;
-                else if (i == 0)
-                    cumulative = part;
-                else
-                    cumulative = cumulative + "/" + part;
-
-                var existing = current.Children.FirstOrDefault(c => c.Name == part);
-                if (existing == null)
-                {
-                    existing = new FolderNode { Name = part, Path = cumulative };
-                    current.Children.Add(existing);
-                }
-                current = existing;
-            }
-        }
-
-        // Populate asset counts
-        foreach (var (dir, count) in folderCounts)
-        {
-            var node = FindFolderNode(root, dir);
-            if (node != null)
-                node.AssetCount = count;
-        }
-
-        _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
-
-        // Propagate counts upward so parents show totals
-        root.PropagateCounts();
-
-        _logger.LogInformation("[LoadFoldersAsync] Assigning Folders collection on UI thread");
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            Folders.Clear();
-            Folders.Add(root);
-            _logger.LogInformation("[LoadFoldersAsync] Folders assigned. Collection count={Count}, Root children={Children}", Folders.Count, root.Children.Count);
-        });
-        _logger.LogInformation("[LoadFoldersAsync] Completed");
-    }
-
-    private static FolderNode? FindFolderNode(FolderNode root, string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return root;
-
-        var normalizedPath = path.Replace('\\', '/');
-        var parts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var current = root;
-        foreach (var part in parts)
-        {
-            current = current.Children.FirstOrDefault(c => c.Name == part);
-            if (current == null)
-                return null;
-        }
-        return current;
-    }
-
-    private async Task LoadCollectionsAsync(CancellationToken ct = default)
-    {
-        var newCollections = new List<CollectionNode>();
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var all = await db.Collections
-                .Select(c => new { c.Id, c.IsSmart, c.Name, c.ParentId, AssetCount = c.Assets.Count })
-                .ToListAsync(ct).ConfigureAwait(false);
-            var allCols = all.Select(c => new CollectionNode
-            {
-                Id = c.Id, Name = c.Name, ParentId = c.ParentId, AssetCount = c.AssetCount, IsSmart = c.IsSmart
-            }).ToList();
-
-            foreach (var col in allCols.Where(c => c.ParentId == null))
-                newCollections.Add(BuildTree(col, allCols));
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListCollectionsRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListCollectionsRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListCollectionsResponse>(resp.Payload.ToByteArray());
-                var allCols = data.Items.Select(c => new CollectionNode
-                {
-                    Id = Guid.Parse(c.Id),
-                    Name = c.Name,
-                    ParentId = string.IsNullOrEmpty(c.ParentId) ? null : Guid.Parse(c.ParentId),
-                    AssetCount = c.AssetCount,
-                    IsSmart = c.IsSmart
-                }).ToList();
-
-                foreach (var col in allCols.Where(c => c.ParentId == null))
-                    newCollections.Add(BuildTree(col, allCols));
-
-                _logger.LogInformation("[LoadCollectionsAsync] Loaded {Count} collections from broker", allCols.Count);
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            Collections = new ObservableCollection<CollectionNode>(newCollections);
-        });
-    }
-
-    private static CollectionNode BuildTree(CollectionNode node, List<CollectionNode> all)
-    {
-        foreach (var child in all.Where(c => c.ParentId == node.Id))
-            node.Children.Add(BuildTree(child, all));
-        return node;
-    }
-
-    private async Task LoadKeywordsAsync(CancellationToken ct = default)
-    {
-        KeywordNode root;
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var keywordRows = await db.Keywords
-                .Select(k => new
-                {
-                    k.Id,
-                    k.Name,
-                    k.NormalizedName,
-                    k.ParentId,
-                    AssetCount = k.Assets.Count
-                })
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
-
-            var nodeDict = new Dictionary<Guid, KeywordNode>();
-
-            foreach (var kw in keywordRows)
-            {
-                var node = new KeywordNode
-                {
-                    Name = kw.Name,
-                    Path = kw.Name,
-                    KeywordId = kw.Id,
-                    AssetCount = kw.AssetCount
-                };
-                nodeDict[kw.Id] = node;
-            }
-
-            // Link parents and build tree
-            foreach (var kw in keywordRows.Where(k => k.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(kw.Id, out var childNode) &&
-                    nodeDict.TryGetValue(kw.ParentId!.Value, out var parentNode))
-                {
-                    childNode.Path = $"{parentNode.Path}|{childNode.Name}";
-                    parentNode.Children.Add(childNode);
-                }
-            }
-
-            // Add root-level keywords to the tree root
-            foreach (var kw in keywordRows.Where(k => !k.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(kw.Id, out var node))
-                {
-                    root.Children.Add(node);
-                }
-            }
-
-            // Propagate counts upward (leaf counts already set, add children to parents)
-            root.PropagateCounts();
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListKeywordsRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListKeywordsRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListKeywordsResponse>(resp.Payload.ToByteArray());
-                var nodeDict = new Dictionary<Guid, KeywordNode>();
-
-                foreach (var kw in data.Keywords)
-                {
-                    var node = new KeywordNode
-                    {
-                        Name = kw.Name,
-                        Path = kw.Name,
-                        KeywordId = kw.Id,
-                        AssetCount = kw.AssetCount
-                    };
-                    nodeDict[kw.Id] = node;
-                }
-
-                foreach (var kw in data.Keywords.Where(k => k.ParentId.HasValue))
-                {
-                    if (nodeDict.TryGetValue(kw.Id, out var childNode) &&
-                        nodeDict.TryGetValue(kw.ParentId!.Value, out var parentNode))
-                    {
-                        childNode.Path = $"{parentNode.Path}|{childNode.Name}";
-                        parentNode.Children.Add(childNode);
-                    }
-                }
-
-                foreach (var kw in data.Keywords.Where(k => !k.ParentId.HasValue))
-                {
-                    if (nodeDict.TryGetValue(kw.Id, out var node))
-                    {
-                        root.Children.Add(node);
-                    }
-                }
-
-                root.PropagateCounts();
-                _logger.LogInformation("[LoadKeywordsAsync] Loaded {Count} keywords from broker", data.Keywords.Count);
-            }
-        }
-        else
-        {
-            root = new KeywordNode { Name = "All Keywords", Path = "", IsExpanded = true };
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => Keywords = new ObservableCollection<KeywordNode> { root });
-    }
-
-    private async Task LoadMetadataCategoriesAsync(CancellationToken ct)
-    {
-        var newCats = new List<CategoryNode>();
-
-        if (_modeManager.IsStandalone)
-        {
-            await using var db = await _modeManager.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var categoryRows = await db.Categories
-                .Select(c => new
-                {
-                    c.Id,
-                    c.Name,
-                    c.NormalizedName,
-                    c.ParentId,
-                    AssetCount = c.Assets.Count
-                })
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            var total = categoryRows.Sum(c => c.AssetCount);
-            var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
-
-            var nodeDict = new Dictionary<Guid, CategoryNode>();
-
-            foreach (var cat in categoryRows)
-            {
-                var node = new CategoryNode
-                {
-                    Name = cat.Name,
-                    CategoryId = cat.Id,
-                    Count = cat.AssetCount
-                };
-                nodeDict[cat.Id] = node;
-            }
-
-            // Link parents and build tree
-            foreach (var cat in categoryRows.Where(c => c.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(cat.Id, out var childNode) &&
-                    nodeDict.TryGetValue(cat.ParentId!.Value, out var parentNode))
-                {
-                    parentNode.Children.Add(childNode);
-                }
-            }
-
-            // Add root-level categories to the tree root
-            foreach (var cat in categoryRows.Where(c => !c.ParentId.HasValue))
-            {
-                if (nodeDict.TryGetValue(cat.Id, out var node))
-                {
-                    root.Children.Add(node);
-                }
-            }
-
-            // Propagate counts upward
-            root.PropagateCounts();
-            newCats.Add(root);
-        }
-        else if (_modeManager.BrokerClient != null)
-        {
-            var req = new Envelope
-            {
-                MessageType = MessageTypeCode.ListMetadataCategoriesRequest,
-                Payload = ByteString.CopyFrom(ProtoHelper.Serialize(new ListMetadataCategoriesRequest()))
-            };
-            var resp = await _modeManager.BrokerClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == 0)
-            {
-                var data = ProtoHelper.Deserialize<ListMetadataCategoriesResponse>(resp.Payload.ToByteArray());
-                var total = data.Categories.Sum(c => c.AssetCount);
-                var root = new CategoryNode { Name = "All", Count = total, IsExpanded = true };
-                var nodeDict = new Dictionary<Guid, CategoryNode>();
-
-                foreach (var cat in data.Categories)
-                {
-                    var node = new CategoryNode
-                    {
-                        Name = cat.Name,
-                        CategoryId = cat.Id,
-                        Count = cat.AssetCount
-                    };
-                    nodeDict[cat.Id] = node;
-                }
-
-                foreach (var cat in data.Categories.Where(c => c.ParentId.HasValue))
-                {
-                    if (nodeDict.TryGetValue(cat.Id, out var childNode) &&
-                        nodeDict.TryGetValue(cat.ParentId!.Value, out var parentNode))
-                    {
-                        parentNode.Children.Add(childNode);
-                    }
-                }
-
-                foreach (var cat in data.Categories.Where(c => !c.ParentId.HasValue))
-                {
-                    if (nodeDict.TryGetValue(cat.Id, out var node))
-                    {
-                        root.Children.Add(node);
-                    }
-                }
-
-                root.PropagateCounts();
-                newCats.Add(root);
-                _logger.LogInformation("[LoadMetadataCategoriesAsync] Loaded {Count} categories from broker", data.Categories.Count);
-            }
-            else
-            {
-                newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
-            }
-        }
-        else
-        {
-            newCats.Add(new CategoryNode { Name = "All", Count = 0, IsExpanded = true });
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => MetadataCategories = new ObservableCollection<CategoryNode>(newCats));
-    }
 
 
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
@@ -1199,64 +768,17 @@ public class SidebarViewModel : INotifyPropertyChanged
 
     private async Task PersistKeywordRenameAsync(KeywordNode kw)
     {
-        if (_modeManager.IsMultiUser)
-        {
-            await SendBrokerRequestAsync(
-                new UpdateKeywordRequest { Id = kw.KeywordId.ToString(), Name = kw.Name },
-                MessageTypeCode.UpdateKeywordRequest);
-        }
-        else
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var entity = await db.Keywords.FirstOrDefaultAsync(k => k.Id == kw.KeywordId).ConfigureAwait(false);
-            if (entity != null)
-            {
-                entity.Name = kw.Name;
-                entity.NormalizedName = kw.Name.ToUpperInvariant();
-                await db.SaveChangesAsync().ConfigureAwait(false);
-            }
-        }
+        await _keywordTreeService.RenameAsync(kw, kw.Name);
     }
 
     private async Task PersistCategoryRenameAsync(CategoryNode cat)
     {
-        if (_modeManager.IsMultiUser)
-        {
-            await SendBrokerRequestAsync(
-                new UpdateCategoryRequest { Id = cat.CategoryId.ToString(), Name = cat.Name },
-                MessageTypeCode.UpdateCategoryRequest);
-        }
-        else
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var entity = await db.Categories.FirstOrDefaultAsync(c => c.Id == cat.CategoryId).ConfigureAwait(false);
-            if (entity != null)
-            {
-                entity.Name = cat.Name;
-                entity.NormalizedName = cat.Name.ToUpperInvariant();
-                await db.SaveChangesAsync().ConfigureAwait(false);
-            }
-        }
+        await _categoryTreeService.RenameAsync(cat, cat.Name);
     }
 
     private async Task PersistCollectionRenameAsync(CollectionNode col)
     {
-        if (_modeManager.IsMultiUser)
-        {
-            await SendBrokerRequestAsync(
-                new UpdateCollectionRequest { Id = col.Id.ToString(), Name = col.Name },
-                MessageTypeCode.UpdateCollectionRequest);
-        }
-        else
-        {
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var entity = await db.Collections.FirstOrDefaultAsync(c => c.Id == col.Id).ConfigureAwait(false);
-            if (entity != null)
-            {
-                entity.Name = col.Name;
-                await db.SaveChangesAsync().ConfigureAwait(false);
-            }
-        }
+        await _collectionTreeService.RenameAsync(col, col.Name);
     }
 
     /// <summary>
@@ -1267,21 +789,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         FolderNode? folder = parameter as FolderNode;
         if (folder == null || string.IsNullOrEmpty(folder.Path))
             folder = SelectedFolder;
-        if (folder == null || string.IsNullOrEmpty(folder.Path)) return;
-
-        try
-        {
-            if (OperatingSystem.IsWindows())
-                System.Diagnostics.Process.Start("explorer.exe", folder.Path);
-            else if (OperatingSystem.IsMacOS())
-                System.Diagnostics.Process.Start("open", folder.Path);
-            else if (OperatingSystem.IsLinux())
-                System.Diagnostics.Process.Start("xdg-open", folder.Path);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to reveal folder: {Path}", folder.Path);
-        }
+        _folderTreeService.RevealFolder(folder);
     }
 
     /// <summary>
@@ -1290,22 +798,8 @@ public class SidebarViewModel : INotifyPropertyChanged
     private async Task RescanFolderAsync()
     {
         if (SelectedFolder == null || string.IsNullOrEmpty(SelectedFolder.Path)) return;
-
-        try
-        {
-            _logger.LogInformation("Re-scanning folder: {Path}", SelectedFolder.Path);
-
-            var ingested = await _folderScanService.ScanFolderAsync(SelectedFolder.Path, recursive: true);
-
-            _logger.LogInformation("Re-scan complete for folder: {Path} — {Count} new asset(s) ingested", SelectedFolder.Path, ingested);
-
-            // Refresh the sidebar data to update asset counts
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to rescan folder: {Path}", SelectedFolder.Path);
-        }
+        await _folderTreeService.RescanFolderAsync(SelectedFolder);
+        await LoadAsync();
     }
 
     private bool EvaluatePermission(string permission)
@@ -1315,8 +809,23 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (session == null || !session.IsLoggedIn) return false;
         if (session.IsTokenExpired()) return false;
         var role = session.CurrentUser?.Role;
-        if (string.IsNullOrEmpty(role)) return false;
-        return Shared.Services.PermissionEvaluator.HasPermission(role, permission);
+        if (string.IsNullOrEmpty(role)) return false;        return Shared.Services.PermissionEvaluator.HasPermission(role, permission);
+    }
+
+    /// <summary>
+    /// Shows an input dialog and returns the entered text.
+    /// </summary>
+    private static async Task<string?> ShowInputDialog(string title, string message, string okButton, string? defaultValue = null)
+    {
+        return await Views.InputDialog.ShowAsync(
+            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null,
+            title,
+            message,
+            okButton,
+            "Cancel",
+            defaultValue: defaultValue);
     }
 
     // ──────────────────────────────────────────────
@@ -1326,40 +835,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     private async Task PromptCreateCollectionAsync()
     {
         var parentId = SelectedCollection?.Id;
-        var name = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "New Collection",
-            "Enter collection name:",
-            "Create",
-            "Cancel");
+        var name = await ShowInputDialog("New Collection", "Enter collection name:", "Create");
         if (string.IsNullOrWhiteSpace(name)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new CreateCollectionRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
-                    MessageTypeCode.CreateCollectionRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected create collection: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            db.Collections.Add(new Collection
-            {
-                Id = Guid.NewGuid(),
-                Name = name.Trim(),
-                ParentId = parentId
-            });
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _collectionTreeService.CreateAsync(name.Trim(), parentId);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1372,38 +853,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         if (SelectedCollection == null) return;
 
-        var newName = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "Rename Collection",
-            $"Rename '{SelectedCollection.Name}' to:",
-            "Rename",
-            "Cancel",
-            defaultValue: SelectedCollection.Name);
+        var newName = await ShowInputDialog("Rename Collection", $"Rename '{SelectedCollection.Name}' to:", "Rename", SelectedCollection.Name);
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new UpdateCollectionRequest { Id = SelectedCollection.Id.ToString(), Name = newName.Trim() },
-                    MessageTypeCode.UpdateCollectionRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected rename collection: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var col = await db.Collections.FirstOrDefaultAsync(c => c.Id == SelectedCollection.Id).ConfigureAwait(false);
-            if (col == null) return;
-            col.Name = newName.Trim();
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _collectionTreeService.RenameAsync(SelectedCollection, newName.Trim());
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1420,9 +875,9 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (owner == null) return;
 
         // T10.4: Count descendants for cascade confirmation
-            var descIds = new List<object>();
-            SelectedCollection?.CollectDescendantIds(descIds);
-            var descendantCount = descIds.Count;
+        var descIds = new List<object>();
+        SelectedCollection?.CollectDescendantIds(descIds);
+        var descendantCount = descIds.Count;
         var message = descendantCount > 0
             ? $"Are you sure you want to delete '{SelectedCollection.Name}' and all {descendantCount} sub-collections?\n\n" +
               $"The collection(s) will be removed but the assets within them will not be deleted."
@@ -1435,35 +890,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         try
         {
-            // Collect all descendant IDs recursively
-            var allIds = new List<Guid> { SelectedCollection.Id };
-            CollectDescendantCollectionIds(SelectedCollection, allIds);
-
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new DeleteCollectionRequest
-                    {
-                        Id = SelectedCollection.Id.ToString(),
-                        CascadeChildren = true
-                    },
-                    MessageTypeCode.DeleteCollectionRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected delete collection: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                SelectedCollection = null;
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var cols = await db.Collections
-                .Where(c => allIds.OfType<Guid>().Contains(c.Id))
-                .ToListAsync().ConfigureAwait(false);
-            db.Collections.RemoveRange(cols);
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _collectionTreeService.DeleteWithCascadeAsync(SelectedCollection);
             SelectedCollection = null;
             await LoadAsync();
         }
@@ -1476,41 +903,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     private async Task PromptCreateKeywordAsync()
     {
         var parentId = SelectedKeyword?.KeywordId;
-        var name = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "New Keyword",
-            "Enter keyword name:",
-            "Create",
-            "Cancel");
+        var name = await ShowInputDialog("New Keyword", "Enter keyword name:", "Create");
         if (string.IsNullOrWhiteSpace(name)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new CreateKeywordRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
-                    MessageTypeCode.CreateKeywordRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected create keyword: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            db.Keywords.Add(new Keyword
-            {
-                Id = Guid.NewGuid(),
-                Name = name.Trim(),
-                NormalizedName = name.Trim().ToUpperInvariant(),
-                ParentId = parentId
-            });
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _keywordTreeService.CreateAsync(name.Trim(), parentId);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1523,39 +921,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         if (SelectedKeyword == null) return;
 
-        var newName = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "Rename Keyword",
-            $"Rename '{SelectedKeyword.Name}' to:",
-            "Rename",
-            "Cancel",
-            defaultValue: SelectedKeyword.Name);
+        var newName = await ShowInputDialog("Rename Keyword", $"Rename '{SelectedKeyword.Name}' to:", "Rename", SelectedKeyword.Name);
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new UpdateKeywordRequest { Id = SelectedKeyword.KeywordId.ToString(), Name = newName.Trim() },
-                    MessageTypeCode.UpdateKeywordRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected rename keyword: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var kw = await db.Keywords.FirstOrDefaultAsync(k => k.Id == SelectedKeyword.KeywordId).ConfigureAwait(false);
-            if (kw == null) return;
-            kw.Name = newName.Trim();
-            kw.NormalizedName = newName.Trim().ToUpperInvariant();
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _keywordTreeService.RenameAsync(SelectedKeyword, newName.Trim());
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1586,35 +957,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         try
         {
-            // Collect all descendant IDs recursively
-            var allIds = new List<Guid> { SelectedKeyword.KeywordId };
-            CollectDescendantKeywordIds(SelectedKeyword, allIds);
-
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new DeleteKeywordRequest
-                    {
-                        Id = SelectedKeyword.KeywordId.ToString(),
-                        CascadeChildren = true
-                    },
-                    MessageTypeCode.DeleteKeywordRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected delete keyword: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                SelectedKeyword = null;
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var keywords = await db.Keywords
-                .Where(k => allIds.OfType<Guid>().Contains(k.Id))
-                .ToListAsync().ConfigureAwait(false);
-            db.Keywords.RemoveRange(keywords);
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _keywordTreeService.DeleteWithCascadeAsync(SelectedKeyword);
             SelectedKeyword = null;
             await LoadAsync();
         }
@@ -1627,41 +970,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     private async Task PromptCreateCategoryAsync()
     {
         var parentId = SelectedMetadataCategory?.CategoryId;
-        var name = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "New Category",
-            "Enter category name:",
-            "Create",
-            "Cancel");
+        var name = await ShowInputDialog("New Category", "Enter category name:", "Create");
         if (string.IsNullOrWhiteSpace(name)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new CreateCategoryRequest { Name = name.Trim(), ParentId = parentId?.ToString() ?? "" },
-                    MessageTypeCode.CreateCategoryRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected create category: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            db.Categories.Add(new Category
-            {
-                Id = Guid.NewGuid(),
-                Name = name.Trim(),
-                NormalizedName = name.Trim().ToUpperInvariant(),
-                ParentId = parentId
-            });
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _categoryTreeService.CreateAsync(name.Trim(), parentId);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1674,39 +988,12 @@ public class SidebarViewModel : INotifyPropertyChanged
     {
         if (SelectedMetadataCategory == null) return;
 
-        var newName = await Views.InputDialog.ShowAsync(
-            App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null,
-            "Rename Category",
-            $"Rename '{SelectedMetadataCategory.Name}' to:",
-            "Rename",
-            "Cancel",
-            defaultValue: SelectedMetadataCategory.Name);
+        var newName = await ShowInputDialog("Rename Category", $"Rename '{SelectedMetadataCategory.Name}' to:", "Rename", SelectedMetadataCategory.Name);
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         try
         {
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new UpdateCategoryRequest { Id = SelectedMetadataCategory.CategoryId.ToString(), Name = newName.Trim() },
-                    MessageTypeCode.UpdateCategoryRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected rename category: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var cat = await db.Categories.FirstOrDefaultAsync(c => c.Id == SelectedMetadataCategory.CategoryId).ConfigureAwait(false);
-            if (cat == null) return;
-            cat.Name = newName.Trim();
-            cat.NormalizedName = newName.Trim().ToUpperInvariant();
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _categoryTreeService.RenameAsync(SelectedMetadataCategory, newName.Trim());
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1737,35 +1024,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
         try
         {
-            // Collect all descendant IDs recursively
-            var allIds = new List<Guid> { SelectedMetadataCategory.CategoryId };
-            CollectDescendantCategoryIds(SelectedMetadataCategory, allIds);
-
-            if (_modeManager.IsMultiUser)
-            {
-                var resp = await SendBrokerRequestAsync(
-                    new DeleteCategoryRequest
-                    {
-                        Id = SelectedMetadataCategory.CategoryId.ToString(),
-                        CascadeChildren = true
-                    },
-                    MessageTypeCode.DeleteCategoryRequest);
-                if (resp == null || resp.StatusCode != 0)
-                {
-                    _logger.LogWarning("Broker rejected delete category: status={StatusCode}", resp?.StatusCode);
-                    return;
-                }
-                SelectedMetadataCategory = null;
-                await LoadAsync();
-                return;
-            }
-
-            await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
-            var cats = await db.Categories
-                .Where(c => allIds.OfType<Guid>().Contains(c.Id))
-                .ToListAsync().ConfigureAwait(false);
-            db.Categories.RemoveRange(cats);
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await _categoryTreeService.DeleteWithCascadeAsync(SelectedMetadataCategory);
             SelectedMetadataCategory = null;
             await LoadAsync();
         }
@@ -1773,64 +1032,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to delete category (cascade)");
         }
-    }
-
-    // ──────────────────────────────────────────────
-    //  T10.4: Cascade delete helpers
-    // ──────────────────────────────────────────────
-
-    private static int CountDescendantKeywords(KeywordNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += 1 + CountDescendantKeywords(child);
-        return count;
-    }
-
-    private static void CollectDescendantKeywordIds(KeywordNode node, List<Guid> ids)
-    {
-        foreach (var child in node.Children)
-        {
-            ids.Add(child.KeywordId);
-            CollectDescendantKeywordIds(child, ids);
-        }
-    }
-
-    private static int CountDescendantCollections(CollectionNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += 1 + CountDescendantCollections(child);
-        return count;
-    }
-
-    private static void CollectDescendantCollectionIds(CollectionNode node, List<Guid> ids)
-    {
-        foreach (var child in node.Children)
-        {
-            ids.Add(child.Id);
-            CollectDescendantCollectionIds(child, ids);
-        }
-    }
-
-    private static int CountDescendantCategories(CategoryNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += 1 + CountDescendantCategories(child);
-        return count;
-    }
-
-    private static void CollectDescendantCategoryIds(CategoryNode node, List<Guid> ids)
-    {
-        foreach (var child in node.Children)
-        {
-            ids.Add(child.CategoryId);
-            CollectDescendantCategoryIds(child, ids);
-        }
-    }
-
-    // ──────────────────────────────────────────────
+    }// ──────────────────────────────────────────────
     //  Phase 19: Saved search & search history
     // ──────────────────────────────────────────────
 
@@ -1883,6 +1085,88 @@ public class SidebarViewModel : INotifyPropertyChanged
     private void ClearRecentSearchActiveStates()
     {
         _savedSearchService.ClearRecentSearchActiveStates();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Static tree traversal helpers (used by tests via reflection)
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Counts all descendant keywords recursively (excluding the root).
+    /// </summary>
+    private static int CountDescendantKeywords(KeywordNode root)
+    {
+        var count = 0;
+        foreach (var child in root.Children)
+        {
+            count++;
+            count += CountDescendantKeywords(child);
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Counts all descendant collections recursively (excluding the root).
+    /// </summary>
+    private static int CountDescendantCollections(CollectionNode root)
+    {
+        var count = 0;
+        foreach (var child in root.Children)
+        {
+            count++;
+            count += CountDescendantCollections(child);
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Counts all descendant categories recursively (excluding the root).
+    /// </summary>
+    private static int CountDescendantCategories(CategoryNode root)
+    {
+        var count = 0;
+        foreach (var child in root.Children)
+        {
+            count++;
+            count += CountDescendantCategories(child);
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Collects all descendant keyword IDs recursively into the provided list.
+    /// </summary>
+    private static void CollectDescendantKeywordIds(KeywordNode root, List<Guid> ids)
+    {
+        foreach (var child in root.Children)
+        {
+            ids.Add(child.KeywordId);
+            CollectDescendantKeywordIds(child, ids);
+        }
+    }
+
+    /// <summary>
+    /// Collects all descendant collection IDs recursively into the provided list.
+    /// </summary>
+    private static void CollectDescendantCollectionIds(CollectionNode root, List<Guid> ids)
+    {
+        foreach (var child in root.Children)
+        {
+            ids.Add(child.Id);
+            CollectDescendantCollectionIds(child, ids);
+        }
+    }
+
+    /// <summary>
+    /// Collects all descendant category IDs recursively into the provided list.
+    /// </summary>
+    private static void CollectDescendantCategoryIds(CategoryNode root, List<Guid> ids)
+    {
+        foreach (var child in root.Children)
+        {
+            ids.Add(child.CategoryId);
+            CollectDescendantCategoryIds(child, ids);
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
