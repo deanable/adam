@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Services;
+using Adam.CatalogBrowser.Models.Sidebar;
 using Adam.Shared.Extractors;
 using Adam.Shared.Models;
 using Adam.Shared.Services;

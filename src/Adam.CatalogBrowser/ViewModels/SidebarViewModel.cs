@@ -13,6 +13,9 @@ using Avalonia.Threading;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Adam.CatalogBrowser.Models.Sidebar;
+// Resolves ambiguity with Adam.Shared.Contracts.CollectionNode (protobuf message)
+using CollectionNode = Adam.CatalogBrowser.Models.Sidebar.CollectionNode;
 
 namespace Adam.CatalogBrowser.ViewModels;
 
@@ -553,7 +556,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         _logger.LogInformation("[LoadFoldersAsync] Applied counts for {Count} folders", folderCounts.Count);
 
         // Propagate counts upward so parents show totals
-        PropagateFolderCounts(root);
+        root.PropagateCounts();
 
         _logger.LogInformation("[LoadFoldersAsync] Assigning Folders collection on UI thread");
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -695,7 +698,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             // Propagate counts upward (leaf counts already set, add children to parents)
-            PropagateKeywordCounts(root);
+            root.PropagateCounts();
         }
         else if (_modeManager.BrokerClient != null)
         {
@@ -741,7 +744,7 @@ public class SidebarViewModel : INotifyPropertyChanged
                     }
                 }
 
-                PropagateKeywordCounts(root);
+                root.PropagateCounts();
                 _logger.LogInformation("[LoadKeywordsAsync] Loaded {Count} keywords from broker", data.Keywords.Count);
             }
         }
@@ -753,27 +756,7 @@ public class SidebarViewModel : INotifyPropertyChanged
         await Dispatcher.UIThread.InvokeAsync(() => Keywords = new ObservableCollection<KeywordNode> { root });
     }
 
-    private static int PropagateKeywordCounts(KeywordNode node)
-    {
-        var childSum = 0;
-        foreach (var child in node.Children)
-        {
-            childSum += PropagateKeywordCounts(child);
-        }
-        node.AssetCount += childSum;
-        return node.AssetCount;
-    }
 
-    private static int PropagateFolderCounts(FolderNode node)
-    {
-        var childSum = 0;
-        foreach (var child in node.Children)
-        {
-            childSum += PropagateFolderCounts(child);
-        }
-        node.AssetCount += childSum;
-        return node.AssetCount;
-    }
 
     private async Task LoadDateTakenTreeAsync(CancellationToken ct = default)
     {
@@ -1071,7 +1054,7 @@ public class SidebarViewModel : INotifyPropertyChanged
             }
 
             // Propagate counts upward
-            PropagateCategoryCounts(root);
+            root.PropagateCounts();
             newCats.Add(root);
         }
         else if (_modeManager.BrokerClient != null)
@@ -1117,7 +1100,7 @@ public class SidebarViewModel : INotifyPropertyChanged
                     }
                 }
 
-                PropagateCategoryCounts(root);
+                root.PropagateCounts();
                 newCats.Add(root);
                 _logger.LogInformation("[LoadMetadataCategoriesAsync] Loaded {Count} categories from broker", data.Categories.Count);
             }
@@ -1134,16 +1117,6 @@ public class SidebarViewModel : INotifyPropertyChanged
         await Dispatcher.UIThread.InvokeAsync(() => MetadataCategories = new ObservableCollection<CategoryNode>(newCats));
     }
 
-    private static int PropagateCategoryCounts(CategoryNode node)
-    {
-        var childSum = 0;
-        foreach (var child in node.Children)
-        {
-            childSum += PropagateCategoryCounts(child);
-        }
-        node.Count += childSum;
-        return node.Count;
-    }
 
     private void OnMediaFormatChanged() => FilterChanged?.Invoke();
 
@@ -1705,7 +1678,9 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (owner == null) return;
 
         // T10.4: Count descendants for cascade confirmation
-        var descendantCount = CountDescendantCollections(SelectedCollection);
+            var descIds = new List<object>();
+            SelectedCollection?.CollectDescendantIds(descIds);
+            var descendantCount = descIds.Count;
         var message = descendantCount > 0
             ? $"Are you sure you want to delete '{SelectedCollection.Name}' and all {descendantCount} sub-collections?\n\n" +
               $"The collection(s) will be removed but the assets within them will not be deleted."
@@ -1743,7 +1718,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
             var cols = await db.Collections
-                .Where(c => allIds.Contains(c.Id))
+                .Where(c => allIds.OfType<Guid>().Contains(c.Id))
                 .ToListAsync().ConfigureAwait(false);
             db.Collections.RemoveRange(cols);
             await db.SaveChangesAsync().ConfigureAwait(false);
@@ -1855,7 +1830,8 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (owner == null) return;
 
         // T10.4: Count descendants for cascade confirmation
-        var descendantCount = CountDescendantKeywords(SelectedKeyword);
+        var descIds = new List<object>(); SelectedKeyword?.CollectDescendantIds(descIds);
+        var descendantCount = descIds.Count;
         var message = descendantCount > 0
             ? $"Are you sure you want to delete '{SelectedKeyword.Name}' and all {descendantCount} sub-keywords?\n\n" +
               $"The keyword(s) will be removed from all assets. This action cannot be undone."
@@ -1893,7 +1869,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
             var keywords = await db.Keywords
-                .Where(k => allIds.Contains(k.Id))
+                .Where(k => allIds.OfType<Guid>().Contains(k.Id))
                 .ToListAsync().ConfigureAwait(false);
             db.Keywords.RemoveRange(keywords);
             await db.SaveChangesAsync().ConfigureAwait(false);
@@ -2005,7 +1981,8 @@ public class SidebarViewModel : INotifyPropertyChanged
         if (owner == null) return;
 
         // T10.4: Count descendants for cascade confirmation
-        var descendantCount = CountDescendantCategories(SelectedMetadataCategory);
+        var descIds = new List<object>(); SelectedMetadataCategory?.CollectDescendantIds(descIds);
+        var descendantCount = descIds.Count;
         var message = descendantCount > 0
             ? $"Are you sure you want to delete '{SelectedMetadataCategory.Name}' and all {descendantCount} sub-categories?\n\n" +
               $"The category(s) will be removed from all assets. This action cannot be undone."
@@ -2043,7 +2020,7 @@ public class SidebarViewModel : INotifyPropertyChanged
 
             await using var db = await _modeManager.CreateDbContextAsync().ConfigureAwait(false);
             var cats = await db.Categories
-                .Where(c => allIds.Contains(c.Id))
+                .Where(c => allIds.OfType<Guid>().Contains(c.Id))
                 .ToListAsync().ConfigureAwait(false);
             db.Categories.RemoveRange(cats);
             await db.SaveChangesAsync().ConfigureAwait(false);
@@ -2254,320 +2231,4 @@ public class SidebarViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-}
-
-public class FolderNode : INotifyPropertyChanged
-{
-    private bool _isExpanded;
-    private bool _isSelected;
-    private int _assetCount;
-    private bool _isActiveFilter;
-
-    public string Name { get; set; } = string.Empty;
-    public string Path { get; set; } = string.Empty;
-    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
-
-    /// <summary>
-    /// True when this folder is the currently active gallery filter (T10.13).
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public bool IsExpanded
-    {
-        get => _isExpanded;
-        set { _isExpanded = value; OnPropertyChanged(); }
-    }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set { _isSelected = value; OnPropertyChanged(); }
-    }
-
-    public ObservableCollection<FolderNode> Children { get; } = [];
-
-    // Folders are read-only in v1 — no inline rename support.
-    // BeginRename/CommitRename/CancelRename intentionally omitted.
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-public class CollectionNode : INotifyPropertyChanged
-{
-    private string _name = string.Empty;
-    private int _assetCount;
-    private bool _isEditing;
-    private string _editName = string.Empty;
-    private bool _isActiveFilter;
-    private bool _isSmart;
-
-    public Guid Id { get; set; }
-    public Guid? ParentId { get; set; }
-    public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
-    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
-    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
-    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
-
-
-    /// <summary>
-    /// True when this collection is a smart collection (auto-refreshed from a saved query).
-    /// </summary>
-    public bool IsSmart
-    {
-        get => _isSmart;
-        set { _isSmart = value; OnPropertyChanged(); OnPropertyChanged(nameof(SmartIcon)); }
-    }
-
-    /// <summary>
-    /// Display icon for smart collection status: ✦ when smart, empty when manual.
-    /// </summary>
-    public string SmartIcon => _isSmart ? "✦" : string.Empty;
-    /// <summary>
-    /// True when this collection is the currently active gallery filter (T10.13).
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public ObservableCollection<CollectionNode> Children { get; } = [];
-
-    public void BeginRename() { EditName = Name; IsEditing = true; }
-    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
-    public void CancelRename() { IsEditing = false; EditName = Name; }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-public class KeywordNode : INotifyPropertyChanged
-{
-    private bool _isExpanded;
-    private bool _isSelected;
-    private int _assetCount;
-    private bool _isEditing;
-    private string _editName = string.Empty;
-    private bool _isActiveFilter;
-
-    public Guid KeywordId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Path { get; set; } = string.Empty;
-    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
-    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
-    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
-
-    /// <summary>
-    /// True when this keyword is the currently active gallery filter (T10.13).
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
-    public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
-    public ObservableCollection<KeywordNode> Children { get; } = [];
-
-    public void BeginRename() { EditName = Name; IsEditing = true; }
-    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
-    public void CancelRename() { IsEditing = false; EditName = Name; }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-public class CategoryNode : INotifyPropertyChanged
-{
-    private bool _isExpanded;
-    private bool _isSelected;
-    private string _name = string.Empty;
-    private int _count;
-    private bool _isEditing;
-    private string _editName = string.Empty;
-    private bool _isActiveFilter;
-
-    public Guid CategoryId { get; set; }
-    public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
-    public int Count { get => _count; set { _count = value; OnPropertyChanged(); } }
-    public bool IsEditing { get => _isEditing; set { _isEditing = value; OnPropertyChanged(); } }
-    public string EditName { get => _editName; set { _editName = value; OnPropertyChanged(); } }
-
-    /// <summary>
-    /// True when this category is the currently active gallery filter (T10.13).
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
-    public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
-    public ObservableCollection<CategoryNode> Children { get; } = [];
-
-    public void BeginRename() { EditName = Name; IsEditing = true; }
-    public void CommitRename() { if (!string.IsNullOrWhiteSpace(EditName)) Name = EditName; IsEditing = false; }
-    public void CancelRename() { IsEditing = false; EditName = Name; }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-public class DateTakenNode : INotifyPropertyChanged
-{
-    private bool _isExpanded;
-    private bool _isSelected;
-    private string _name = string.Empty;
-    private int _assetCount;
-    private bool _isActiveFilter;
-
-    public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
-    public int? Year { get; set; }
-    public int? Month { get; set; }
-    public int AssetCount { get => _assetCount; set { _assetCount = value; OnPropertyChanged(); } }
-
-    /// <summary>
-    /// True when this date node is the currently active gallery filter (T10.13).
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public bool IsExpanded { get => _isExpanded; set { _isExpanded = value; OnPropertyChanged(); } }
-    public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }
-    public ObservableCollection<DateTakenNode> Children { get; } = [];
-
-    /// <summary>
-    /// Whether this node represents a year (true) or a month (false).
-    /// </summary>
-    public bool IsYear => Year.HasValue && !Month.HasValue;
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-/// <summary>
-/// Represents a saved search node in the sidebar (Phase 19).
-/// </summary>
-public class SavedSearchNode : INotifyPropertyChanged
-{
-    private string _name = string.Empty;
-    private string? _queryText;
-    private bool _isPinned;
-    private bool _isActiveFilter;
-
-    public Guid SearchId { get; set; }
-
-    public string Name
-    {
-        get => _name;
-        set { _name = value; OnPropertyChanged(); }
-    }
-
-    public string? QueryText
-    {
-        get => _queryText;
-        set { _queryText = value; OnPropertyChanged(); }
-    }
-
-    public bool IsPinned
-    {
-        get => _isPinned;
-        set
-        {
-            _isPinned = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(PinIcon));
-        }
-    }
-
-    /// <summary>
-    /// Pin icon: 📌 when pinned, empty when not pinned.
-    /// </summary>
-    public string PinIcon => _isPinned ? "\U0001F4CC" : string.Empty;
-
-    /// <summary>
-    /// True when this saved search is the currently active gallery filter.
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-}
-
-/// <summary>
-/// Represents a recent search history entry in the sidebar (Phase 19).
-/// </summary>
-public class SearchHistoryNode : INotifyPropertyChanged
-{
-    private string? _queryText;
-    private DateTimeOffset _executedAt;
-    private bool _isActiveFilter;
-
-    public Guid EntryId { get; set; }
-
-    public string? QueryText
-    {
-        get => _queryText;
-        set { _queryText = value; OnPropertyChanged(); }
-    }
-
-    public DateTimeOffset ExecutedAt
-    {
-        get => _executedAt;
-        set
-        {
-            _executedAt = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(TimeAgo));
-        }
-    }
-
-    /// <summary>
-    /// Human-readable relative time (e.g., "just now", "5 min ago", "3h ago", "2d ago", "Jan 15").
-    /// </summary>
-    public string TimeAgo
-    {
-        get
-        {
-            var elapsed = DateTimeOffset.UtcNow - _executedAt;
-            if (elapsed.TotalSeconds < 60) return "just now";
-            if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes} min ago";
-            if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
-            if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}d ago";
-            return _executedAt.ToString("MMM dd");
-        }
-    }
-
-    /// <summary>
-    /// True when this search history entry is the currently active gallery filter.
-    /// </summary>
-    public bool IsActiveFilter
-    {
-        get => _isActiveFilter;
-        set { _isActiveFilter = value; OnPropertyChanged(); }
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? n = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 }

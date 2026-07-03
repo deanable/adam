@@ -4,6 +4,9 @@ using System.Runtime.CompilerServices;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
 using Adam.CatalogBrowser.Services;
+using Adam.CatalogBrowser.Models.Sidebar;
+// Resolves ambiguity with Adam.Shared.Contracts.CollectionNode (protobuf message)
+using CollectionNode = Adam.CatalogBrowser.Models.Sidebar.CollectionNode;
 using Adam.Shared.Contracts;
 using Adam.Shared.Data;
 using Adam.Shared.Models;

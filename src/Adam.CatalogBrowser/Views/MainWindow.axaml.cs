@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.ViewModels;
+using Adam.CatalogBrowser.Models.Sidebar;
 using Adam.Shared.Services;
 
 namespace Adam.CatalogBrowser.Views;

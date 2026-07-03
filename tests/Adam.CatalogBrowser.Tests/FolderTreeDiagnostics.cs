@@ -1,4 +1,5 @@
 using Adam.CatalogBrowser.ViewModels;
+using Adam.CatalogBrowser.Models.Sidebar;
 using FluentAssertions;
 using Xunit.Abstractions;
 

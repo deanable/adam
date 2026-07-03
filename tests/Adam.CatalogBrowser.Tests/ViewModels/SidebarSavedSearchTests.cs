@@ -1,5 +1,6 @@
 using System.Reflection;
 using Adam.CatalogBrowser.ViewModels;
+using Adam.CatalogBrowser.Models.Sidebar;
 using Adam.Shared.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

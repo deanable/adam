@@ -1,4 +1,5 @@
 using System.Collections;
+using Adam.CatalogBrowser.Models.Sidebar;
 using System.Reflection;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.ViewModels;

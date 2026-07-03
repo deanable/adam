@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Adam.CatalogBrowser.Controls;
 using Adam.CatalogBrowser.Models;
+using Adam.CatalogBrowser.Models.Sidebar;
 using Adam.CatalogBrowser.Services;
 using Adam.Shared.Contracts;
 using Adam.Shared.Models;

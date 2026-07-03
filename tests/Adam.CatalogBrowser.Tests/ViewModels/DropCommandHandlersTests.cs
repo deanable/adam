@@ -12,6 +12,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Adam.CatalogBrowser.Models.Sidebar;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 

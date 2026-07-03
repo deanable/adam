@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Adam.CatalogBrowser.Tests.ViewModels;
 
+using Adam.CatalogBrowser.Models.Sidebar;
+
 /// <summary>
 /// Tests for Phase 10 sidebar CRUD operations — cascade delete, filter commands,
 /// visual filter state, permission gating, and rename helpers.
