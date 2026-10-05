@@ -64,12 +64,12 @@ All milestones (v1.0 through v4.x) 🏁 archived. v5.0 milestone complete with P
 | Metric | Value |
 |--------|-------|
 | **Total phases** | 24 complete |
-| **Total tests** | 1,335 passing (2 skipped Docker-dependent) |
+| **Total tests** | ⚠️ **Not a single green run.** Measured 2026-10-05: 412 Shared + 156 ServiceManager + 176 Broker (2 skipped) pass; `Adam.CatalogBrowser.Tests` aborts (1 fail + 1 hang). See `.planning/codebase/TESTING.md`. Earlier "1,335 passing" claims were never re-measured. |
 | **Projects** | Adam.CatalogBrowser, Adam.ServiceManager, Adam.BrokerService, Adam.Shared |
 | **Phase 13 plan** | `.planning/plans/phase-13/13-PLAN.md` |
 | **Phase 14 plan** | `.planning/plans/phase-14/14-PLAN.md` |
 | **Phase 14 UAT** | `.planning/plans/phase-14/14-UAT.md` |
-| **Failing tests** | 0 ✅ |
+| **Failing tests** | ≥1 (CatalogBrowser `database is locked`) + 1 hang ⚠️ |
 | **Phase 19 plan** | `.planning/plans/phase-19/19-PLAN.md` |
 | **Phase 20 plan** | `.planning/plans/phase-20/20-PLAN.md` |
 | **Phase 21 UAT** | `.planning/plans/phase-21/21-UAT.md` |

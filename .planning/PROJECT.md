@@ -95,7 +95,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ### Current State (v4.x)
 
-**All 21 phases complete.** All **1,244 tests passing** (2 Docker-dependent skipped). v4.x milestone archived.
+**All 24 phases complete** (v1.0–v5.0). ⚠️ **Test status re-measured 2026-10-05:** 412 Shared + 156 ServiceManager + 176 Broker (2 skipped) pass, but `Adam.CatalogBrowser.Tests` aborts (1 `database is locked` failure + 1 headless-dispatcher hang). The "1,244 / 1,335 / 1,371 passing" figures used elsewhere were not reproducible. See `.planning/STATE-AUDIT.md` and `.planning/codebase/TESTING.md`.
 
 | Version | Status | Details |
 |---------|--------|---------|

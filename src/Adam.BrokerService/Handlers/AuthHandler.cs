@@ -32,8 +32,14 @@ public sealed class AuthHandler
         _rateLimiter = rateLimiter ?? new LoginRateLimiter();
         _connectionRegistry = connectionRegistry;
 
-        var keyBase64 = configuration["Jwt:SigningKey"] ?? Environment.GetEnvironmentVariable("ADAM_JWT_KEY");
-        if (string.IsNullOrEmpty(keyBase64) || keyBase64 == "${ADAM_JWT_KEY}")
+        // Treat an empty value or the ${ADAM_JWT_KEY} placeholder shipped in appsettings.json
+        // as "not configured" so the environment variable is consulted as the fallback.
+        var configuredKey = configuration["Jwt:SigningKey"];
+        if (string.IsNullOrEmpty(configuredKey) || configuredKey == "${ADAM_JWT_KEY}")
+            configuredKey = null;
+
+        var keyBase64 = configuredKey ?? Environment.GetEnvironmentVariable("ADAM_JWT_KEY");
+        if (string.IsNullOrEmpty(keyBase64))
         {
             throw new InvalidOperationException(
                 "JWT signing key is not configured. Set the ADAM_JWT_KEY environment variable " +

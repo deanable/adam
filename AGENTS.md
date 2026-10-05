@@ -27,11 +27,9 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 - `/gsd-plan-phase 7` — Create detailed plan for Phase 7
 - `/gsd-execute-phase 7` — Execute all plans in Phase 7
 - `/gsd-verify-work` — Validate completed features against requirements
-- `/gsd-code-review 7` — Review code changes in Phase 7
-
-**Current Phase:** 21 — Virtualized Gallery & DB Optimization
-**Milestone:** v4.x — Performance & UX (Phases 20-21)
-**Tests:** 1,371 passing (2 Docker-dependent skipped)
+- `/gsd-code-review 7` — Review code changes in Phase 7**Current Phase:** 24 — Metadata Panels & Preferences Persistence (Complete)  
+**Milestone:** v5.0 — AI-Native DAM (Complete)  
+**Tests (measured 2026-10-05):** 412 Shared + 156 ServiceManager + 176 Broker (2 skipped) passing; **`Adam.CatalogBrowser.Tests` does not complete** (1 failure + 1 dispatcher hang). See `.planning/codebase/TESTING.md`.
 
 ## Project-Specific Guidance
 
@@ -309,10 +307,10 @@ dotnet test
 
 Run specific test suites:
 ```bash
-dotnet test tests/Adam.Shared.Tests         # 407 tests (core services, AI tagging, auth, DateTimeOffset ORDER BY)
-dotnet test tests/Adam.BrokerService.Tests  # 173 tests (171 pass, 2 skipped w/o Docker)
-dotnet test tests/Adam.ServiceManager.Tests # 156 tests (admin panel, user mgmt, audit log)
-dotnet test tests/Adam.CatalogBrowser.Tests # 637 headless Avalonia tests
+dotnet test tests/Adam.Shared.Tests         # 412 pass (core services, AI tagging, auth, DateTimeOffset ORDER BY)
+dotnet test tests/Adam.BrokerService.Tests  # 176 pass, 2 skipped w/o Docker
+dotnet test tests/Adam.ServiceManager.Tests # 156 pass (admin panel, user mgmt, audit log)
+dotnet test tests/Adam.CatalogBrowser.Tests # DOES NOT COMPLETE — 1 fail + 1 hang (see below)
 ```
 
 Run BrokerService tests by category (filter by test name):
@@ -328,7 +326,15 @@ Run AI Tagging tests:
 dotnet test tests/Adam.Shared.Tests --filter "FullyQualifiedName~AiTagging"
 ```
 
-**Total: 1,371 tests pass** (2 Docker-dependent skipped for PostgreSQL/SQL Server integration)
+**Measured 2026-10-05:** 744 tests pass across three projects (2 Docker-dependent skipped).
+**`Adam.CatalogBrowser.Tests` aborts** — one deterministic `database is locked` failure and one
+headless-dispatcher hang that crashes the test host. Until this is fixed, the suite is not a
+reliable gate and no phase should be called "verified". Details and root cause:
+`.planning/codebase/CONCERNS.md` §1 and `.planning/codebase/TESTING.md`.
+
+> **Headless ViewModel tests must inject a synchronous `IUiDispatcher`.** Constructing a ViewModel
+> with the default `AvaloniaUiDispatcher` and then touching `RunOnUiThreadAsync` hangs forever in a
+> test host. See `TESTING.md` ("The `IUiDispatcher` rule").
 
 ### Testing ServiceManager ViewModels
 

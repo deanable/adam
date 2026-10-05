@@ -5,6 +5,13 @@
 **Scope:** BrokerService TCP layer, authentication, database abstraction, protobuf contracts, client integration
 **Status:** Complete — 5 areas analyzed, 47 findings identified
 
+> ⚠️ **HISTORICAL DOCUMENT — superseded as of 2026-10-05.** This review reflects the codebase as
+> of 2026-05-23, before Phases 2–24. Most issues below have since been fixed and **must not be
+> re-reported as open**. Verified-resolved: TLS (`SslStream` on both ends), committed JWT key
+> (placeholder + `ADAM_JWT_KEY`), authorization on handlers, EF Core migrations, concurrency token,
+> connection resiliency, brute-force limiter, message-opcode enum, multi-user sidebar endpoints.
+> For current status see `.planning/codebase/CONCERNS.md` and `.planning/STATE-AUDIT.md`.
+
 ---
 
 ## Executive Summary

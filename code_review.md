@@ -1,5 +1,9 @@
 # Code Review and Suggestions for Improvement: ADAM (Advanced Digital Asset Manager)
 
+> ⚠️ **HISTORICAL DOCUMENT — superseded as of 2026-10-05.** Point-in-time review; several
+> observations have since changed (e.g. TLS and self-signed cert support are implemented). Treat
+> as background, not as current status. Current findings: `.planning/codebase/CONCERNS.md`.
+
 ## Overview
 ADAM appears to be a sophisticated Digital Asset Management system built with modern .NET (net10.0), Avalonia UI for the frontend, and a custom TCP-based broker service for communication. It features metadata extraction, thumbnail generation for various file types (PDF, Office, Video, Audio), and a robust data model using Entity Framework Core.
 

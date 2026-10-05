@@ -3,7 +3,7 @@
 **Project:** adam — Digital Asset Management System  
 **Updated:** 2026-06-17
 **Granularity:** Standard  
-**Phases:** 21 complete, 1 planned (22 for v5.0)
+**Phases:** 24 complete (v1.0–v5.0). ⚠️ Test status re-measured 2026-10-05 — `Adam.CatalogBrowser.Tests` does not complete; see `.planning/STATE-AUDIT.md`.
 
 ## Overview
 
@@ -30,7 +30,9 @@
 | **19** | **Advanced Search & Discovery** | **Saved searches, smart collections, search history, semantic search, visual similarity** | **CATA-05, CATA-06** | **✅ Complete** |
 | **20** | **UX Modernization** | **Theme engine, loupe view, compare view, drag-reorder collections** | **CATA-05, CATA-06** | **✅ Complete** |
 | **21** | **Virtualized Gallery & DB Optimization** | **Viewport-based virtualization, async I/O, batch loading, composite indexes, keyset pagination** | **PERF-02 to PERF-05** | **✅ Complete** |
-| **22** | **AI-Native DAM Features** | **Smart search ranking, auto-album generation, near-duplicate detection, facial recognition** | **AI-V2-01 to AI-V2-04** | **🔜 Planned** |
+| **22** | **AI-Native DAM Features** | **Smart search ranking, auto-album generation, near-duplicate detection, facial recognition** | **AI-V2-01 to AI-V2-04** | **✅ Complete** |
+| **23** | **Facial Recognition** | **YuNet + ArcFace ONNX pipeline, HDBSCAN clustering, person management** | AI-V2-03 | ✅ Complete |
+| **24** | **Metadata Panels & Preferences** | **8 collapsible panels, user preferences, Settings tab, panel persistence** | UI-V2-01 | ✅ Complete |
 
 ## Phase Details
 
@@ -281,9 +283,11 @@ AI tagging (Phase 9), sidebar tree CRUD (Phase 10), FTS5 full-text search (Phase
 
 | Phase | Theme | Effort | Status |
 |-------|-------|--------|--------|
-| 22 | AI-Native DAM Features | Large | 🔜 Planned |
+| 22 | AI-Native DAM Features | Large | ✅ Complete |
+| 23 | Facial Recognition | Large | ✅ Complete |
+| 24 | Metadata Panels & Preferences | Medium | ✅ Complete |
 
-**Status:** 🔜 Planning — phase 22 PLAN.md updated for AI-native features.
+**Status:** 🏁 Complete — Phases 22–24 delivered. Test suite status is unresolved; see `.planning/STATE-AUDIT.md`.
 
 ---
 *Roadmap updated: 2026-06-17 — Phase 22 (AI-Native DAM) planned. All 21 prior phases complete. v5.0 in planning.*

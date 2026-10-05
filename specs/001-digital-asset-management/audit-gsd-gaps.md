@@ -3,6 +3,13 @@
 **Date:** 2026-06-18  
 **Purpose:** Cross-reference the original feature specification against the actual GSD-implemented codebase to identify missed edge cases, unmet acceptance criteria, and gaps in functional requirements.
 
+> ⚠️ **CORRECTION (2026-10-05):** FR-013 below was **wrong**. `MetadataEditorViewModel.SaveAsync`
+> *does* call `MetadataWritebackService` (see the write-back block in `SaveAsync`), and
+> `MetadataWritebackService` *is* registered in the client DI (`App.axaml.cs:90`). The real defect
+> was narrower and has since been fixed: `SaveAsync` wrote `Copyright` only to `MetadataProfile`
+> while the XMP builder reads `DigitalAsset.Copyright`, so copyright edits never reached the file.
+> Fixed 2026-10-05 and covered by `MetadataEditorWritebackTests`.
+
 ---
 
 ## Coverage Summary
@@ -32,7 +39,7 @@
 | FR-010 | Star ratings, color labels, flagging | ✅ | RatingInfo, AssetLabel, AssetFlag enums |
 | FR-011 | Curated collections independent of folders | ✅ | Collection entity with membership |
 | FR-012 | Edit metadata (EXIF/IPTC/XMP, title, desc, keywords, ratings, labels, GPS, copyright) | ⚠️ | **Partial.** Creator/Copyright/Headline are displayed read-only. Eight stored fields invisible. GPS not editable in dedicated metadata tab. |
-| FR-013 | Writeback to source file XMP/sidecar | ❌ | **`MetadataEditorViewModel.SaveAsync` persists to DB only, does NOT call `MetadataWritebackService`**. Writeback only triggered via broker AssetHandler and PropertyInspectorViewModel. |
+| FR-013 | Writeback to source file XMP/sidecar | ✅ | **Corrected 2026-10-05:** `SaveAsync` calls `MetadataWritebackService` (RAW/Office → sidecar, JPEG/TIFF/PNG/WebP → embedded); the service is registered in client DI. The one real gap — `Copyright` written only to `MetadataProfile`, so it never reached the file — is fixed. Note `dc:creator` is still not written by the `DigitalAsset` XMP path (no `Creator` on the entity). |
 | FR-014 | Rotate/flip | ✅ | ImageAdjustmentService |
 | FR-015 | Export JPEG/TIFF with quality/resolution/color space | ✅ | ExportDialogViewModel + ImageExportService |
 | FR-016 | Search across all metadata fields | ✅ | FTS5 + composite indexes (Phase 21) |
@@ -84,7 +91,7 @@ Only scenarios with issues shown. Full list in `spec.md`.
 | US2 | Search results appear within 2 seconds (multi-user) | ⚠️ | Not benchmarked in CI, but indexes + keyset pagination suggest it's achievable |
 | US4 (Lightroom) | Loupe/compare views render within 1 second | ⚠️ | No automated performance benchmark |
 | US5 (Metadata) | All EXIF/IPTC/XMP fields displayed and searchable | ❌ | 8 stored-but-invisible fields; Creator/Copyright/Headline read-only only |
-| US5 (Metadata) | Metadata edits written to source file within 5 seconds | ❌ | MetadataEditorViewModel.SaveAsync does NOT invoke writeback |
+| US5 (Metadata) | Metadata edits written to source file within 5 seconds | ✅ | Corrected 2026-10-05 — writeback is invoked; copyright round-trip defect fixed. |
 | US7 (Ingest) | Metadata change on disk → watcher re-extracts within 30s | ⚠️ | Watcher detects changes but re-extraction on Changed events not guaranteed |
 | US7 (Ingest) | Duplicate file → single entry + duplicate path logged | ⚠️ | ChecksumService detects duplicates, but the "log the duplicate path" part is unclear |
 
@@ -127,7 +134,7 @@ Only scenarios with issues shown. Full list in `spec.md`.
 | # | Gap | Est. Effort | Files Touched |
 |---|-----|-------------|---------------|
 | 5 | Surface 8 hidden metadata fields + make Creator/Copyright/Headline editable (§25-A) | 🟢 1-2 days | `MetadataEditorViewModel.cs`, `MetadataEditorView.axaml`, `MetadataProfile.cs` |
-| 4 | Wire `MetadataEditorViewModel.SaveAsync` to call `MetadataWritebackService` | 🟢 1 day | `MetadataEditorViewModel.cs` |
+| 4 | ~~Wire `MetadataEditorViewModel.SaveAsync` to call `MetadataWritebackService`~~ | ✅ Done 2026-10-05 | Already wired; the actual copyright round-trip defect was fixed in `MetadataEditorViewModel.cs` |
 
 ### 🟡 Fix next phase (medium effort, high value)
 

@@ -424,6 +424,10 @@ public class MetadataEditorViewModel : INotifyPropertyChanged
 
         asset.Title = Title;
         asset.Description = Description;
+        // Copyright is edited via MetadataProfile below, but MetadataWritebackService builds the
+        // source-file XMP from DigitalAsset.Copyright. Mirror it here so copyright edits round-trip
+        // to disk the same way PropertyInspectorViewModel does; otherwise they silently stay catalog-only.
+        asset.Copyright = Copyright;
         asset.Keywords.Clear();
 
         var tagNames = Tags.ToArray();

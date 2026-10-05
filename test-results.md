@@ -1,5 +1,9 @@
 # Test Results Summary
 
+> ⚠️ **HISTORICAL SNAPSHOT — superseded as of 2026-10-05.** Generated 2026-05-21 against ~56 tests.
+> The suite now contains ~1,310 test methods; these numbers are obsolete. Current, measured test
+> status: `.planning/codebase/TESTING.md`.
+
 > **Location:** `./test-results.md`  
 > **Generated:** May 21, 2026
 
