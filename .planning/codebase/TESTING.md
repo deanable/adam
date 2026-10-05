@@ -11,10 +11,19 @@
 
 | Project | Files | Measured result | Notes |
 |---------|-------|-----------------|-------|
-| `Adam.Shared.Tests` | 42 | ✅ 412 passed, 0 failed | Core services, metadata round-trip, FTS, AI tagging, DateTimeOffset ORDER BY |
-| `Adam.ServiceManager.Tests` | 13 | ✅ 156 passed, 0 failed | Admin panel, user management, audit log |
+| `Adam.Shared.Tests` | 42 | ⚠️ 411 passed, **1 flaky** | Core services, metadata round-trip, FTS, AI tagging, DateTimeOffset ORDER BY |
+| `Adam.ServiceManager.Tests` | 13 | ❌ **hangs at 139/156** | Admin panel, user management, audit log |
 | `Adam.BrokerService.Tests` | 17 | ✅ 176 passed, 2 skipped | Handlers, auth, TLS, integration; 2 skipped without Docker |
 | `Adam.CatalogBrowser.Tests` | 36 | ❌ **aborts** | 1 deterministic failure + 1 hang that crashes the test host |
+
+**Post-refactor re-measure (2026-10-05, after merging the sidebar/MainWindow decomposition):**
+
+| Project | Result |
+|---------|--------|
+| `Adam.Shared.Tests` | 411 passed, 1 failed — `NearDuplicateServiceTests.ScanAllAsync_ReportsProgress` (`Expected last.completed to be 3, but found 2`). **Flaky**: failed 2 of 3 isolated runs. |
+| `Adam.ServiceManager.Tests` | **Hangs at 139/156** → host aborted. Cause: the elevated-helper flow re-launches `testhost.exe` and attempts a real `sc.exe install`. See `CONCERNS.md` §2. |
+| `Adam.BrokerService.Tests` | 176 passed, 2 skipped — unchanged, including the 5 new `AuthHandlerSigningKeyTests`. |
+| `Adam.CatalogBrowser.Tests` | Still aborts (`database is locked` + dispatcher hang). |
 
 **Headless UI tests ARE integrated** (`Avalonia.Headless`) — the previous claim that they are not
 was incorrect.

@@ -29,7 +29,7 @@ This repository uses **GSD (Get Shit Done)** for project planning and execution.
 - `/gsd-verify-work` — Validate completed features against requirements
 - `/gsd-code-review 7` — Review code changes in Phase 7**Current Phase:** 24 — Metadata Panels & Preferences Persistence (Complete)  
 **Milestone:** v5.0 — AI-Native DAM (Complete)  
-**Tests (measured 2026-10-05):** 412 Shared + 156 ServiceManager + 176 Broker (2 skipped) passing; **`Adam.CatalogBrowser.Tests` does not complete** (1 failure + 1 dispatcher hang). See `.planning/codebase/TESTING.md`.
+**Tests (measured 2026-10-05, post-refactor):** ⚠️ **No project is reliably green.** `Adam.Shared.Tests` 411 pass + 1 flaky; `Adam.ServiceManager.Tests` **hangs at 139/156** (elevated-helper recursion); `Adam.BrokerService.Tests` 176 pass + 2 skipped; `Adam.CatalogBrowser.Tests` **aborts** (1 failure + 1 dispatcher hang). See `.planning/codebase/TESTING.md`.
 
 ## Project-Specific Guidance
 

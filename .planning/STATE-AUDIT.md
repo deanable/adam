@@ -328,7 +328,48 @@ it hangs in full-project runs. Injecting a `SyncUiDispatcher` there is the likel
 | `Adam.CatalogBrowser.Tests` — full project | ❌ still aborts (unchanged; not in scope this session) |
 | `Adam.Shared.Tests` / `Adam.ServiceManager.Tests` | Not re-run — no changes touched code they cover |
 
-### 7.6 Still outstanding
+### 7.6 Post-rebase re-verification (2026-10-05, after pushing)
+
+The push was rejected as non-fast-forward: `origin/main` had advanced by **9 commits** containing a
+large `SidebarViewModel` / `MainWindowViewModel` decomposition. The branch was rebased cleanly (no
+file overlap), which **invalidated the verification above** and changed some conclusions.
+
+**Superseded findings (audit §4.4):** the god-object ViewModel sizes in §4.4 are no longer accurate.
+Re-measured after the rebase:
+
+| File | Audit §4.4 | Post-refactor |
+|------|-----------|---------------|
+| `SidebarViewModel` | 2,573 | **1,175** |
+| `MainWindowViewModel` | 2,040 | **1,578** |
+| `AssetGalleryViewModel` | 1,568 | 1,552 |
+| `PropertyInspectorViewModel` | 1,037 | 1,037 |
+
+New services extracted upstream: `NavigationService`, `BulkAssetOperationService`,
+`PanelStateService`, and `Folder`/`Keyword`/`Collection`/`Category` tree services. The §4.4 item is
+therefore **partially resolved**; `MainWindowViewModel` and `AssetGalleryViewModel` remain >1,500 lines.
+
+**Re-measured test status after the rebase — this is materially worse than §2.2:**
+
+| Project | Before rebase | After rebase |
+|---------|---------------|--------------|
+| `Adam.Shared.Tests` | ✅ 412 passed | ⚠️ 411 passed, **1 flaky** |
+| `Adam.ServiceManager.Tests` | ✅ 156 passed in 17s | ❌ **hangs at 139/156** |
+| `Adam.BrokerService.Tests` | ✅ 176 passed, 2 skipped | ✅ 176 passed, 2 skipped |
+| `Adam.CatalogBrowser.Tests` | ❌ aborts | ❌ aborts |
+
+- The Shared failure is a **flake**: `NearDuplicateServiceTests.ScanAllAsync_ReportsProgress`
+  (`Expected last.completed to be 3, but found 2`) failed 2 of 3 isolated runs — a progress race.
+- The ServiceManager hang is new to this session. Mechanism: the elevated-helper flow resolves its
+  executable to the running process, which under test is `testhost.exe`; it therefore re-launches a
+  **test host** as the helper, proceeds to `Starting 'install' operation...`, and blocks on a real
+  `sc.exe install` that needs administrator rights. See `CONCERNS.md` §2.
+- Build remains green: **0 errors, 184 warnings** (up from 170; the refactor added its own,
+  including `CS0649: SidebarViewModel._categoryTreeService is never assigned`).
+
+**Implication:** `origin/main` — not just this session's working tree — now has **no reliably green
+test project**. My earlier "744 tests pass across three projects" figure is no longer accurate.
+
+### 7.7 Still outstanding
 
 1. The `Adam.CatalogBrowser.Tests` defects (§2.2) — now with a known root cause for the hang.
 2. The old JWT key remains in git history; it should be invalidated/rotated.

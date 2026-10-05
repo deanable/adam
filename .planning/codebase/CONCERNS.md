@@ -62,20 +62,42 @@
   severity vulnerability (GHSA-mmjf-rqrv-855v), pulled in via `Adam.ServiceManager`.
 - **Action:** bump to a patched version or remove the dependency if unused directly.
 
-### 170 build warnings, concentrated in security-sensitive handlers
+### 184 build warnings, concentrated in security-sensitive handlers
 - The majority are `CS8602` (possible null dereference) in `Adam.BrokerService/Handlers/*`:
   `AssetHandler`, `SidebarHandler`, `UserHandler`, `CollectionHandler`, `SavedSearchHandler`,
   `SearchRankingHandler`, `SemanticSearchHandler`.
+- The 2026-10-05 refactor added warnings of its own, one of which looks like a real defect:
+  `SidebarViewModel.cs(35,42): CS0649: Field '_categoryTreeService' is never assigned to, and will
+  always have its default value null`, plus `TrashViewModel.CloseRequested` never used.
 - **Action:** nullability sweep, then enable warnings-as-errors for `Adam.BrokerService`.
+
+### `Adam.ServiceManager.Tests` hangs — elevated-helper recursion
+- Reproducible: the run stops at 139/156 and the host aborts.
+- **Mechanism:** the elevated-helper flow resolves its executable to the *running process*, which in
+  tests is `testhost.exe`. It therefore re-launches a **test host** as the "helper", which then
+  reaches `installer.InstallAsync()` and attempts a real `sc.exe install` — requiring administrator
+  rights that a test run does not have, so it blocks. Observed log:
+  `=== ELEVATED HELPER STARTED === ... Process path: ...\testhost.exe` → `Starting 'install' operation...`
+- Earlier in the same session this project passed 156/156 in 17s, so the trigger is
+  environment/ordering dependent. Investigate `tests/Adam.ServiceManager.Tests/Services/ElevatedHelperTests.cs`.
+- **Action:** make the helper refuse to run inside a test host, or inject a no-op installer in tests.
+
+### Flaky test: `NearDuplicateServiceTests.ScanAllAsync_ReportsProgress`
+- `Adam.Shared.Tests` — fails intermittently with `Expected last.completed to be 3, but found 2`.
+  Measured 2 failures in 3 isolated runs. A progress-reporting race, not a hard regression.
 
 ---
 
 ## 3. Medium
 
-### God-object ViewModels
-Measured sizes: `SidebarViewModel` 2,573 lines · `MainWindowViewModel` 2,040 ·
-`AssetGalleryViewModel` 1,568 · `PropertyInspectorViewModel` 1,037.
-- **Action:** extract focused sub-view-models; these are the highest-churn files in the project.
+### God-object ViewModels — **partially resolved 2026-10-05**
+Measured sizes (post-refactor): `MainWindowViewModel` 1,578 lines · `AssetGalleryViewModel` 1,552 ·
+`SidebarViewModel` 1,175 · `PropertyInspectorViewModel` 1,037.
+- The remote refactor extracted `NavigationService`, `BulkAssetOperationService`, `PanelStateService`,
+  and four tree services (`FolderTreeService`, `KeywordTreeService`, `CollectionTreeService`,
+  `CategoryTreeService`), cutting `SidebarViewModel` from 2,573 → 1,175 and `MainWindowViewModel`
+  from 2,040 → 1,578.
+- **Remaining action:** `MainWindowViewModel` and `AssetGalleryViewModel` are still >1,500 lines.
 
 ### `Adam.Generators` missing from the solution
 - Exists at `src/Adam.Generators/` and is referenced by `Adam.Shared.csproj` as an analyzer, but is
